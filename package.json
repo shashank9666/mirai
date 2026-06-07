@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "dev:frontend": "npm run dev --prefix frontend -- -p 3000",
-    "dev:backend": "echo \"Backend dev script removed. Use separate backend start if needed.\"",
+    "dev:backend": "cd backend/python && .\\venv\\Scripts\\python.exe -m uvicorn main:app --reload",
     "dev:clean": "powershell -ExecutionPolicy Bypass -File scripts/kill-all.ps1 && npm run dev",
     "dev": "npx concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "build:frontend": "npm run build --prefix frontend",

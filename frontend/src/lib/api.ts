@@ -6,9 +6,9 @@ export interface FileEntry {
 
 const getApiBase = () => {
   if (typeof window !== 'undefined') {
-    return 'http://127.0.0.1:4000/api';
+    return 'http://127.0.0.1:8000/api';
   }
-  return 'http://127.0.0.1:4000/api';
+  return 'http://127.0.0.1:8000/api';
 };
 
 export const api = {
