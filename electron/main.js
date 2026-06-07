@@ -74,11 +74,12 @@ function createWindow() {
     y,
     width,
     height,
+    show: false, // Prevent white flash on startup
     fullscreen: false,
     icon: path.join(__dirname, '../frontend/public/logo.png'),
-    titleBarStyle: 'hidden', // Looks premium with a hidden title bar
+    titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#1e1e1e', // Matches our globals.css dark background by default
+      color: '#1e1e1e',
       symbolColor: '#d4d4d4',
     },
     webPreferences: {
@@ -86,6 +87,11 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
     },
+  });
+
+  // Show window only when content is painted (eliminates white flash)
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
   });
 
   const saveState = () => {
@@ -105,22 +111,24 @@ function createWindow() {
   mainWindow.on('resize', saveState);
   mainWindow.on('move', saveState);
 
-  // Lifecycle debugging logs
-  mainWindow.on('blur', () => console.log('Window Event: blur'));
-  mainWindow.on('focus', () => console.log('Window Event: focus'));
-  mainWindow.on('minimize', () => console.log('Window Event: minimize'));
-  mainWindow.on('restore', () => console.log('Window Event: restore'));
-  mainWindow.on('maximize', () => console.log('Window Event: maximize'));
-  mainWindow.on('unmaximize', () => console.log('Window Event: unmaximize'));
-  mainWindow.on('close', (e) => console.log('Window Event: close'));
-  mainWindow.on('closed', () => console.log('Window Event: closed'));
-  mainWindow.on('show', () => console.log('Window Event: show'));
-  mainWindow.on('hide', () => console.log('Window Event: hide'));
-  mainWindow.webContents.on('did-finish-load', () => console.log('WebContents Event: did-finish-load'));
-  mainWindow.webContents.on('did-fail-load', (e, code, desc) => console.log('WebContents Event: did-fail-load', code, desc));
-  mainWindow.webContents.on('crashed', () => console.log('WebContents Event: crashed'));
-  mainWindow.on('unresponsive', () => console.log('Window Event: unresponsive'));
-  mainWindow.on('responsive', () => console.log('Window Event: responsive'));
+  // Debug logging — dev only
+  if (isDev) {
+    mainWindow.on('blur', () => console.log('Window Event: blur'));
+    mainWindow.on('focus', () => console.log('Window Event: focus'));
+    mainWindow.on('minimize', () => console.log('Window Event: minimize'));
+    mainWindow.on('restore', () => console.log('Window Event: restore'));
+    mainWindow.on('maximize', () => console.log('Window Event: maximize'));
+    mainWindow.on('unmaximize', () => console.log('Window Event: unmaximize'));
+    mainWindow.on('close', () => console.log('Window Event: close'));
+    mainWindow.on('closed', () => console.log('Window Event: closed'));
+    mainWindow.on('show', () => console.log('Window Event: show'));
+    mainWindow.on('hide', () => console.log('Window Event: hide'));
+    mainWindow.webContents.on('did-finish-load', () => console.log('WebContents Event: did-finish-load'));
+    mainWindow.webContents.on('did-fail-load', (e, code, desc) => console.log('WebContents Event: did-fail-load', code, desc));
+    mainWindow.webContents.on('crashed', () => console.log('WebContents Event: crashed'));
+    mainWindow.on('unresponsive', () => console.log('Window Event: unresponsive'));
+    mainWindow.on('responsive', () => console.log('Window Event: responsive'));
+  }
 
   // Load dev server
   if (isDev) {
@@ -138,9 +146,19 @@ function createWindow() {
         retryCount++;
         if (retryCount >= maxRetries) {
           console.error(`Failed to load dev server on port ${DEV_PORT} after ${maxRetries} attempts.`);
-          mainWindow.loadURL('data:text/html,<html><body style="font-family:sans-serif;padding:40px;background:#0f111a;color:#a6accd;"><h1>Could not connect to Dev Server</h1></body></html>');
+          mainWindow.loadURL(`data:text/html,${encodeURIComponent(`
+            <html>
+              <body style="font-family:system-ui,sans-serif;padding:60px;background:#0f111a;color:#a6accd;text-align:center;">
+                <h1 style="margin-bottom:12px;">Could not connect to Dev Server</h1>
+                <p style="color:#666;margin-bottom:24px;">The frontend server at <code>${url}</code> is not responding.</p>
+                <button onclick="location.reload()" style="padding:10px 24px;background:#007acc;color:white;border:none;border-radius:6px;font-size:14px;cursor:pointer;">
+                  Retry Connection
+                </button>
+              </body>
+            </html>
+          `)}`);
         } else {
-          console.log(`Failed to load ${url}, retrying in 500ms...`);
+          if (isDev) console.log(`Failed to load ${url}, retrying in 500ms...`);
           setTimeout(loadDev, 500);
         }
       }
@@ -152,23 +170,25 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  console.log('App Event: ready');
+  if (isDev) console.log('App Event: ready');
   createWindow();
 
   app.on('activate', function () {
-    console.log('App Event: activate');
+    if (isDev) console.log('App Event: activate');
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
 app.on('window-all-closed', function () {
-  console.log('App Event: window-all-closed');
+  if (isDev) console.log('App Event: window-all-closed');
   if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('quit', () => console.log('App Event: quit'));
-app.on('before-quit', () => console.log('App Event: before-quit'));
-app.on('will-quit', () => console.log('App Event: will-quit'));
+if (isDev) {
+  app.on('quit', () => console.log('App Event: quit'));
+  app.on('before-quit', () => console.log('App Event: before-quit'));
+  app.on('will-quit', () => console.log('App Event: will-quit'));
+}
 
 // Basic IPC for testing
 ipcMain.handle('ping', () => 'pong');
@@ -199,7 +219,6 @@ ipcMain.on('theme-changed', (event, themeMode) => {
 
 // Window Controls
 ipcMain.handle('window:minimize', (event) => {
-  console.log('IPC: window:minimize called');
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) {
     win.minimize();
@@ -207,20 +226,16 @@ ipcMain.handle('window:minimize', (event) => {
 });
 
 ipcMain.handle('window:maximize', (event) => {
-  console.log('IPC: window:maximize called');
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win) return;
   if (win.isMaximized()) {
-    console.log('IPC: Unmaximizing window');
     win.unmaximize();
   } else {
-    console.log('IPC: Maximizing window');
     win.maximize();
   }
 });
 
 ipcMain.handle('window:close', (event) => {
-  console.log('IPC: window:close called');
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) {
     win.close();
