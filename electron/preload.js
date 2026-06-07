@@ -15,5 +15,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Window Controls
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
-  closeWindow: () => ipcRenderer.invoke('window:close')
+  closeWindow: () => ipcRenderer.invoke('window:close'),
+
+  // DevTools
+  toggleDevTools: () => ipcRenderer.send('toggle-devtools')
 });

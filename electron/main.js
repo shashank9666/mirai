@@ -241,3 +241,11 @@ ipcMain.handle('window:close', (event) => {
     win.close();
   }
 });
+
+// DevTools
+ipcMain.on('toggle-devtools', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    win.webContents.toggleDevTools();
+  }
+});
