@@ -141,7 +141,7 @@ export default function TitleBar() {
           </div>
         </div>
 
-        <div className="flex items-center flex-1 overflow-hidden">
+        <div className="flex items-center flex-1 overflow-hidden no-drag">
                 {/* Menus */}
                 <div className="flex gap-2 text-xs font-medium text-muted-foreground ml-3 shrink-0 relative z-50 no-drag">
                   <DropdownMenu>

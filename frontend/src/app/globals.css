@@ -156,3 +156,22 @@
   -webkit-app-region: no-drag;
 }
 
+/* Ensure all interactive elements inside drag regions remain clickable */
+.drag-region button,
+.drag-region a,
+.drag-region input,
+.drag-region select,
+.drag-region textarea,
+.drag-region [role="menu"],
+.drag-region [role="menuitem"],
+.drag-region [data-radix-popper-content-wrapper] {
+  -webkit-app-region: no-drag;
+}
+
+/* Radix portals render outside the drag region DOM but may still inherit.
+   Force no-drag on all portal containers. */
+[data-radix-popper-content-wrapper],
+[data-radix-portal],
+[data-radix-menu-content] {
+  -webkit-app-region: no-drag;
+}

@@ -227,6 +227,13 @@ export const useWindowManagerStore = create<TilingLayoutStore>()(
     }),
     {
       name: 'mirai-tiling-layout',
+      onRehydrateStorage: () => (state) => {
+        // Self-heal: if persisted rootNode is null/invalid, reset to defaults
+        if (state && !state.rootNode) {
+          state.rootNode = defaultRoot;
+          state.activeNodeId = 'default-editor';
+        }
+      },
     }
   )
 );
