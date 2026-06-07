@@ -16,9 +16,29 @@ export interface SessionState {
 
 const API_BASE = 'http://127.0.0.1:4000/api';
 
+const DEFAULT_TIMEOUT = 10_000; // 10 seconds
+const LONG_TIMEOUT = 30_000;    // 30 seconds for streaming/heavy ops
+
+/** Fetch with automatic AbortController timeout */
+const fetchWithTimeout = (url: string, options: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT): Promise<Response> => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+};
+
 export const api = {
+  /** Check if the backend is reachable */
+  healthCheck: async (): Promise<boolean> => {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE.replace('/api', '')}/docs`, {}, 3000);
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
   readDir: async (dirPath?: string): Promise<{ path: string; entries: FileEntry[] }> => {
-    const res = await fetch(`${API_BASE}/fs/readDir`, {
+    const res = await fetchWithTimeout(`${API_BASE}/fs/readDir`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dirPath })
@@ -31,7 +51,7 @@ export const api = {
   },
 
   searchFiles: async (pattern: string, dirPath?: string): Promise<string[]> => {
-    const res = await fetch(`${API_BASE}/fs/searchFiles`, {
+    const res = await fetchWithTimeout(`${API_BASE}/fs/searchFiles`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pattern, dirPath })
@@ -45,7 +65,7 @@ export const api = {
   },
 
   askQuestion: async (question: string, options: string[]): Promise<string> => {
-    const res = await fetch(`${API_BASE}/tools/askQuestion`, {
+    const res = await fetchWithTimeout(`${API_BASE}/tools/askQuestion`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question, options })
@@ -56,7 +76,7 @@ export const api = {
   },
 
   schedule: async (durationSeconds: number, prompt: string): Promise<void> => {
-    const res = await fetch(`${API_BASE}/tools/schedule`, {
+    const res = await fetchWithTimeout(`${API_BASE}/tools/schedule`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ durationSeconds, prompt })
@@ -65,27 +85,27 @@ export const api = {
   },
 
   generateImage: async (prompt: string, imageName: string, cwd: string): Promise<{ path: string }> => {
-    const res = await fetch(`${API_BASE}/tools/generateImage`, {
+    const res = await fetchWithTimeout(`${API_BASE}/tools/generateImage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt, imageName, cwd })
-    });
+    }, LONG_TIMEOUT);
     if (!res.ok) throw new Error('Failed to generate image');
     return res.json();
   },
 
   browserSubagent: async (task: string): Promise<{ report: string }> => {
-    const res = await fetch(`${API_BASE}/tools/browserSubagent`, {
+    const res = await fetchWithTimeout(`${API_BASE}/tools/browserSubagent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ task })
-    });
+    }, LONG_TIMEOUT);
     if (!res.ok) throw new Error('Failed to run browser subagent');
     return res.json();
   },
   
   readFile: async (filePath: string): Promise<string> => {
-    const res = await fetch(`${API_BASE}/fs/readFile`, {
+    const res = await fetchWithTimeout(`${API_BASE}/fs/readFile`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filePath })
@@ -99,7 +119,7 @@ export const api = {
   },
   
   writeFile: async (filePath: string, content: string): Promise<void> => {
-    const res = await fetch(`${API_BASE}/fs/writeFile`, {
+    const res = await fetchWithTimeout(`${API_BASE}/fs/writeFile`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filePath, content })
@@ -111,7 +131,7 @@ export const api = {
   },
 
   createFile: async (filePath: string): Promise<void> => {
-    const res = await fetch(`${API_BASE}/fs/createFile`, {
+    const res = await fetchWithTimeout(`${API_BASE}/fs/createFile`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filePath })
@@ -123,7 +143,7 @@ export const api = {
   },
 
   createDir: async (dirPath: string): Promise<void> => {
-    const res = await fetch(`${API_BASE}/fs/createDir`, {
+    const res = await fetchWithTimeout(`${API_BASE}/fs/createDir`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dirPath })
@@ -135,7 +155,7 @@ export const api = {
   },
 
   renameItem: async (oldPath: string, newPath: string): Promise<void> => {
-    const res = await fetch(`${API_BASE}/fs/renameItem`, {
+    const res = await fetchWithTimeout(`${API_BASE}/fs/renameItem`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ oldPath, newPath })
@@ -147,7 +167,7 @@ export const api = {
   },
 
   deleteItem: async (targetPath: string): Promise<void> => {
-    const res = await fetch(`${API_BASE}/fs/deleteItem`, {
+    const res = await fetchWithTimeout(`${API_BASE}/fs/deleteItem`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ targetPath })
@@ -159,11 +179,11 @@ export const api = {
   },
 
   executeCommand: async (command: string, cwd: string): Promise<{ stdout: string, stderr: string, code: number }> => {
-    const res = await fetch(`${API_BASE}/fs/executeCommand`, {
+    const res = await fetchWithTimeout(`${API_BASE}/fs/executeCommand`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ command, cwd })
-    });
+    }, LONG_TIMEOUT);
     
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -174,7 +194,7 @@ export const api = {
   },
 
   gitCheckpoint: async (cwd: string): Promise<void> => {
-    const res = await fetch(`${API_BASE}/fs/gitCheckpoint`, {
+    const res = await fetchWithTimeout(`${API_BASE}/fs/gitCheckpoint`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cwd })
@@ -186,7 +206,7 @@ export const api = {
   },
 
   webFetch: async (url: string): Promise<string> => {
-    const res = await fetch(`${API_BASE}/web/fetch`, {
+    const res = await fetchWithTimeout(`${API_BASE}/web/fetch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url })
@@ -206,11 +226,11 @@ export const api = {
     apiKey: string;
     baseUrl: string;
   }) {
-    const res = await fetch(`${API_BASE}/chat`, {
+    const res = await fetchWithTimeout(`${API_BASE}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req)
-    });
+    }, LONG_TIMEOUT);
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -249,7 +269,7 @@ export const api = {
   },
 
   webSearch: async (query: string): Promise<{ url: string; title: string; snippet: string }[]> => {
-    const res = await fetch(`${API_BASE}/web/search`, {
+    const res = await fetchWithTimeout(`${API_BASE}/web/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query })
@@ -263,7 +283,7 @@ export const api = {
   },
 
   listTasks: async (): Promise<{ id: string; command: string; cwd: string; status: string; startedAt: string; logs: string }[]> => {
-    const res = await fetch(`${API_BASE}/tasks/list`);
+    const res = await fetchWithTimeout(`${API_BASE}/tasks/list`);
     if (!res.ok) {
       throw new Error('Failed to load tasks');
     }
@@ -272,7 +292,7 @@ export const api = {
   },
 
   killTask: async (id: string): Promise<void> => {
-    const res = await fetch(`${API_BASE}/tasks/kill`, {
+    const res = await fetchWithTimeout(`${API_BASE}/tasks/kill`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id })
@@ -297,7 +317,7 @@ export const api = {
   },
 
   getGitBranch: async (cwd?: string): Promise<{ branch: string | null; dirty: boolean }> => {
-    const res = await fetch(`${API_BASE}/git/branch`, {
+    const res = await fetchWithTimeout(`${API_BASE}/git/branch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cwd })
@@ -307,7 +327,7 @@ export const api = {
   },
 
   getEslintResults: async (cwd?: string): Promise<{ errors: number; warnings: number }> => {
-    const res = await fetch(`${API_BASE}/eslint/results`, {
+    const res = await fetchWithTimeout(`${API_BASE}/eslint/results`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cwd })
@@ -345,7 +365,7 @@ export const api = {
   },
 
   backupFile: async (filePath: string): Promise<boolean> => {
-    const res = await fetch(`${API_BASE}/fs/backup`, {
+    const res = await fetchWithTimeout(`${API_BASE}/fs/backup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filePath })
@@ -356,7 +376,7 @@ export const api = {
   },
 
   rollbackFile: async (filePath: string): Promise<void> => {
-    const res = await fetch(`${API_BASE}/fs/rollback`, {
+    const res = await fetchWithTimeout(`${API_BASE}/fs/rollback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filePath })
@@ -365,7 +385,7 @@ export const api = {
   },
 
   commitFile: async (filePath: string): Promise<void> => {
-    const res = await fetch(`${API_BASE}/fs/commit`, {
+    const res = await fetchWithTimeout(`${API_BASE}/fs/commit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filePath })
@@ -374,14 +394,14 @@ export const api = {
   },
 
   loadSettings: async (): Promise<string | null> => {
-    const res = await fetch(`${API_BASE}/settings/load`);
+    const res = await fetchWithTimeout(`${API_BASE}/settings/load`);
     if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
     const data = await res.json();
     return data.settings;
   },
 
   saveSettings: async (settings: string): Promise<void> => {
-    const res = await fetch(`${API_BASE}/settings/save`, {
+    const res = await fetchWithTimeout(`${API_BASE}/settings/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ settings })
@@ -396,7 +416,7 @@ export const api = {
     oldContent?: string,
     newContent?: string
   ): Promise<void> => {
-    const res = await fetch(`${API_BASE}/approvals/register`, {
+    const res = await fetchWithTimeout(`${API_BASE}/approvals/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, toolName, arguments: toolArgs, oldContent, newContent })
@@ -405,7 +425,7 @@ export const api = {
   },
 
   replyApproval: async (id: string, approved: boolean): Promise<void> => {
-    const res = await fetch(`${API_BASE}/approvals/reply`, {
+    const res = await fetchWithTimeout(`${API_BASE}/approvals/reply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, approved })
@@ -414,20 +434,20 @@ export const api = {
   },
 
   getApprovalStatus: async (id: string): Promise<{ id: string; status: 'pending' | 'approved' | 'rejected'; toolName: string; arguments: Record<string, unknown>; oldContent?: string; newContent?: string }> => {
-    const res = await fetch(`${API_BASE}/approvals/status/${id}`);
+    const res = await fetchWithTimeout(`${API_BASE}/approvals/status/${id}`);
     if (!res.ok) throw new Error('Failed to get approval status');
     return res.json();
   },
 
   getPendingApproval: async (): Promise<{ id: string; status: 'pending'; toolName: string; arguments: Record<string, unknown>; oldContent?: string; newContent?: string } | null> => {
-    const res = await fetch(`${API_BASE}/approvals/pending`);
+    const res = await fetchWithTimeout(`${API_BASE}/approvals/pending`);
     if (!res.ok) throw new Error('Failed to query pending approvals');
     const data = await res.json();
     return data.pending;
   },
 
   saveSessionState: async (sessionId: string, state: SessionState): Promise<void> => {
-    const res = await fetch(`${API_BASE}/session/save`, {
+    const res = await fetchWithTimeout(`${API_BASE}/session/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId, state })
@@ -436,7 +456,7 @@ export const api = {
   },
 
   loadSessionState: async (sessionId: string): Promise<SessionState | null> => {
-    const res = await fetch(`${API_BASE}/session/load`, {
+    const res = await fetchWithTimeout(`${API_BASE}/session/load`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId })
@@ -447,7 +467,7 @@ export const api = {
   },
 
   revealInExplorer: async (filePath: string): Promise<void> => {
-    const res = await fetch(`${API_BASE}/fs/revealInExplorer`, {
+    const res = await fetchWithTimeout(`${API_BASE}/fs/revealInExplorer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filePath })
@@ -460,7 +480,7 @@ export const api = {
     options: { matchCase: boolean; wholeWord: boolean; isRegex: boolean },
     dirPath?: string
   ): Promise<{ occurrences: { path: string; line: number; content: string }[]; files: string[] }> => {
-    const res = await fetch(`${API_BASE}/fs/grep`, {
+    const res = await fetchWithTimeout(`${API_BASE}/fs/grep`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pattern, ...options, dirPath })
@@ -473,7 +493,7 @@ export const api = {
   },
 
   formatFile: async (filePath: string, content: string): Promise<string> => {
-    const res = await fetch(`${API_BASE}/fs/format`, {
+    const res = await fetchWithTimeout(`${API_BASE}/fs/format`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filePath, content })
@@ -497,7 +517,7 @@ export const api = {
     source: string;
   }[]> => {
     try {
-      const res = await fetch(`${API_BASE}/fs/lint`, {
+      const res = await fetchWithTimeout(`${API_BASE}/fs/lint`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filePath, content })

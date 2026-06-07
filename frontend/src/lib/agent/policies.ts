@@ -54,11 +54,17 @@ export const evaluatePolicy = async (
         call: { id: callId, name: toolName, arguments: callArgs }, 
         resolve: async (approved: boolean) => {
           try {
-            await api.replyApproval(callId, approved);
+            await Promise.race([
+              api.replyApproval(callId, approved),
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Approval reply timeout')), 3000)
+              )
+            ]);
           } catch (err) {
             console.error('Failed to submit reply to backend:', err);
+          } finally {
+            finish(approved);
           }
-          finish(approved);
         }, 
         oldContent, 
         newContent 
