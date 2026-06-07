@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Search, ZoomIn, ZoomOut, RotateCcw, Minimize, Maximize, X, Square } from 'lucide-react';
 import { useWorkspaceStore } from '@/store/useWorkspaceStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useWindowManagerStore } from "@/store/useWindowManagerStore";
@@ -15,6 +15,24 @@ export default function TitleBar() {
   const handleZoomIn = () => { console.log('Action: Zoom In'); setZoom(Math.min(2.0, (zoom || 1.0) + 0.1)); };
   const handleZoomOut = () => { console.log('Action: Zoom Out'); setZoom(Math.max(0.6, (zoom || 1.0) - 0.1)); };
   const handleZoomReset = () => { console.log('Action: Reset Zoom'); setZoom(1.0); };
+
+  const handleMinimize = () => {
+    if (typeof window !== 'undefined' && window.electronAPI?.minimizeWindow) {
+      window.electronAPI.minimizeWindow();
+    }
+  };
+
+  const handleMaximize = () => {
+    if (typeof window !== 'undefined' && window.electronAPI?.maximizeWindow) {
+      window.electronAPI.maximizeWindow();
+    }
+  };
+
+  const handleClose = () => {
+    if (typeof window !== 'undefined' && window.electronAPI?.closeWindow) {
+      window.electronAPI.closeWindow();
+    }
+  };
 
   const handleNewFile = async () => {
     console.log('Action: New File');
@@ -292,6 +310,31 @@ export default function TitleBar() {
                   >
                     <Search size={14} />
                   </button>
+
+                  {/* Window Controls */}
+                  <div className="flex items-center gap-1 no-drag ml-2" style={{ width: '90px' }}>
+                    <button
+                      onClick={handleMinimize}
+                      className="w-7 h-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors no-drag"
+                      title="Minimize (Ctrl+M)"
+                    >
+                      <Minimize size={13} />
+                    </button>
+                    <button
+                      onClick={handleMaximize}
+                      className="w-7 h-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors no-drag"
+                      title="Maximize/Restore"
+                    >
+                      <Square size={13} />
+                    </button>
+                    <button
+                      onClick={handleClose}
+                      className="w-7 h-7 flex items-center justify-center rounded hover:bg-red-500/20 hover:text-red-400 text-muted-foreground transition-colors no-drag"
+                      title="Close"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
                 </div>
         </div>
       </div>
