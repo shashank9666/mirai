@@ -14,29 +14,36 @@ export interface SessionState {
   messages: ChatMessage[];
 }
 
+declare global {
+  interface Window {
+    __MIRAI_API_BASE__?: string;
+    __MIRAI_WS_BASE__?: string;
+  }
+}
+
 const getApiBase = (): string => {
   if (typeof window !== 'undefined') {
-    return (window as any).__MIRAI_API_BASE__ || 'http://127.0.0.1:4000/api';
+    return window.__MIRAI_API_BASE__ || 'http://127.0.0.1:4000/api';
   }
   return 'http://127.0.0.1:4000/api';
 };
 
 export const getWsBase = (): string => {
   if (typeof window !== 'undefined') {
-    return (window as any).__MIRAI_WS_BASE__ || 'ws://127.0.0.1:4000';
+    return window.__MIRAI_WS_BASE__ || 'ws://127.0.0.1:4000';
   }
   return 'ws://127.0.0.1:4000';
 };
 
 export const setApiBase = (base: string) => {
   if (typeof window !== 'undefined') {
-    (window as any).__MIRAI_API_BASE__ = base;
+    window.__MIRAI_API_BASE__ = base;
   }
 };
 
 export const setWsBase = (base: string) => {
   if (typeof window !== 'undefined') {
-    (window as any).__MIRAI_WS_BASE__ = base;
+    window.__MIRAI_WS_BASE__ = base;
   }
 };
 

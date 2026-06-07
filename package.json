@@ -7,33 +7,13 @@
   "scripts": {
     "dev:frontend": "npm run dev --prefix frontend -- -p 3000",
     "dev:backend": "cd backend/python && .\\venv\\Scripts\\python.exe -m uvicorn main:app --host 0.0.0.0 --port 4000 --reload",
-    "dev:electron": "wait-on http://localhost:3000 tcp:4000 && electron electron/main.js",
     "dev:clean": "powershell -ExecutionPolicy Bypass -File scripts/kill-all.ps1 && npm run dev",
-    "dev": "npx concurrently \"npm run dev:frontend\" \"npm run dev:backend\" \"npm run dev:electron\"",
+    "dev": "npx concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "build:frontend": "npm run build --prefix frontend",
     "build:backend": "echo \"Python backend does not require a build step\"",
-    "build:electron": "electron-builder",
-    "build": "npm run build:frontend && npm run build:backend && npm run build:electron"
-  },
-  "main": "electron/main.js",
-  "build": {
-    "appId": "com.mirai.app",
-    "productName": "Mirai",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "electron/**/*",
-      "frontend/out/**/*"
-    ],
-    "win": {
-      "target": "nsis"
-    }
+    "build": "npm run build:frontend && npm run build:backend"
   },
   "devDependencies": {
-    "@tsconfig/bun": "^1.0.10",
-    "electron": "^42.3.0",
-    "electron-builder": "^26.8.1",
-    "wait-on": "^9.0.10"
+    "@tsconfig/bun": "^1.0.10"
   }
 }

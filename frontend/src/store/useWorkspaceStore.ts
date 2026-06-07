@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { FileEntry } from '../types/electron';
+import type { FileEntry } from '../lib/api';
 import { useWindowManagerStore } from './useWindowManagerStore';
 import type { LayoutNode } from './useWindowManagerStore';
 
