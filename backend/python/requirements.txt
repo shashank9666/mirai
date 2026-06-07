@@ -1,0 +1,60 @@
+fastapi
+uvicorn[standard]
+websockets
+pywinpty; sys_platform == 'win32'
+ptyprocess; sys_platform != 'win32'
+watchdog
+aiofiles
+beautifulsoup4
+httpx
+
+# AI Core Providers
+openai
+google-genai
+anthropic
+mistralai
+ollama
+
+# Agent Frameworks
+langgraph
+langchain
+
+# Model Context Protocol
+mcp
+
+# IDE / Code Analysis Tools
+GitPython
+tree-sitter
+tree-sitter-python
+tree-sitter-javascript
+tree-sitter-typescript
+
+# Embeddings & System
+sentence-transformers
+faiss-cpu
+psutil
+
+# Phase 3: Odysseus Runtime SDKs
+chromadb
+qdrant-client
+rank-bm25
+jedi
+libcst
+tree-sitter-language-pack
+pygit2
+playwright
+rapidocr-onnxruntime
+pymupdf
+python-docx
+openpyxl
+python-pptx
+docker
+apscheduler
+loguru
+prometheus-client
+pydantic
+tenacity
+pillow
+opencv-python
+llama-cpp-python
+rich
