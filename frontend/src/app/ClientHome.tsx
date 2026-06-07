@@ -33,9 +33,7 @@ export default function Home() {
   const showGlobalApproval = pendingApproval && (!isFileEdit || !editorExists);
 
   React.useEffect(() => {
-    if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.setZoom) {
-      window.electronAPI.setZoom(zoom);
-    } else if (typeof document !== 'undefined') {
+    if (typeof document !== 'undefined') {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (document.body.style as any).zoom = zoom;
     }
