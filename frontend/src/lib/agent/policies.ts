@@ -13,10 +13,10 @@ export const deny = (toolName: string): Policy => ({ toolName, action: 'deny' })
 export const ask_user = (toolName: string): Policy => ({ toolName, action: 'ask_user' });
 
 export const evaluatePolicy = async (
-  toolName: string, 
-  policies: Policy[], 
+  toolName: string,
+  policies: Policy[],
   callId: string,
-  callArgs: string, 
+  callArgs: string,
   autoApprove: boolean,
   oldContent?: string,
   newContent?: string
@@ -50,8 +50,8 @@ export const evaluatePolicy = async (
       };
 
       // Set pending state locally to trigger UI immediately
-      useApprovalStore.getState().setPending({ 
-        call: { id: callId, name: toolName, arguments: callArgs }, 
+      useApprovalStore.getState().setPending({
+        call: { id: callId, name: toolName, arguments: callArgs },
         resolve: async (approved: boolean) => {
           try {
             await Promise.race([
@@ -65,9 +65,9 @@ export const evaluatePolicy = async (
           } finally {
             finish(approved);
           }
-        }, 
-        oldContent, 
-        newContent 
+        },
+        oldContent,
+        newContent
       });
 
       // Poll the backend to detect resolution in case of browser refresh or alternative clients
@@ -79,6 +79,7 @@ export const evaluatePolicy = async (
           }
         } catch (e) {
           // Ignore polling network failures
+          console.log(e);
         }
       }, 1000);
     });
