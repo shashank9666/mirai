@@ -1,9 +1,10 @@
 {
   "name": "mirai",
   "version": "1.0.0",
-  "description": "Mirai root project",
+  "description": "Mirai — AI-Powered IDE",
   "author": "Shashank Shetty",
   "license": "MIT",
+  "main": "electron/main.js",
   "scripts": {
     "dev:frontend": "npm run dev --prefix frontend -- -p 3000",
     "dev:backend": "cd backend/python && .\\venv\\Scripts\\python.exe -m uvicorn main:app --reload",
@@ -11,9 +12,41 @@
     "dev": "npx concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "build:frontend": "npm run build --prefix frontend",
     "build:backend": "echo \"Python backend does not require a build step\"",
-    "build": "npm run build:frontend && npm run build:backend"
+    "build": "npm run build:frontend && npm run build:backend",
+    "electron:dev": "npx concurrently \"npm run dev:frontend\" \"npx wait-on http://localhost:3000 && npx electron .\"",
+    "electron:build": "npm run build:frontend && npx electron-builder",
+    "electron:start": "npx electron ."
   },
   "devDependencies": {
-    "@tsconfig/bun": "^1.0.10"
+    "@tsconfig/bun": "^1.0.10",
+    "concurrently": "^9.2.1",
+    "electron": "^42.3.3",
+    "electron-builder": "^26.15.0",
+    "wait-on": "^8.0.5"
+  },
+  "build": {
+    "appId": "com.mirai.ide",
+    "productName": "Mirai IDE",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "frontend/.next/**/*",
+      "frontend/public/**/*",
+      "frontend/package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "electron/icons/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "electron/icons/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "electron/icons/icon.png"
+    }
   }
 }

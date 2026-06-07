@@ -1,8 +1,13 @@
 'use client';
 
 import React from 'react';
+import { useIdeStore } from '@/store/ideStore';
 
 export default function HyprStatusBar() {
+  const { activeFile, activeFileContent } = useIdeStore();
+
+  const linesOfCode = activeFileContent ? activeFileContent.split('\n').length : 0;
+
   return (
     <div className="hypr-panel h-8 w-full px-3 flex items-center justify-between text-[11px] font-mono select-none" style={{ background: 'linear-gradient(90deg, rgba(14,165,233,0.1) 0%, rgba(99,102,241,0.1) 100%)', borderColor: 'rgba(56,189,248,0.2)' }}>
       {/* Left side */}
@@ -11,9 +16,8 @@ export default function HyprStatusBar() {
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>
           main*
         </div>
-        <div className="flex items-center gap-1.5 hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-          Launchpad
+        <div className="flex items-center gap-1.5 hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-blue-300">
+          Ln {linesOfCode}, Col 1
         </div>
         <div className="flex items-center gap-1.5 hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-red-400">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
