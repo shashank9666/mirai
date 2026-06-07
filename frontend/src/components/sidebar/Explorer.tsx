@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 import { useWindowManagerStore } from '../../store/useWindowManagerStore';
-import { Folder, FolderOpen, FileCode, File, ChevronRight, ChevronDown, Edit2, Trash2, FilePlus, FolderPlus, RotateCw } from 'lucide-react';
-import { api, FileEntry } from '../../lib/api';
+import { Folder, FolderOpen, FileCode, File, ChevronRight, ChevronDown, Edit2, Trash2, FilePlus, FolderPlus, RotateCw, AlertTriangle, Cpu } from 'lucide-react';
+import { api, FileEntry, getWsBase } from '../../lib/api';
 import { cn } from '@/lib/utils';
 
 // eslint-disable-next-line prefer-const
@@ -335,6 +335,8 @@ export default function Explorer() {
 
   const [isCreatingRoot, setIsCreatingRoot] = useState<'file' | 'folder' | null>(null);
   const [createRootValue, setCreateRootValue] = useState('');
+  const [backendAvailable, setBackendAvailable] = useState(true);
+  const [checkingBackend, setCheckingBackend] = useState(false);
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -349,6 +351,24 @@ export default function Explorer() {
     return () => window.removeEventListener('click', closeMenu);
   }, []);
 
+  const checkBackend = React.useCallback(async () => {
+    setCheckingBackend(true);
+    try {
+      const available = await api.healthCheck();
+      setBackendAvailable(available);
+    } catch {
+      setBackendAvailable(false);
+    } finally {
+      setCheckingBackend(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    checkBackend();
+    const interval = setInterval(checkBackend, 10000);
+    return () => clearInterval(interval);
+  }, [checkBackend]);
+
   const loadRoot = React.useCallback(async (path?: string) => {
     try {
       const target = path || useWorkspaceStore.getState().workspacePath;
@@ -358,8 +378,10 @@ export default function Explorer() {
         setWorkspacePath(result.path);
       }
       setFileTree(result.entries);
+      setBackendAvailable(true);
     } catch (error) {
       console.error("Error reading root folder:", error);
+      setBackendAvailable(false);
     }
   }, [setWorkspacePath, setFileTree]);
 
@@ -373,7 +395,7 @@ export default function Explorer() {
     const currentWorkspacePath = useWorkspaceStore.getState().workspacePath;
     if (!currentWorkspacePath) return;
 
-    const ws = new WebSocket('ws://127.0.0.1:4000/ws/watcher');
+    const ws = new WebSocket(`${getWsBase()}/ws/watcher`);
     
     ws.onopen = () => {
       ws.send(JSON.stringify({ event: 'watch-workspace', data: { workspacePath: currentWorkspacePath } }));
