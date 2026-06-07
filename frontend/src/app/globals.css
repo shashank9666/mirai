@@ -1,53 +1,81 @@
 @import "tailwindcss";
 
 @theme inline {
-  --background: #1e1e1e;
-  --foreground: #cccccc;
+  --background: #0a0a0a;
+  --foreground: #f0f0f0;
   
-  --color-activity-bar: #333333;
-  --color-sidebar: #252526;
-  --color-editor-bg: #1e1e1e;
-  --color-panel-bg: #1e1e1e;
-  --color-title-bar: #323233;
+  --color-glass-bg: rgba(255, 255, 255, 0.04);
+  --color-glass-border: rgba(255, 255, 255, 0.08);
+  --color-glass-hover: rgba(255, 255, 255, 0.08);
   
-  --color-border: #2b2b2b;
-  --color-border-light: #3c3c3c;
+  --color-accent-start: #6366f1;
+  --color-accent-end: #a855f7;
   
-  --color-accent: #007fd4;
-  --color-accent-hover: #0060a0;
-  
-  --color-text-muted: #858585;
+  --color-text-muted: #888888;
   --color-text-normal: #cccccc;
   --color-text-active: #ffffff;
 }
 
 @layer base {
   * {
-    border-color: var(--color-border);
-    outline-color: var(--color-accent);
+    border-color: var(--color-glass-border);
+    outline-color: var(--color-accent-start);
   }
   body {
     background-color: var(--background);
     color: var(--foreground);
     margin: 0;
     overflow: hidden;
+    /* Deep space / synthwave subtle mesh background */
+    background-image: 
+      radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08), transparent 25%),
+      radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.08), transparent 25%);
+    background-attachment: fixed;
   }
   
-  /* Scrollbars mimicking VS Code */
+  /* Minimal custom scrollbars */
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(121, 121, 121, 0.4);
-    border: 1px solid transparent;
-    background-clip: padding-box;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(100, 100, 100, 0.7);
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+@layer utilities {
+  .hypr-panel {
+    background-color: var(--color-glass-bg);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border: 1px solid var(--color-glass-border);
+    border-radius: 20px;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .hypr-panel:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.6);
+  }
+  
+  .hypr-btn {
+    background-color: var(--color-glass-bg);
+    border: 1px solid var(--color-glass-border);
+    border-radius: 12px;
+    transition: all 0.2s;
+  }
+  
+  .hypr-btn:hover {
+    background-color: var(--color-glass-hover);
+    border-color: rgba(255, 255, 255, 0.2);
   }
 }
 
