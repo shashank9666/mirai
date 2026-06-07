@@ -2,20 +2,18 @@
 
 import React from 'react';
 import { useIdeStore } from '@/store/ideStore';
-import { LayoutGrid, Search, Bell, Settings, User } from 'lucide-react';
+import { Search, Bell, Settings, User } from 'lucide-react';
 
 export default function Waybar() {
   const { activeFile } = useIdeStore();
 
   const truncatePath = (path: string | null) => {
-    if (!path) return 'Mirai Workspace ~ No File Open';
-    return `Mirai Workspace ~ ${path.replace('c:\\Users\\shett\\Desktop\\Mirai', '')}`;
+    if (!path) return 'No File Open';
+    return path.replace('c:\\Users\\shett\\Desktop\\Mirai\\', '');
   };
 
-  const [counter, setCounter] = React.useState(0);
-
   return (
-    <div className="hypr-panel h-10 w-full px-4 flex items-center justify-between text-xs font-mono select-none" style={{ background: 'linear-gradient(90deg, rgba(124,58,237,0.1) 0%, rgba(59,130,246,0.1) 100%)', borderColor: 'rgba(124,58,237,0.2)' }}>
+    <div className="h-10 w-full px-4 flex items-center justify-between text-xs font-mono select-none shrink-0" style={{ background: 'linear-gradient(90deg, rgba(124,58,237,0.08) 0%, rgba(59,130,246,0.08) 100%)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
       {/* Left side */}
       <div className="flex items-center h-full gap-4 text-white/80">
         <div className="flex items-center gap-3">
@@ -23,12 +21,6 @@ export default function Waybar() {
             <span className="text-white font-bold text-[10px]">M</span>
           </div>
           <span className="font-bold tracking-wider">MIRAI</span>
-          <button 
-            onClick={() => setCounter(c => c + 1)}
-            className="ml-4 px-2 py-1 bg-purple-500/20 hover:bg-purple-500/40 border border-purple-500/50 rounded transition-colors text-white"
-          >
-            Test UI: {counter}
-          </button>
         </div>
       </div>
 
