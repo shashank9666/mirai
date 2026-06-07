@@ -34,7 +34,7 @@ export default function HyprEditor() {
             >
               <span>{tab.name}</span>
               <X 
-                className="w-3 h-3 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all" 
+                className="w-3 h-3 text-white/20 hover:text-red-400 hover:bg-red-400/10 rounded transition-all cursor-pointer" 
                 onClick={(e) => {
                   e.stopPropagation();
                   closeTab(tab.id);
