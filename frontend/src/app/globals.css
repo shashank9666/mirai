@@ -1,15 +1,18 @@
 @import "tailwindcss";
 
 @theme inline {
-  --background: #0a0a0a;
+  --background: #09090B;
   --foreground: #f0f0f0;
   
   --color-glass-bg: rgba(255, 255, 255, 0.04);
   --color-glass-border: rgba(255, 255, 255, 0.08);
   --color-glass-hover: rgba(255, 255, 255, 0.08);
   
-  --color-accent-start: #6366f1;
-  --color-accent-end: #a855f7;
+  --color-primary-accent: #7C3AED;
+  --color-secondary-accent: #3B82F6;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
   
   --color-text-muted: #888888;
   --color-text-normal: #cccccc;
@@ -19,7 +22,7 @@
 @layer base {
   * {
     border-color: var(--color-glass-border);
-    outline-color: var(--color-accent-start);
+    outline-color: var(--color-primary-accent);
   }
   body {
     background-color: var(--background);

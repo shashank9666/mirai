@@ -4,7 +4,7 @@ import React from 'react';
 
 export default function HyprTerminal() {
   return (
-    <div className="hypr-panel h-[200px] w-full flex flex-col overflow-hidden relative group">
+    <div className="hypr-panel w-full h-full flex flex-col overflow-hidden relative group">
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500/0 via-purple-500/50 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity" />
       
       <div className="flex-1 p-4 font-mono text-xs overflow-y-auto custom-scrollbar flex flex-col gap-1">

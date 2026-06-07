@@ -4,7 +4,7 @@ import React from 'react';
 
 export default function HyprSidebar() {
   return (
-    <div className="hypr-panel w-[280px] h-full flex flex-col overflow-hidden">
+    <div className="hypr-panel w-full h-full flex flex-col overflow-hidden">
       <div className="px-5 py-4 border-b border-white/5 font-mono text-xs text-white/40 tracking-widest uppercase">
         Project Tree
       </div>
