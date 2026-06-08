@@ -5,6 +5,7 @@ import os
 import uuid
 import sys
 from typing import Optional
+from services.workspace import workspace_manager
 
 router = APIRouter()
 
@@ -16,7 +17,10 @@ class ExecuteCommandRequest(BaseModel):
 
 @router.post("/executeCommand")
 async def execute_command(req: ExecuteCommandRequest):
-    target_cwd = req.cwd or os.getcwd()
+    try:
+        target_cwd = workspace_manager.resolve_path(req.cwd) if req.cwd else workspace_manager.workspace_root
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
     is_long_running = any(k in req.command for k in ['dev', 'start', 'watch', 'serve', 'nodemon', 'server'])
     

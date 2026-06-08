@@ -1,15 +1,56 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import PanelHeader from './PanelHeader';
-import { Send, Sparkles, Bot, Code2, Bug, Eye } from 'lucide-react';
+import { Send, Sparkles, Bot, Code2, Bug, Eye, Square } from 'lucide-react';
 
-const MODES = [
-  { id: 'chat', label: 'Chat', icon: Sparkles },
-  { id: 'agent', label: 'Agent', icon: Bot },
-  { id: 'architect', label: 'Architect', icon: Code2 },
-  { id: 'debugger', label: 'Debug', icon: Bug },
-  { id: 'reviewer', label: 'Review', icon: Eye },
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+interface Mode {
+  id: string;
+  label: string;
+  icon: typeof Sparkles;
+  systemPrompt: string;
+}
+
+const MODES: Mode[] = [
+  {
+    id: 'chat',
+    label: 'Chat',
+    icon: Sparkles,
+    systemPrompt: 'You are a helpful general-purpose AI assistant. Answer questions clearly and concisely.',
+  },
+  {
+    id: 'agent',
+    label: 'Agent',
+    icon: Bot,
+    systemPrompt:
+      'You are a coding agent. You can read, write, and modify files. When asked to change code, provide the exact file paths, full file contents, and explain every change.',
+  },
+  {
+    id: 'architect',
+    label: 'Architect',
+    icon: Code2,
+    systemPrompt:
+      'You are a system architect. You design software systems, plan architecture, define APIs, and recommend tech stacks. Think about scalability, maintainability, and trade-offs.',
+  },
+  {
+    id: 'debug',
+    label: 'Debug',
+    icon: Bug,
+    systemPrompt:
+      'You are a debugging specialist. Analyze errors, trace root causes, suggest fixes, and explain what went wrong and why.',
+  },
+  {
+    id: 'review',
+    label: 'Review',
+    icon: Eye,
+    systemPrompt:
+      'You are a code reviewer. Review code for quality, security, performance, and best practices. Point out issues and suggest improvements with concrete examples.',
+  },
 ];
 
 interface ChatPanelProps {
@@ -23,24 +64,140 @@ interface ChatPanelProps {
 export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onClose }: ChatPanelProps) {
   const [activeMode, setActiveMode] = useState('chat');
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState([
-    { role: 'assistant', content: "I'm ready! What shall we build next?" },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
-    setMessages(prev => [...prev, { role: 'user', content: input }]);
+  const abortRef = useRef<AbortController | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const activeModeObj = MODES.find((m) => m.id === activeMode)!;
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  const stopGeneration = () => {
+    abortRef.current?.abort();
+    setIsStreaming(false);
+  };
+
+  const sendMessage = async () => {
+    const text = input.trim();
+    if (!text || isStreaming) return;
+
+    setError(null);
+    const userMessage: Message = { role: 'user', content: text };
+    const newMessages: Message[] = [...messages, userMessage];
+    setMessages(newMessages);
     setInput('');
-    // Simulate AI response
-    setTimeout(() => {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Processing: "${input}"... (AI backend not connected yet)` }]);
-    }, 500);
+
+    const assistantMessage: Message = { role: 'assistant', content: '' };
+    setMessages([...newMessages, assistantMessage]);
+    setIsStreaming(true);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: activeModeObj.systemPrompt },
+            ...newMessages.map((m) => ({ role: m.role, content: m.content })),
+          ],
+          provider: 'openai',
+          model: 'gpt-4o',
+          apiKey: '',
+          baseUrl: '',
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server responded with ${res.status}`);
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data:')) continue;
+          const jsonStr = trimmed.slice(5).trim();
+          if (!jsonStr) continue;
+
+          try {
+            const event = JSON.parse(jsonStr);
+            if (event.type === 'token' && event.content) {
+              assistantMessage.content += event.content;
+              setMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { ...assistantMessage };
+                return updated;
+              });
+            } else if (event.type === 'final' && event.content) {
+              assistantMessage.content = event.content;
+              setMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { ...assistantMessage };
+                return updated;
+              });
+            } else if (event.type === 'error') {
+              throw new Error(event.content || 'Unknown error');
+            }
+          } catch {
+            // skip malformed lines
+          }
+        }
+      }
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last.role === 'assistant' && !last.content) {
+            updated[updated.length - 1] = {
+              role: 'assistant',
+              content: '(Generation stopped)',
+            };
+          }
+          return updated;
+        });
+      } else {
+        const msg = err instanceof Error ? err.message : 'Failed to connect to backend';
+        setError(msg);
+        setMessages((prev) => prev.filter((_, i) => i < prev.length - 1));
+      }
+    } finally {
+      setIsStreaming(false);
+      abortRef.current = null;
+      inputRef.current?.focus();
+    }
   };
 
   return (
     <div className="hypr-panel w-full h-full flex flex-col overflow-hidden">
-      <PanelHeader 
-        title="AI Assistant" 
+      <PanelHeader
+        title="AI Assistant"
         isPinned={isPinned}
         isMinimized={isMinimized}
         onPin={onPin}
@@ -48,7 +205,9 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
         onClose={onClose}
         accentColor="#7C3AED"
       >
-        <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse shadow-[0_0_8px_#a855f7] ml-auto" />
+        {isStreaming && (
+          <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse shadow-[0_0_8px_#a855f7] ml-auto" />
+        )}
       </PanelHeader>
 
       {!isMinimized && (
@@ -58,11 +217,16 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
             {MODES.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
-                onClick={() => setActiveMode(id)}
+                onClick={() => {
+                  setActiveMode(id);
+                  inputRef.current?.focus();
+                }}
                 className={`px-2 py-1 rounded-md text-[10px] font-mono flex items-center gap-1 transition-all whitespace-nowrap
-                  ${activeMode === id 
-                    ? 'bg-[var(--color-primary-accent)]/20 text-purple-300' 
-                    : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
+                  ${
+                    activeMode === id
+                      ? 'bg-[var(--color-primary-accent)]/20 text-purple-300'
+                      : 'text-white/30 hover:text-white/60 hover:bg-white/5'
+                  }`}
               >
                 <Icon className="w-3 h-3" />
                 {label}
@@ -70,37 +234,80 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
             ))}
           </div>
 
+          {/* System Prompt Header */}
+          <div className="px-3 py-1.5 text-[10px] text-white/25 font-mono border-b border-white/5 shrink-0 truncate">
+            {activeModeObj.systemPrompt}
+          </div>
+
           {/* Messages */}
           <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex flex-col gap-3">
+            {messages.length === 0 && !error && (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-[11px] text-white/20 font-mono">
+                  Start a conversation in {activeModeObj.label} mode...
+                </p>
+              </div>
+            )}
+
+            {error && (
+              <div className="px-3 py-2 rounded-xl text-[11px] font-mono bg-red-500/10 text-red-400 border border-red-500/20">
+                {error}
+              </div>
+            )}
+
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[90%] px-3 py-2 rounded-xl text-[12px] leading-relaxed ${
-                  msg.role === 'user' 
-                    ? 'bg-[var(--color-primary-accent)]/20 text-white/90 rounded-br-sm' 
-                    : 'bg-white/5 text-white/80 rounded-bl-sm border border-white/5'
-                }`}>
+                <div
+                  className={`max-w-[90%] px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono whitespace-pre-wrap ${
+                    msg.role === 'user'
+                      ? 'bg-[var(--color-primary-accent)]/20 text-white/90 rounded-br-sm'
+                      : 'bg-white/5 text-white/80 rounded-bl-sm border border-white/5'
+                  }`}
+                >
                   {msg.content}
+                  {isStreaming && msg.role === 'assistant' && i === messages.length - 1 && (
+                    <span className="inline-block w-1.5 h-3 bg-purple-400/70 rounded-sm ml-0.5 animate-pulse align-text-bottom" />
+                  )}
                 </div>
               </div>
             ))}
+
+            <div ref={messagesEndRef} />
           </div>
 
           {/* Input */}
           <div className="p-2 border-t border-white/5 shrink-0">
             <div className="flex items-center gap-2 bg-white/[0.03] rounded-xl px-3 py-2 border border-white/5 focus-within:border-[var(--color-primary-accent)]/40 transition-colors">
               <input
+                ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                  }
+                }}
                 placeholder="Ask AI..."
-                className="flex-1 bg-transparent border-none outline-none text-[12px] text-white/90 placeholder:text-white/25 font-mono"
+                disabled={isStreaming}
+                className="flex-1 bg-transparent border-none outline-none text-[12px] text-white/90 placeholder:text-white/25 font-mono disabled:opacity-40"
               />
-              <button 
-                onClick={handleSend}
-                className="w-6 h-6 rounded-lg bg-[var(--color-primary-accent)] flex items-center justify-center hover:brightness-110 transition-all"
-              >
-                <Send className="w-3 h-3 text-white" />
-              </button>
+              {isStreaming ? (
+                <button
+                  onClick={stopGeneration}
+                  className="w-6 h-6 rounded-lg bg-red-500/80 flex items-center justify-center hover:bg-red-500 transition-all"
+                >
+                  <Square className="w-3 h-3 text-white" fill="white" />
+                </button>
+              ) : (
+                <button
+                  onClick={sendMessage}
+                  disabled={!input.trim()}
+                  className="w-6 h-6 rounded-lg bg-[var(--color-primary-accent)] flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-30"
+                >
+                  <Send className="w-3 h-3 text-white" />
+                </button>
+              )}
             </div>
           </div>
         </>

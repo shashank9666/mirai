@@ -1,26 +1,98 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, FileCode, Terminal, Sparkles, Settings } from 'lucide-react';
+import {
+  Search, Terminal, Sparkles, Settings, Save, RotateCcw,
+  FilePlus, FolderPlus, X, Copy, Layout, GitBranch, SearchCode,
+} from 'lucide-react';
+import { useIdeStore } from '@/store/ideStore';
+import { api } from '@/lib/api';
+
+interface Command {
+  id: string;
+  label: string;
+  category: string;
+  icon: React.ReactNode;
+  shortcut?: string;
+  action: () => void;
+}
+
+const emit = (event: string) => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: event } }));
 
 export default function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const store = useIdeStore();
+  const { activeFile, saveFile, saveAllFiles, revertFile, closeTab, closeAllTabs, closeOtherTabs } = store;
+
+  const commands: Command[] = useMemo(() => [
+    { id: 'save', label: 'Save File', category: 'File', icon: <Save className="w-4 h-4" />, shortcut: 'Ctrl+S', action: () => saveFile() },
+    { id: 'saveAll', label: 'Save All Files', category: 'File', icon: <Save className="w-4 h-4 text-green-400" />, shortcut: 'Ctrl+Shift+S', action: () => saveAllFiles() },
+    { id: 'revert', label: 'Revert File', category: 'File', icon: <RotateCcw className="w-4 h-4" />, shortcut: 'Ctrl+Shift+Z', action: () => revertFile() },
+    { id: 'closeTab', label: 'Close Editor Tab', category: 'File', icon: <X className="w-4 h-4" />, shortcut: 'Ctrl+W', action: () => activeFile && closeTab(activeFile) },
+    { id: 'closeAll', label: 'Close All Tabs', category: 'File', icon: <X className="w-4 h-4 text-red-400" />, action: () => closeAllTabs() },
+    { id: 'closeOthers', label: 'Close Other Tabs', category: 'File', icon: <Copy className="w-4 h-4" />, action: () => activeFile && closeOtherTabs(activeFile) },
+    { id: 'newFile', label: 'New File', category: 'File', icon: <FilePlus className="w-4 h-4" />, action: () => emit('newFile') },
+    { id: 'newFolder', label: 'New Folder', category: 'File', icon: <FolderPlus className="w-4 h-4" />, action: () => emit('newFolder') },
+    { id: 'toggleTerminal', label: 'Toggle Terminal Panel', category: 'View', icon: <Terminal className="w-4 h-4" />, shortcut: 'Ctrl+`', action: () => emit('toggleTerminal') },
+    { id: 'toggleSidebar', label: 'Toggle Explorer Sidebar', category: 'View', icon: <Layout className="w-4 h-4" />, shortcut: 'Ctrl+B', action: () => emit('toggleSidebar') },
+    { id: 'toggleChat', label: 'Toggle AI Chat Panel', category: 'View', icon: <Sparkles className="w-4 h-4" />, shortcut: 'Ctrl+J', action: () => emit('toggleChat') },
+    { id: 'focusExplorer', label: 'Show Explorer', category: 'View', icon: <Layout className="w-4 h-4" />, action: () => emit('view:explorer') },
+    { id: 'focusSearch', label: 'Show Search', category: 'View', icon: <Search className="w-4 h-4" />, shortcut: 'Ctrl+Shift+F', action: () => emit('view:search') },
+    { id: 'focusGit', label: 'Show Source Control', category: 'View', icon: <GitBranch className="w-4 h-4" />, action: () => emit('view:git') },
+    { id: 'aiGenerate', label: 'AI: Generate Code', category: 'AI', icon: <Sparkles className="w-4 h-4 text-purple-400" />, action: () => emit('ai:generate') },
+    { id: 'aiExplain', label: 'AI: Explain Code', category: 'AI', icon: <Sparkles className="w-4 h-4 text-purple-400" />, action: () => emit('ai:explain') },
+    { id: 'aiRefactor', label: 'AI: Refactor Code', category: 'AI', icon: <Sparkles className="w-4 h-4 text-purple-400" />, action: () => emit('ai:refactor') },
+    { id: 'settings', label: 'Open Settings', category: 'System', icon: <Settings className="w-4 h-4" />, action: () => emit('settings') },
+  ], [activeFile, saveFile, saveAllFiles, revertFile, closeTab, closeAllTabs, closeOtherTabs]);
+
+  const filtered = useMemo(() => {
+    if (!query) return commands;
+    const q = query.toLowerCase();
+    return commands.filter(c => c.label.toLowerCase().includes(q) || c.category.toLowerCase().includes(q));
+  }, [commands, query]);
+
+  useEffect(() => { setSelectedIndex(0); }, [query]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.key === 'k') {
         e.preventDefault();
         setIsOpen((prev) => !prev);
       }
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && isOpen) {
+        e.preventDefault();
         setIsOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setQuery('');
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [isOpen]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter' && filtered[selectedIndex]) {
+      filtered[selectedIndex].action();
+      setIsOpen(false);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -43,9 +115,10 @@ export default function CommandPalette() {
             <div className="flex items-center px-4 py-4 border-b border-white/10">
               <Search className="w-5 h-5 text-white/50 mr-3" />
               <input
-                autoFocus
+                ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
                 placeholder="Type a command or search..."
                 className="flex-1 bg-transparent border-none outline-none text-white text-lg placeholder:text-white/30"
               />
@@ -53,36 +126,32 @@ export default function CommandPalette() {
             </div>
 
             <div className="max-h-[60vh] overflow-y-auto p-2 custom-scrollbar">
-              <div className="px-3 py-2 text-[10px] font-mono text-white/40 uppercase tracking-wider">AI Actions</div>
-              <button className="w-full flex items-center px-3 py-3 hover:bg-white/5 rounded-xl transition-colors group">
-                <div className="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center mr-3 group-hover:bg-purple-500 group-hover:text-white transition-colors">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div className="flex flex-col items-start">
-                  <span className="text-sm text-white/90">Ask AI to generate code...</span>
-                  <span className="text-xs text-white/40">Use the active editor context</span>
-                </div>
-              </button>
-
-              <div className="px-3 py-2 mt-2 text-[10px] font-mono text-white/40 uppercase tracking-wider">Files</div>
-              <button className="w-full flex items-center px-3 py-2 hover:bg-white/5 rounded-xl transition-colors text-left group">
-                <FileCode className="w-4 h-4 text-blue-400 mr-3" />
-                <span className="text-sm text-white/80 group-hover:text-white">src/app/page.tsx</span>
-              </button>
-              <button className="w-full flex items-center px-3 py-2 hover:bg-white/5 rounded-xl transition-colors text-left group">
-                <FileCode className="w-4 h-4 text-yellow-400 mr-3" />
-                <span className="text-sm text-white/80 group-hover:text-white">src/components/ide/CommandPalette.tsx</span>
-              </button>
-
-              <div className="px-3 py-2 mt-2 text-[10px] font-mono text-white/40 uppercase tracking-wider">System</div>
-              <button className="w-full flex items-center px-3 py-2 hover:bg-white/5 rounded-xl transition-colors text-left group">
-                <Terminal className="w-4 h-4 text-white/50 mr-3" />
-                <span className="text-sm text-white/80 group-hover:text-white">Toggle Terminal</span>
-              </button>
-              <button className="w-full flex items-center px-3 py-2 hover:bg-white/5 rounded-xl transition-colors text-left group">
-                <Settings className="w-4 h-4 text-white/50 mr-3" />
-                <span className="text-sm text-white/80 group-hover:text-white">Preferences: Open Settings</span>
-              </button>
+              {filtered.length === 0 && (
+                <div className="px-4 py-8 text-center text-white/30 text-sm font-mono">No commands found</div>
+              )}
+              {filtered.map((cmd, idx) => (
+                <button
+                  key={cmd.id}
+                  className={`w-full flex items-center px-3 py-2.5 rounded-xl transition-colors text-left group ${
+                    idx === selectedIndex ? 'bg-white/10' : 'hover:bg-white/5'
+                  }`}
+                  onClick={() => { cmd.action(); setIsOpen(false); }}
+                  onMouseEnter={() => setSelectedIndex(idx)}
+                >
+                  <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center mr-3 text-white/60 group-hover:text-white transition-colors shrink-0">
+                    {cmd.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-white/90 group-hover:text-white">{cmd.label}</div>
+                    <div className="text-[10px] text-white/30">{cmd.category}</div>
+                  </div>
+                  {cmd.shortcut && (
+                    <div className="text-[10px] font-mono text-white/30 bg-white/5 px-1.5 py-0.5 rounded shrink-0 ml-2">
+                      {cmd.shortcut}
+                    </div>
+                  )}
+                </button>
+              ))}
             </div>
           </motion.div>
         </>

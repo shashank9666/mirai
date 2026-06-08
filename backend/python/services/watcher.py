@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from fastapi import WebSocket, WebSocketDisconnect
@@ -6,20 +7,27 @@ import json
 import os
 
 active_connections = set()
+_loop = None
+
+def _schedule_notify(event_type, path, new_path=None):
+    """Thread-safe: schedule async notify on the main event loop."""
+    if _loop is None or _loop.is_closed():
+        return
+    asyncio.run_coroutine_threadsafe(notify_change(event_type, path, new_path), _loop)
 
 class WorkspaceHandler(FileSystemEventHandler):
     def on_created(self, event):
-        asyncio.run(notify_change("createFile" if not event.is_directory else "createDir", event.src_path))
+        _schedule_notify("createFile" if not event.is_directory else "createDir", event.src_path)
     
     def on_deleted(self, event):
-        asyncio.run(notify_change("deleteItem", event.src_path))
+        _schedule_notify("deleteItem", event.src_path)
         
     def on_modified(self, event):
         if not event.is_directory:
-            asyncio.run(notify_change("writeFile", event.src_path))
+            _schedule_notify("writeFile", event.src_path)
             
     def on_moved(self, event):
-        asyncio.run(notify_change("renameItem", event.src_path, event.dest_path))
+        _schedule_notify("renameItem", event.src_path, event.dest_path)
 
 observer = None
 
@@ -35,7 +43,6 @@ def setup_watcher(workspace_path):
     observer = Observer()
     event_handler = WorkspaceHandler()
     
-    # Ignoring logic would be handled in the handler ideally, but simplified here
     observer.schedule(event_handler, workspace_path, recursive=True)
     observer.start()
 
@@ -61,9 +68,13 @@ async def notify_change(event_type, path, new_path=None):
         active_connections.remove(ws)
 
 def setup_watcher_websockets(app):
+    global _loop
+
     @app.websocket("/ws/watcher")
     async def watcher_endpoint(websocket: WebSocket):
         await websocket.accept()
+        if _loop is None:
+            _loop = asyncio.get_running_loop()
         active_connections.add(websocket)
         try:
             while True:
