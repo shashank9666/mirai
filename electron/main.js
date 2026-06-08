@@ -20,8 +20,19 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      webSecurity: false,     // Allow cross-origin requests to backend in dev
     },
     icon: path.join(__dirname, 'icons', 'icon.png'),
+  });
+
+  // Set Content-Security-Policy to remove electron security warning
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': ["default-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:*; connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:*;"],
+      },
+    });
   });
 
   // In dev, load from Next.js dev server
@@ -34,6 +45,14 @@ function createWindow() {
     // Production: start Next.js server and load it
     mainWindow.loadURL(`http://localhost:${NEXT_PORT}`);
   }
+
+  mainWindow.on('maximize', () => {
+    mainWindow?.webContents.send('window:maximize-changed', true);
+  });
+
+  mainWindow.on('unmaximize', () => {
+    mainWindow?.webContents.send('window:maximize-changed', false);
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;

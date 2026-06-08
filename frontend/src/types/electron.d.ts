@@ -7,6 +7,8 @@ interface ElectronAPI {
   close: () => Promise<void>;
   isMaximized: () => Promise<boolean>;
   platform: string;
+  onMaximizeChange: (callback: (maximized: boolean) => void) => void;
+  removeMaximizeListener: () => void;
 }
 
 declare global {

@@ -11,6 +11,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Platform info
   platform: process.platform,
 
-  // You can add more APIs here later:
-  // fs operations, shell commands, etc.
+  // Listen for maximize state changes from main process
+  onMaximizeChange: (callback) => {
+    ipcRenderer.on('window:maximize-changed', (_event, maximized) => callback(maximized));
+  },
+
+  // Clean up listeners
+  removeMaximizeListener: () => {
+    ipcRenderer.removeAllListeners('window:maximize-changed');
+  },
 });

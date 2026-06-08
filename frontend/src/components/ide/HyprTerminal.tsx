@@ -39,17 +39,6 @@ interface TerminalTab {
   status: ConnectionStatus;
 }
 
-let tabCounter = 1;
-
-function createTab(): TerminalTab {
-  return {
-    id: `terminal-${tabCounter++}`,
-    label: `Terminal ${tabCounter - 1}`,
-    output: [],
-    status: 'disconnected',
-  };
-}
-
 function TerminalInstance({ tab, onOutput, onStatusChange }: {
   tab: TerminalTab;
   onOutput: (data: string) => void;
@@ -174,6 +163,15 @@ function TerminalInstance({ tab, onOutput, onStatusChange }: {
 }
 
 export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize, onClose }: TerminalPanelProps) {
+  const tabCounterRef = useRef(1);
+
+  const createTab = useCallback((): TerminalTab => {
+    const id = `terminal-${tabCounterRef.current}`;
+    const label = `Terminal ${tabCounterRef.current}`;
+    tabCounterRef.current += 1;
+    return { id, label, output: [], status: 'disconnected' };
+  }, []);
+
   const [activeBottomTab, setActiveBottomTab] = useState('terminal');
   const [terminals, setTerminals] = useState<TerminalTab[]>(() => [createTab()]);
   const [activeTermId, setActiveTermId] = useState<string>(() => '');
