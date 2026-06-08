@@ -110,9 +110,25 @@ export default function Home() {
   const [panelOrder, setPanelOrder] = useState<'normal' | 'reversed'>('normal');
   const [dragOverSide, setDragOverSide] = useState<string | null>(null);
 
-  const { zenMode, fullscreenMode, toggleZenMode, toggleFullscreenMode, workspacePath } = useIdeStore();
+  const { zenMode, fullscreenMode, toggleZenMode, toggleFullscreenMode, workspacePath, setWorkspace } = useIdeStore();
   const hasWorkspace = !!workspacePath;
   const [showWelcome, setShowWelcome] = useState(false);
+
+  // On mount, try to restore last workspace from localStorage
+  useEffect(() => {
+    const lastWorkspace = localStorage.getItem('miraiLastWorkspace');
+    if (lastWorkspace) {
+      fetch('http://127.0.0.1:8000/api/workspace/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: lastWorkspace }),
+      }).then(r => r.json()).then((result) => {
+        if (result?.path) {
+          setWorkspace(result.path, result.name);
+        }
+      }).catch(() => {});
+    }
+  }, [setWorkspace]);
 
   const handleSidebarResize = useCallback((delta: number) => {
     setSidebarWidth(w => Math.max(180, Math.min(500, w + delta)));
@@ -256,6 +272,20 @@ export default function Home() {
     e.dataTransfer.effectAllowed = 'move';
   }, []);
 
+  // Sync showWelcome with workspacePath changes
+  useEffect(() => {
+    if (workspacePath) {
+      setShowWelcome(false);
+    }
+  }, [workspacePath]);
+
+  // If no workspace on mount, show welcome
+  useEffect(() => {
+    if (!workspacePath) {
+      setShowWelcome(true);
+    }
+  }, [workspacePath]);
+
   return (
     <main className={`h-screen w-screen flex flex-col overflow-hidden text-[var(--color-text-normal)] select-none transition-all duration-300 ${zenMode ? 'bg-black' : ''}`} style={{ backgroundColor: zenMode ? 'black' : 'var(--background)' }}>
       <CommandPalette />
@@ -269,67 +299,58 @@ export default function Home() {
         <div className="flex-1 flex flex-col min-h-0">
           <div className="flex-1 flex min-h-0">
             {!zenMode && sidebarVisible && (
-              <div
-                draggable={!zenMode}
-                onDragStart={(e) => handleDragStart(e, 'sidebar')}
-                onDragOver={(e) => handleDragOver(e, 'sidebar')}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, 'sidebar')}
-                className={`flex-shrink-0 overflow-hidden transition-all duration-200 ${
-                  dragOverSide === 'sidebar' ? 'ring-2 ring-[var(--color-primary-accent)]/50 rounded-lg' : ''
-                }`}
-                style={{ width: sidebarWidth }}
-              >
-                <SidebarContent activeView={activeView} />
-              </div>
-            )}
-            {!zenMode && sidebarVisible && panelOrder === 'normal' && (
-              <ResizeHandle direction="horizontal" onResize={handleSidebarResize} />
+              <>
+                <div
+                  draggable={!zenMode}
+                  onDragStart={(e) => handleDragStart(e, 'sidebar')}
+                  onDragOver={(e) => handleDragOver(e, 'sidebar')}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, 'sidebar')}
+                  className={`flex-shrink-0 overflow-hidden transition-all duration-200 ${
+                    dragOverSide === 'sidebar' ? 'ring-2 ring-[var(--color-primary-accent)]/50 rounded-lg' : ''
+                  }`}
+                  style={{ width: sidebarWidth }}
+                >
+                  <SidebarContent activeView={activeView} />
+                </div>
+                <ResizeHandle direction="horizontal" onResize={handleSidebarResize} />
+              </>
             )}
 
             <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
               {hasWorkspace && !showWelcome && <EditorToolbar />}
               <div className="flex-1 min-h-0">
                 {showWelcome || !hasWorkspace ? (
-                  <WelcomeScreen />
+                  <WelcomeScreen onWorkspaceOpened={() => setShowWelcome(false)} />
                 ) : (
                   <HyprEditor />
                 )}
               </div>
             </div>
 
-            {!zenMode && chatVisible && panelOrder === 'reversed' && (
-              <ResizeHandle direction="horizontal" onResize={handleChatResize} />
-            )}
-
             {!zenMode && chatVisible && (
-              <div
-                draggable={!zenMode}
-                onDragStart={(e) => handleDragStart(e, 'chat')}
-                onDragOver={(e) => handleDragOver(e, 'chat')}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, 'chat')}
-                className={`flex-shrink-0 overflow-hidden transition-all duration-200 ${
-                  dragOverSide === 'chat' ? 'ring-2 ring-[var(--color-secondary-accent)]/50 rounded-lg' : ''
-                }`}
-                style={{ width: chatMinimized ? 200 : chatWidth }}
-              >
-                <HyprChat
-                  isPinned={chatPinned}
-                  isMinimized={chatMinimized}
-                  onPin={() => setChatPinned(p => !p)}
-                  onMinimize={() => setChatMinimized(m => !m)}
-                  onClose={() => setChatVisible(false)}
-                />
-              </div>
-            )}
-
-            {!zenMode && chatVisible && panelOrder === 'normal' && (
-              <ResizeHandle direction="horizontal" onResize={handleChatResize} />
-            )}
-
-            {!zenMode && sidebarVisible && panelOrder === 'reversed' && (
-              <ResizeHandle direction="horizontal" onResize={handleSidebarResize} />
+              <>
+                <ResizeHandle direction="horizontal" onResize={handleChatResize} />
+                <div
+                  draggable={!zenMode}
+                  onDragStart={(e) => handleDragStart(e, 'chat')}
+                  onDragOver={(e) => handleDragOver(e, 'chat')}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, 'chat')}
+                  className={`flex-shrink-0 overflow-hidden transition-all duration-200 ${
+                    dragOverSide === 'chat' ? 'ring-2 ring-[var(--color-secondary-accent)]/50 rounded-lg' : ''
+                  }`}
+                  style={{ width: chatMinimized ? 200 : chatWidth }}
+                >
+                  <HyprChat
+                    isPinned={chatPinned}
+                    isMinimized={chatMinimized}
+                    onPin={() => setChatPinned(p => !p)}
+                    onMinimize={() => setChatMinimized(m => !m)}
+                    onClose={() => setChatVisible(false)}
+                  />
+                </div>
+              </>
             )}
           </div>
 

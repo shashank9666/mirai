@@ -3,34 +3,29 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
-  FolderOpen, Clock, ChevronRight, Folder, Server,
-  HardDrive, ArrowLeft, Sparkles, FileCode, Plus,
+  FolderOpen, ChevronRight, Folder,
+  HardDrive, ArrowLeft, Sparkles,
   History, X,
 } from 'lucide-react';
 import { useIdeStore } from '@/store/ideStore';
 import { api, type FileEntry } from '@/lib/api';
 
-export default function WelcomeScreen() {
+export default function WelcomeScreen({ onWorkspaceOpened }: { onWorkspaceOpened?: () => void }) {
   const { setWorkspace, recentWorkspaces } = useIdeStore();
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [drives, setDrives] = useState<{ name: string; label: string }[]>([]);
   const [currentDir, setCurrentDir] = useState<string | null>(null);
   const [dirEntries, setDirEntries] = useState<FileEntry[]>([]);
-  const [recent, setRecent] = useState<string[]>([]);
+  const [recentList, setRecentList] = useState<string[]>([]);
 
+  // Load recent from both localStorage and store
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('miraiRecentWorkspaces');
-      if (stored) setRecent(JSON.parse(stored));
-    } catch {}
-    api.healthCheck().then(() => {
-      api.workspaceCurrent().then((ws) => {
-        if (ws?.path) {
-          setWorkspace(ws.path, ws.name);
-        }
-      }).catch(() => {});
-    }).catch(() => {});
-  }, [setWorkspace]);
+    const stored = localStorage.getItem('miraiRecentWorkspaces');
+    const localRecent: string[] = stored ? JSON.parse(stored) : [];
+    const storeRecent = recentWorkspaces || [];
+    const merged = [...new Set([...storeRecent, ...localRecent])];
+    setRecentList(merged);
+  }, [recentWorkspaces]);
 
   const openFolderPicker = useCallback(async () => {
     const d = await api.workspaceListDrives().catch(() => ({ drives: [] }));
@@ -53,15 +48,17 @@ export default function WelcomeScreen() {
     if (result) {
       setWorkspace(result.path, result.name);
       setShowFolderPicker(false);
+      onWorkspaceOpened?.();
     }
-  }, [setWorkspace]);
+  }, [setWorkspace, onWorkspaceOpened]);
 
   const openRecent = useCallback(async (path: string) => {
     const result = await api.workspaceSet(path).catch(() => null);
     if (result) {
       setWorkspace(result.path, result.name);
+      onWorkspaceOpened?.();
     }
-  }, [setWorkspace]);
+  }, [setWorkspace, onWorkspaceOpened]);
 
   if (showFolderPicker) {
     return (
@@ -142,14 +139,14 @@ export default function WelcomeScreen() {
         </div>
 
         {/* Recent Workspaces */}
-        {recent.length > 0 && (
+        {recentList.length > 0 && (
           <div className="w-full">
             <div className="flex items-center gap-2 mb-2 px-1">
               <History className="w-3 h-3 text-white/20" />
               <span className="text-[10px] font-mono text-white/20 uppercase tracking-wider">Recent</span>
             </div>
             <div className="space-y-1">
-              {recent.slice(0, 5).map((path) => {
+              {recentList.slice(0, 5).map((path) => {
                 const name = path.split(/[\\/]/).filter(Boolean).pop() || path;
                 return (
                   <button

@@ -217,13 +217,13 @@ export default function HyprSidebar() {
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const [renameTarget, setRenameTarget] = useState<ContextMenu | null>(null);
   const [newItemTarget, setNewItemTarget] = useState<{ parentPath: string; type: 'file' | 'folder' } | null>(null);
-  const { renameTab } = useIdeStore();
+  const { renameTab, workspacePath } = useIdeStore();
 
   const refresh = useCallback(() => {
-    api.readDir().then(({ entries }) => setRootNodes(entries));
+    api.readDir().then(({ entries }) => setRootNodes(entries)).catch(() => setRootNodes([]));
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { refresh(); }, [refresh, workspacePath]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, path: string, name: string, isDir: boolean) => {
     setContextMenu({ x: e.clientX, y: e.clientY, type: isDir ? 'directory' : 'file', path, name, isDir });
