@@ -8,14 +8,22 @@
   "scripts": {
     "dev:frontend": "npm run dev --prefix frontend -- -p 3000",
     "dev:backend": "cd backend/python && .\\venv\\Scripts\\python.exe -m uvicorn main:app --reload",
+    "dev:electron": "npx wait-on http://localhost:3000 && npx electron .",
     "dev:clean": "powershell -ExecutionPolicy Bypass -File scripts/kill-all.ps1 && npm run dev",
-    "dev": "npx concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev": "npx concurrently -n fe,be,el -c cyan,green,magenta \"npm run dev:frontend\" \"npm run dev:backend\" \"npm run dev:electron\"",
+    "dev:noel": "npx concurrently -n fe,be -c cyan,green \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:fe": "npm run dev:frontend",
+    "dev:be": "npm run dev:backend",
     "build:frontend": "npm run build --prefix frontend",
     "build:backend": "echo \"Python backend does not require a build step\"",
     "build": "npm run build:frontend && npm run build:backend",
-    "electron:dev": "npx concurrently \"npm run dev:frontend\" \"npx wait-on http://localhost:3000 && npx electron .\"",
     "electron:build": "npm run build:frontend && npx electron-builder",
-    "electron:start": "npx electron ."
+    "electron:start": "npm run dev:frontend & npx wait-on http://localhost:3000 && npx electron .",
+    "typecheck": "npm run typecheck --prefix frontend",
+    "lint": "npm run lint --prefix frontend",
+    "clean": "rm -rf frontend/.next dist-electron && echo \"Cleaned build artifacts\"",
+    "format": "prettier --write \"frontend/src/**/*.{ts,tsx,css}\" \"electron/**/*.js\"",
+    "kill": "powershell -ExecutionPolicy Bypass -File scripts/kill-all.ps1"
   },
   "devDependencies": {
     "@tsconfig/bun": "^1.0.10",

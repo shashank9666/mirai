@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import PanelHeader from './PanelHeader';
-import { Send, Sparkles, Bot, Code2, Bug, Eye, Square } from 'lucide-react';
+import { Send, Sparkles, Bot, Code2, Bug, Eye, Square, WifiOff } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -67,6 +67,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -74,13 +75,26 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
   const activeModeObj = MODES.find((m) => m.id === activeMode)!;
 
+  // Health check on mount
+  useEffect(() => {
+    const checkBackend = async () => {
+      try {
+        const res = await fetch('http://127.0.0.1:8000/docs', { method: 'HEAD', signal: AbortSignal.timeout(3000) });
+        setBackendAvailable(res.ok);
+      } catch {
+        setBackendAvailable(false);
+      }
+    };
+    checkBackend();
+    const interval = setInterval(checkBackend, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
+  useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
   const stopGeneration = () => {
     abortRef.current?.abort();
@@ -90,6 +104,11 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const sendMessage = async () => {
     const text = input.trim();
     if (!text || isStreaming) return;
+
+    if (backendAvailable === false) {
+      setError('Cannot connect to AI backend. Make sure the server is running on port 8000.');
+      return;
+    }
 
     setError(null);
     const userMessage: Message = { role: 'user', content: text };
@@ -122,7 +141,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
       });
 
       if (!res.ok) {
-        throw new Error(`Server responded with ${res.status}`);
+        throw new Error(`Server responded with ${res.status}${res.status === 500 ? ' - internal error' : ''}`);
       }
 
       const reader = res.body?.getReader();
@@ -162,7 +181,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                 return updated;
               });
             } else if (event.type === 'error') {
-              throw new Error(event.content || 'Unknown error');
+              throw new Error(event.content || 'Unknown error from AI');
             }
           } catch {
             // skip malformed lines
@@ -175,15 +194,12 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
           const updated = [...prev];
           const last = updated[updated.length - 1];
           if (last.role === 'assistant' && !last.content) {
-            updated[updated.length - 1] = {
-              role: 'assistant',
-              content: '(Generation stopped)',
-            };
+            updated[updated.length - 1] = { role: 'assistant', content: '(Generation stopped)' };
           }
           return updated;
         });
       } else {
-        const msg = err instanceof Error ? err.message : 'Failed to connect to backend';
+        const msg = err instanceof Error ? err.message : 'Failed to connect to AI backend';
         setError(msg);
         setMessages((prev) => prev.filter((_, i) => i < prev.length - 1));
       }
@@ -193,6 +209,12 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
       inputRef.current?.focus();
     }
   };
+
+  const backendIndicator = backendAvailable === null
+    ? 'bg-yellow-500 animate-pulse'
+    : backendAvailable
+    ? 'bg-green-500'
+    : 'bg-red-500';
 
   return (
     <div className="hypr-panel w-full h-full flex flex-col overflow-hidden">
@@ -205,9 +227,12 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
         onClose={onClose}
         accentColor="#7C3AED"
       >
-        {isStreaming && (
-          <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse shadow-[0_0_8px_#a855f7] ml-auto" />
-        )}
+        <div className="flex items-center gap-2 ml-auto">
+          <div className={`w-1.5 h-1.5 rounded-full ${backendIndicator}`} title={backendAvailable ? 'Backend connected' : backendAvailable === null ? 'Checking...' : 'Backend offline'} />
+          {isStreaming && (
+            <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse shadow-[0_0_8px_#a855f7]" />
+          )}
+        </div>
       </PanelHeader>
 
       {!isMinimized && (
@@ -217,16 +242,11 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
             {MODES.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
-                onClick={() => {
-                  setActiveMode(id);
-                  inputRef.current?.focus();
-                }}
+                onClick={() => { setActiveMode(id); inputRef.current?.focus(); }}
                 className={`px-2 py-1 rounded-md text-[10px] font-mono flex items-center gap-1 transition-all whitespace-nowrap
-                  ${
-                    activeMode === id
-                      ? 'bg-[var(--color-primary-accent)]/20 text-purple-300'
-                      : 'text-white/30 hover:text-white/60 hover:bg-white/5'
-                  }`}
+                  ${activeMode === id
+                    ? 'bg-[var(--color-primary-accent)]/20 text-purple-300'
+                    : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
               >
                 <Icon className="w-3 h-3" />
                 {label}
@@ -234,17 +254,27 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
             ))}
           </div>
 
-          {/* System Prompt Header */}
+          {/* System Prompt */}
           <div className="px-3 py-1.5 text-[10px] text-white/25 font-mono border-b border-white/5 shrink-0 truncate">
             {activeModeObj.systemPrompt}
           </div>
+
+          {/* Backend offline banner */}
+          {backendAvailable === false && messages.length === 0 && (
+            <div className="mx-3 mt-2 px-3 py-2 rounded-xl text-[10px] font-mono bg-red-500/10 text-red-400 border border-red-500/20 flex items-center gap-2">
+              <WifiOff className="w-3 h-3 shrink-0" />
+              <span>Backend server not available. AI features are disabled.</span>
+            </div>
+          )}
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex flex-col gap-3">
             {messages.length === 0 && !error && (
               <div className="flex-1 flex items-center justify-center">
                 <p className="text-[11px] text-white/20 font-mono">
-                  Start a conversation in {activeModeObj.label} mode...
+                  {backendAvailable === false
+                    ? 'Backend offline. Start the server to chat.'
+                    : `Start a conversation in ${activeModeObj.label} mode...`}
                 </p>
               </div>
             )}
@@ -288,8 +318,8 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                     sendMessage();
                   }
                 }}
-                placeholder="Ask AI..."
-                disabled={isStreaming}
+                placeholder={backendAvailable === false ? 'Backend offline' : 'Ask AI...'}
+                disabled={isStreaming || backendAvailable === false}
                 className="flex-1 bg-transparent border-none outline-none text-[12px] text-white/90 placeholder:text-white/25 font-mono disabled:opacity-40"
               />
               {isStreaming ? (
@@ -302,7 +332,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
               ) : (
                 <button
                   onClick={sendMessage}
-                  disabled={!input.trim()}
+                  disabled={!input.trim() || backendAvailable === false}
                   className="w-6 h-6 rounded-lg bg-[var(--color-primary-accent)] flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-30"
                 >
                   <Send className="w-3 h-3 text-white" />

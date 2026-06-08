@@ -5,9 +5,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Terminal, Sparkles, Settings, Save, RotateCcw,
   FilePlus, FolderPlus, X, Copy, Layout, GitBranch, SearchCode,
+  Maximize2, Columns2, Rows2, WrapText, Map, Pin,
+  Braces, Pilcrow, MousePointer2, Type, UnfoldVertical, FoldVertical,
+  ZoomIn, ZoomOut, RefreshCw, Scissors,
 } from 'lucide-react';
 import { useIdeStore } from '@/store/ideStore';
-import { api } from '@/lib/api';
 
 interface Command {
   id: string;
@@ -27,9 +29,11 @@ export default function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const store = useIdeStore();
-  const { activeFile, saveFile, saveAllFiles, revertFile, closeTab, closeAllTabs, closeOtherTabs } = store;
+  const { saveFile, saveAllFiles, revertFile, closeTab, closeAllTabs, closeOtherTabs, getActiveGroup } = store;
+  const activeFile = getActiveGroup()?.activeFile || null;
 
   const commands: Command[] = useMemo(() => [
+    // File commands
     { id: 'save', label: 'Save File', category: 'File', icon: <Save className="w-4 h-4" />, shortcut: 'Ctrl+S', action: () => saveFile() },
     { id: 'saveAll', label: 'Save All Files', category: 'File', icon: <Save className="w-4 h-4 text-green-400" />, shortcut: 'Ctrl+Shift+S', action: () => saveAllFiles() },
     { id: 'revert', label: 'Revert File', category: 'File', icon: <RotateCcw className="w-4 h-4" />, shortcut: 'Ctrl+Shift+Z', action: () => revertFile() },
@@ -38,15 +42,111 @@ export default function CommandPalette() {
     { id: 'closeOthers', label: 'Close Other Tabs', category: 'File', icon: <Copy className="w-4 h-4" />, action: () => activeFile && closeOtherTabs(activeFile) },
     { id: 'newFile', label: 'New File', category: 'File', icon: <FilePlus className="w-4 h-4" />, action: () => emit('newFile') },
     { id: 'newFolder', label: 'New Folder', category: 'File', icon: <FolderPlus className="w-4 h-4" />, action: () => emit('newFolder') },
+
+    // View commands
     { id: 'toggleTerminal', label: 'Toggle Terminal Panel', category: 'View', icon: <Terminal className="w-4 h-4" />, shortcut: 'Ctrl+`', action: () => emit('toggleTerminal') },
     { id: 'toggleSidebar', label: 'Toggle Explorer Sidebar', category: 'View', icon: <Layout className="w-4 h-4" />, shortcut: 'Ctrl+B', action: () => emit('toggleSidebar') },
     { id: 'toggleChat', label: 'Toggle AI Chat Panel', category: 'View', icon: <Sparkles className="w-4 h-4" />, shortcut: 'Ctrl+J', action: () => emit('toggleChat') },
     { id: 'focusExplorer', label: 'Show Explorer', category: 'View', icon: <Layout className="w-4 h-4" />, action: () => emit('view:explorer') },
     { id: 'focusSearch', label: 'Show Search', category: 'View', icon: <Search className="w-4 h-4" />, shortcut: 'Ctrl+Shift+F', action: () => emit('view:search') },
     { id: 'focusGit', label: 'Show Source Control', category: 'View', icon: <GitBranch className="w-4 h-4" />, action: () => emit('view:git') },
+
+    // Editor - Layout
+    { id: 'zenMode', label: 'Toggle Zen Mode', category: 'Editor', icon: <Maximize2 className="w-4 h-4" />, shortcut: 'Ctrl+K Z', action: () => emit('toggleZenMode') },
+    { id: 'fullscreen', label: 'Toggle Fullscreen', category: 'Editor', icon: <Maximize2 className="w-4 h-4 text-blue-400" />, shortcut: 'F11', action: () => emit('toggleFullscreen') },
+    { id: 'splitRight', label: 'Split Editor Right', category: 'Editor', icon: <Columns2 className="w-4 h-4" />, shortcut: 'Ctrl+\\', action: () => emit('splitHorizontal') },
+    { id: 'splitDown', label: 'Split Editor Down', category: 'Editor', icon: <Rows2 className="w-4 h-4" />, action: () => emit('splitVertical') },
+    { id: 'closeGroup', label: 'Close Editor Group', category: 'Editor', icon: <X className="w-4 h-4" />, action: () => emit('closeGroup') },
+
+    // Editor - Display
+    { id: 'toggleWordWrap', label: 'Toggle Word Wrap', category: 'Editor', icon: <WrapText className="w-4 h-4" />, shortcut: 'Alt+Z', action: () => emit('toggleWordWrap') },
+    { id: 'toggleMinimap', label: 'Toggle Minimap', category: 'Editor', icon: <Map className="w-4 h-4" />, action: () => emit('toggleMinimap') },
+    { id: 'toggleStickyScroll', label: 'Toggle Sticky Scroll', category: 'Editor', icon: <Pin className="w-4 h-4" />, action: () => emit('toggleStickyScroll') },
+    { id: 'toggleFolding', label: 'Toggle Code Folding', category: 'Editor', icon: <FoldVertical className="w-4 h-4" />, action: () => emit('toggleFolding') },
+    { id: 'foldAll', label: 'Fold All', category: 'Editor', icon: <FoldVertical className="w-4 h-4" />, shortcut: 'Ctrl+Shift+O', action: () => {
+      const editor = (window as any).__miraiEditor;
+      editor?.getAction('editor.foldAll')?.run();
+    }},
+    { id: 'unfoldAll', label: 'Unfold All', category: 'Editor', icon: <UnfoldVertical className="w-4 h-4" />, shortcut: 'Ctrl+Shift+J', action: () => {
+      const editor = (window as any).__miraiEditor;
+      editor?.getAction('editor.unfoldAll')?.run();
+    }},
+
+    // Editor - Formatting
+    { id: 'toggleBracketColor', label: 'Toggle Bracket Pair Colorization', category: 'Editor', icon: <Braces className="w-4 h-4" />, action: () => emit('toggleBracketColorization') },
+    { id: 'toggleFormatOnSave', label: 'Toggle Format on Save', category: 'Editor', icon: <Pilcrow className="w-4 h-4" />, action: () => emit('toggleFormatOnSave') },
+    { id: 'formatDocument', label: 'Format Document', category: 'Editor', icon: <Pilcrow className="w-4 h-4 text-blue-400" />, shortcut: 'Shift+Alt+F', action: () => {
+      const editor = (window as any).__miraiEditor;
+      editor?.getAction('editor.action.formatDocument')?.run();
+    }},
+    { id: 'formatSelection', label: 'Format Selection', category: 'Editor', icon: <Pilcrow className="w-4 h-4 text-green-400" />, shortcut: 'Ctrl+K Ctrl+F', action: () => {
+      const editor = (window as any).__miraiEditor;
+      editor?.getAction('editor.action.formatSelection')?.run();
+    }},
+
+    // Editor - Font
+    { id: 'zoomIn', label: 'Increase Font Size', category: 'Editor', icon: <ZoomIn className="w-4 h-4" />, shortcut: 'Ctrl+=', action: () => emit('increaseFontSize') },
+    { id: 'zoomOut', label: 'Decrease Font Size', category: 'Editor', icon: <ZoomOut className="w-4 h-4" />, shortcut: 'Ctrl+-', action: () => emit('decreaseFontSize') },
+    { id: 'resetZoom', label: 'Reset Font Size', category: 'Editor', icon: <RefreshCw className="w-4 h-4" />, shortcut: 'Ctrl+0', action: () => emit('resetFontSize') },
+    { id: 'toggleMouseZoom', label: 'Toggle Mouse Wheel Zoom', category: 'Editor', icon: <MousePointer2 className="w-4 h-4" />, action: () => useIdeStore.getState().toggleMouseWheelZoom() },
+
+    // Editor - Cursor & Selection
+    { id: 'addCursorAbove', label: 'Add Cursor Above', category: 'Editor', icon: <Scissors className="w-4 h-4" />, shortcut: 'Ctrl+Alt+Up', action: () => {
+      const editor = (window as any).__miraiEditor;
+      editor?.getAction('editor.action.insertCursorAbove')?.run();
+    }},
+    { id: 'addCursorBelow', label: 'Add Cursor Below', category: 'Editor', icon: <Scissors className="w-4 h-4" />, shortcut: 'Ctrl+Alt+Down', action: () => {
+      const editor = (window as any).__miraiEditor;
+      editor?.getAction('editor.action.insertCursorBelow')?.run();
+    }},
+    { id: 'selectAllOccurrences', label: 'Select All Occurrences', category: 'Editor', icon: <Scissors className="w-4 h-4 text-yellow-400" />, shortcut: 'Ctrl+Shift+L', action: () => {
+      const editor = (window as any).__miraiEditor;
+      editor?.getAction('editor.action.selectHighlights')?.run();
+    }},
+    { id: 'multiCursorSelect', label: 'Column Selection Mode', category: 'Editor', icon: <Scissors className="w-4 h-4 text-purple-400" />, shortcut: 'Shift+Alt+Mouse', action: () => {
+      const editor = (window as any).__miraiEditor;
+      if (editor) {
+        const current = editor.getOption(117); // EditorOption.columnSelection
+        editor.updateOptions({ columnSelection: !current });
+      }
+    }},
+
+    // Editor - Navigation
+    { id: 'goToLine', label: 'Go to Line', category: 'Editor', icon: <Type className="w-4 h-4" />, shortcut: 'Ctrl+G', action: () => {
+      const editor = (window as any).__miraiEditor;
+      editor?.getAction('editor.action.gotoLine')?.run();
+    }},
+    { id: 'goToDefinition', label: 'Go to Definition', category: 'Editor', icon: <Type className="w-4 h-4 text-blue-400" />, shortcut: 'F12', action: () => {
+      const editor = (window as any).__miraiEditor;
+      editor?.getAction('editor.action.revealDefinition')?.run();
+    }},
+    { id: 'peekDefinition', label: 'Peek Definition', category: 'Editor', icon: <Type className="w-4 h-4 text-green-400" />, shortcut: 'Alt+F12', action: () => {
+      const editor = (window as any).__miraiEditor;
+      editor?.getAction('editor.action.peekDefinition')?.run();
+    }},
+    { id: 'goToReferences', label: 'Go to References', category: 'Editor', icon: <Type className="w-4 h-4 text-orange-400" />, shortcut: 'Shift+F12', action: () => {
+      const editor = (window as any).__miraiEditor;
+      editor?.getAction('editor.action.goToReferences')?.run();
+    }},
+    { id: 'findReferences', label: 'Find All References', category: 'Editor', icon: <SearchCode className="w-4 h-4 text-cyan-400" />, action: () => {
+      const editor = (window as any).__miraiEditor;
+      editor?.getAction('editor.action.findReferences')?.run();
+    }},
+    { id: 'renameSymbol', label: 'Rename Symbol', category: 'Editor', icon: <Type className="w-4 h-4 text-pink-400" />, shortcut: 'F2', action: () => {
+      const editor = (window as any).__miraiEditor;
+      editor?.getAction('editor.action.rename')?.run();
+    }},
+    { id: 'toggleParameterHints', label: 'Toggle Parameter Hints', category: 'Editor', icon: <Type className="w-4 h-4" />, shortcut: 'Ctrl+Shift+Space', action: () => {
+      const editor = (window as any).__miraiEditor;
+      editor?.getAction('editor.action.triggerParameterHints')?.run();
+    }},
+
+    // AI commands
     { id: 'aiGenerate', label: 'AI: Generate Code', category: 'AI', icon: <Sparkles className="w-4 h-4 text-purple-400" />, action: () => emit('ai:generate') },
     { id: 'aiExplain', label: 'AI: Explain Code', category: 'AI', icon: <Sparkles className="w-4 h-4 text-purple-400" />, action: () => emit('ai:explain') },
     { id: 'aiRefactor', label: 'AI: Refactor Code', category: 'AI', icon: <Sparkles className="w-4 h-4 text-purple-400" />, action: () => emit('ai:refactor') },
+
+    // System
     { id: 'settings', label: 'Open Settings', category: 'System', icon: <Settings className="w-4 h-4" />, action: () => emit('settings') },
   ], [activeFile, saveFile, saveAllFiles, revertFile, closeTab, closeAllTabs, closeOtherTabs]);
 

@@ -121,6 +121,9 @@ function getLanguageFromPath(path: string): string {
 }
 
 interface IdeState {
+  workspacePath: string | null;
+  workspaceName: string | null;
+  recentWorkspaces: string[];
   activeGroupId: string;
   groups: EditorGroup[];
   editorSettings: EditorSettings;
@@ -168,11 +171,18 @@ interface IdeState {
 
   openDiff: (filePath: string, original: string, modified: string) => void;
   closeDiff: () => void;
+
+  setWorkspace: (path: string, name: string) => void;
+  clearWorkspace: () => void;
+  addRecentWorkspace: (path: string) => void;
 }
 
 let groupCounter = 1;
 
 export const useIdeStore = create<IdeState>((set, get) => ({
+  workspacePath: null,
+  workspaceName: null,
+  recentWorkspaces: [],
   activeGroupId: 'group-1',
   groups: [
     {
@@ -389,21 +399,24 @@ export const useIdeStore = create<IdeState>((set, get) => ({
     return { groups: newGroups };
   }),
 
-  addGroup: (direction) => set((state) => {
+  addGroup: (direction) => {
     const newId = `group-${++groupCounter}`;
-    const newGroup: EditorGroup = {
-      id: newId,
-      activeFile: null,
-      activeFileContent: '',
-      tabs: [],
-      closedTabs: [],
-    };
-    return {
-      groups: [...state.groups, newGroup],
-      activeGroupId: newId,
-      splitDirection: direction,
-    };
-  }),
+    set((state) => {
+      const newGroup: EditorGroup = {
+        id: newId,
+        activeFile: null,
+        activeFileContent: '',
+        tabs: [],
+        closedTabs: [],
+      };
+      return {
+        groups: [...state.groups, newGroup],
+        activeGroupId: newId,
+        splitDirection: direction,
+      };
+    });
+    return newId;
+  },
 
   removeGroup: (groupId) => set((state) => {
     if (state.groups.length <= 1) return {};
@@ -513,4 +526,33 @@ export const useIdeStore = create<IdeState>((set, get) => ({
     diffOriginal: '',
     diffModified: '',
   })),
+
+  setWorkspace: (path, name) => {
+    const state = get();
+    const recent = state.recentWorkspaces.filter(p => p !== path);
+    const newRecent = [path, ...recent].slice(0, 10);
+    set(() => ({ workspacePath: path, workspaceName: name, recentWorkspaces: newRecent }));
+    try {
+      localStorage.setItem('miraiRecentWorkspaces', JSON.stringify(newRecent));
+      localStorage.setItem('miraiLastWorkspace', path);
+    } catch {}
+  },
+
+  clearWorkspace: () => set(() => ({
+    workspacePath: null,
+    workspaceName: null,
+    groups: [{
+      id: 'group-1',
+      activeFile: null,
+      activeFileContent: '',
+      tabs: [],
+      closedTabs: [],
+    }],
+    activeGroupId: 'group-1',
+  })),
+
+  addRecentWorkspace: (path) => set((state) => {
+    const recent = state.recentWorkspaces.filter(p => p !== path);
+    return { recentWorkspaces: [path, ...recent].slice(0, 10) };
+  }),
 }));

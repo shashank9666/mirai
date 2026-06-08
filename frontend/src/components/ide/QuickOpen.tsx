@@ -61,16 +61,10 @@ function fuzzyScore(query: string, path: string): number {
   const filename = path.split(/[\\/]/).pop()?.toLowerCase() || '';
   const fullPath = path.toLowerCase();
 
-  // Exact match on filename gets max score
   if (filename === q) return 1000;
-
-  // Filename starts with query
   if (filename.startsWith(q)) return 800;
-
-  // Full path ends with query
   if (fullPath.endsWith(q)) return 700;
 
-  // Fuzzy character matching
   let score = 0;
   let qi = 0;
   let lastMatchIndex = -1;
@@ -79,45 +73,28 @@ function fuzzyScore(query: string, path: string): number {
 
   for (let fi = 0; fi < fullPath.length && qi < q.length; fi++) {
     if (fullPath[fi] === q[qi]) {
-      // Base score for match
       score += 10;
-
-      // Bonus for matching in filename (last segment) vs path
       const isFilename = fi >= fullPath.length - filename.length;
       if (isFilename) score += 20;
-
-      // Bonus for word boundary matches (after / or \ or . or - or _)
       if (fi === 0 || ['/', '\\', '.', '-', '_', ' '].includes(fullPath[fi - 1])) {
         score += 30;
         wordBoundaryMatches++;
       }
-
-      // Consecutive character bonus
       if (lastMatchIndex === fi - 1) {
         consecutiveBonus += 15;
         score += consecutiveBonus;
       } else {
         consecutiveBonus = 0;
       }
-
-      // Penalty for distance from start
       score -= Math.floor(fi / 5);
-
       lastMatchIndex = fi;
       qi++;
     }
   }
 
-  // Must match all characters
   if (qi < q.length) return 0;
-
-  // Bonus for more word boundary matches (more relevant = higher score)
   score += wordBoundaryMatches * 10;
-
-  // Prefer shorter paths (more relevant)
   score -= Math.floor(path.length / 20);
-
-  // All query characters matched in order
   return score;
 }
 
@@ -130,7 +107,9 @@ export default function QuickOpen() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const store = useIdeStore();
-  const { tabs, activeFile, setActiveFile } = store;
+  const { activeGroupId } = store;
+  const activeGroup = store.getGroupById(activeGroupId);
+  const tabs = activeGroup?.tabs || [];
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -176,7 +155,6 @@ export default function QuickOpen() {
 
   const results = useMemo<FileItem[]>(() => {
     if (!query) {
-      // Show recently opened files from tabs
       return [...tabs].reverse().map((tab) => ({
         path: tab.path,
         score: 1000,
@@ -194,7 +172,7 @@ export default function QuickOpen() {
     try {
       const { content } = await api.readFile(filePath);
       const name = filePath.split(/[\\/]/).pop() || filePath;
-      setActiveFile(filePath, name, content);
+      useIdeStore.getState().setActiveFile(filePath, name, content);
       setIsOpen(false);
     } catch (err) {
       console.error('Failed to open file:', err);
@@ -220,7 +198,6 @@ export default function QuickOpen() {
     const parts: React.ReactNode[] = [];
     let lastIdx = 0;
 
-    // Find matching segments for highlighting
     let qi = 0;
     for (let fi = 0; fi < text.length && qi < ql.length; fi++) {
       if (lower[fi] === ql[qi]) {

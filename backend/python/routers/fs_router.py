@@ -171,7 +171,7 @@ async def search_files(req: SearchFilesRequest):
                                 matches.append({"line": i, "text": line.rstrip()})
                         if matches:
                             results.append({
-                                "path": os.path.relpath(full_path, workspace_manager.root_path),
+                                "path": os.path.relpath(full_path, workspace_manager.workspace_root),
                                 "matches": matches,
                             })
                 except Exception:

@@ -13,8 +13,6 @@ import {
 } from 'lucide-react';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws/terminal';
-const MAX_RECONNECT_DELAY = 30000;
-const BASE_RECONNECT_DELAY = 1000;
 
 const TABS = [
   { id: 'terminal', label: 'Terminal', icon: TerminalIcon },
@@ -32,7 +30,7 @@ interface TerminalPanelProps {
   onClose: () => void;
 }
 
-type ConnectionStatus = 'connected' | 'disconnected' | 'reconnecting';
+type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
 interface TerminalTab {
   id: string;
@@ -52,109 +50,61 @@ function createTab(): TerminalTab {
   };
 }
 
-function useTerminalWebSocket(
-  tabId: string,
-  onOutput: (data: string) => void,
-  onStatusChange: (status: ConnectionStatus) => void,
-  containerRef: React.RefObject<HTMLDivElement | null>,
-) {
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectDelayRef = useRef(BASE_RECONNECT_DELAY);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const mountedRef = useRef(true);
-
-  const sendResize = useCallback(() => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    const el = containerRef.current;
-    if (!el) return;
-    const cols = Math.floor(el.clientWidth / 7);
-    const rows = Math.floor(el.clientHeight / 16);
-    if (cols > 0 && rows > 0) {
-      wsRef.current.send(JSON.stringify({ event: 'terminal:resize', data: { cols, rows } }));
-    }
-  }, [containerRef]);
-
-  const connect = useCallback(() => {
-    if (!mountedRef.current) return;
-
-    try {
-      const ws = new WebSocket(WS_URL);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        if (!mountedRef.current) return;
-        reconnectDelayRef.current = BASE_RECONNECT_DELAY;
-        onStatusChange('connected');
-        sendResize();
-      };
-
-      ws.onmessage = (event) => {
-        if (!mountedRef.current) return;
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.event === 'terminal:data' && typeof msg.data === 'string') {
-            onOutput(msg.data);
-          }
-        } catch {
-          // Non-JSON message, treat as raw data
-          onOutput(event.data);
-        }
-      };
-
-      ws.onclose = () => {
-        if (!mountedRef.current) return;
-        wsRef.current = null;
-        onStatusChange('disconnected');
-        scheduleReconnect();
-      };
-
-      ws.onerror = () => {
-        ws.close();
-      };
-    } catch {
-      onStatusChange('disconnected');
-      scheduleReconnect();
-    }
-  }, [onOutput, onStatusChange, sendResize]);
-
-  const scheduleReconnect = useCallback(() => {
-    if (!mountedRef.current) return;
-    onStatusChange('reconnecting');
-    reconnectTimerRef.current = setTimeout(() => {
-      reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, MAX_RECONNECT_DELAY);
-      connect();
-    }, reconnectDelayRef.current);
-  }, [connect, onStatusChange]);
-
-  const sendInput = useCallback((text: string) => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ event: 'terminal:write', data: text }));
-    }
-  }, []);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    connect();
-
-    return () => {
-      mountedRef.current = false;
-      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-      if (wsRef.current) wsRef.current.close();
-    };
-  }, [connect]);
-
-  return { sendInput, sendResize };
-}
-
-function TerminalInstance({ tab, onOutput, onStatusChange, containerRef }: {
+function TerminalInstance({ tab, onOutput, onStatusChange }: {
   tab: TerminalTab;
   onOutput: (data: string) => void;
   onStatusChange: (status: ConnectionStatus) => void;
-  containerRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const [input, setInput] = useState('');
+  const [manualInput, setManualInput] = useState('');
   const outputRef = useRef<HTMLDivElement>(null);
-  const { sendInput, sendResize } = useTerminalWebSocket(tab.id, onOutput, onStatusChange, containerRef);
+  const wsRef = useRef<WebSocket | null>(null);
+  const mountedRef = useRef(true);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    onStatusChange('connecting');
+
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      if (mountedRef.current) {
+        onStatusChange('connected');
+      }
+    };
+
+    ws.onmessage = (event) => {
+      if (!mountedRef.current) return;
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.event === 'terminal:data' && typeof msg.data === 'string') {
+          onOutput(msg.data);
+        }
+      } catch {
+        onOutput(event.data);
+      }
+    };
+
+    ws.onclose = () => {
+      if (mountedRef.current) {
+        onStatusChange('disconnected');
+      }
+    };
+
+    ws.onerror = () => {
+      if (mountedRef.current) {
+        onStatusChange('disconnected');
+        onOutput('\r\n[Error: Could not connect to terminal backend. Is the server running?]\r\n');
+      }
+    };
+
+    return () => {
+      mountedRef.current = false;
+      if (wsRef.current) wsRef.current.close();
+    };
+  }, []);
 
   useEffect(() => {
     if (outputRef.current) {
@@ -162,56 +112,58 @@ function TerminalInstance({ tab, onOutput, onStatusChange, containerRef }: {
     }
   }, [tab.output]);
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver(() => {
-      sendResize();
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, [containerRef, sendResize]);
-
   const handleSubmit = () => {
-    if (!input) return;
-    sendInput(input + '\n');
+    if (!input || tab.status !== 'connected') return;
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ event: 'terminal:write', data: input + '\n' }));
+    }
     setInput('');
+    inputRef.current?.focus();
   };
 
   const statusColor = tab.status === 'connected'
     ? 'bg-green-500'
-    : tab.status === 'reconnecting'
+    : tab.status === 'reconnecting' || tab.status === 'connecting'
     ? 'bg-yellow-500 animate-pulse'
     : 'bg-red-500';
+
+  const statusText = tab.status === 'connected'
+    ? 'Connected'
+    : tab.status === 'connecting'
+    ? 'Connecting...'
+    : tab.status === 'reconnecting'
+    ? 'Reconnecting...'
+    : 'Disconnected';
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div
-        ref={(el) => {
-          (outputRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-          (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-        }}
+        ref={outputRef}
         className="flex-1 p-3 font-mono text-[11px] overflow-y-auto custom-scrollbar leading-relaxed whitespace-pre-wrap break-all"
       >
-        {tab.output.length === 0 && (
-          <div className="text-white/30">
-            Connecting to terminal...
+        {tab.output.length === 0 && tab.status === 'connecting' && (
+          <div className="text-white/30 animate-pulse">Connecting to terminal...</div>
+        )}
+        {tab.output.length === 0 && tab.status === 'disconnected' && (
+          <div className="text-white/20">
+            <div className="text-red-400/60 mb-2">Terminal disconnected</div>
+            <div className="text-white/20 text-[10px]">Make sure the backend server is running on port 8000</div>
           </div>
         )}
         {tab.output.map((line, i) => (
-          <div key={i} className="text-white/70">
-            {line}
-          </div>
+          <div key={i} className="text-white/70">{line}</div>
         ))}
       </div>
 
       <div className="flex items-center gap-2 px-3 py-2 border-t border-white/5 shrink-0">
-        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusColor}`} />
+        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusColor}`} title={statusText} />
         <span className="text-blue-400 text-[11px] font-mono shrink-0">$</span>
         <input
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-          placeholder={tab.status === 'connected' ? 'Enter command...' : 'Waiting for connection...'}
+          placeholder={tab.status === 'connected' ? 'Enter command...' : statusText}
           disabled={tab.status !== 'connected'}
           className="flex-1 bg-transparent border-none outline-none text-[11px] text-white/80 placeholder:text-white/20 font-mono disabled:opacity-40"
           autoFocus
@@ -224,8 +176,15 @@ function TerminalInstance({ tab, onOutput, onStatusChange, containerRef }: {
 export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize, onClose }: TerminalPanelProps) {
   const [activeBottomTab, setActiveBottomTab] = useState('terminal');
   const [terminals, setTerminals] = useState<TerminalTab[]>(() => [createTab()]);
-  const [activeTermId, setActiveTermId] = useState<string>(() => terminals[0].id);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [activeTermId, setActiveTermId] = useState<string>(() => '');
+  const [showRetryBanner, setShowRetryBanner] = useState(false);
+
+  // Set initial activeTermId after terminals is initialized
+  useEffect(() => {
+    if (!activeTermId && terminals.length > 0) {
+      setActiveTermId(terminals[0].id);
+    }
+  }, [terminals, activeTermId]);
 
   const activeTerminal = terminals.find((t) => t.id === activeTermId) ?? terminals[0];
 
@@ -255,6 +214,8 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
     setTerminals((prev) =>
       prev.map((t) => (t.id === termId ? { ...t, status } : t)),
     );
+    if (status === 'connected') setShowRetryBanner(false);
+    if (status === 'disconnected') setShowRetryBanner(true);
   }, []);
 
   const addTerminal = () => {
@@ -272,6 +233,13 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
       }
       return next;
     });
+  };
+
+  const retryConnection = () => {
+    setShowRetryBanner(false);
+    const tab = createTab();
+    setTerminals((prev) => [...prev, tab]);
+    setActiveTermId(tab.id);
   };
 
   return (
@@ -304,9 +272,17 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
 
       {!isMinimized && (
         <div className="flex-1 flex flex-col overflow-hidden">
+          {showRetryBanner && (
+            <div className="px-3 py-1.5 bg-red-500/10 border-b border-red-500/20 flex items-center justify-between">
+              <span className="text-[10px] font-mono text-red-400">Cannot connect to terminal backend</span>
+              <button onClick={retryConnection} className="text-[10px] font-mono px-2 py-0.5 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors">
+                Retry
+              </button>
+            </div>
+          )}
+
           {activeBottomTab === 'terminal' && (
             <>
-              {/* Terminal tab bar */}
               <div className="flex items-center border-b border-white/5 shrink-0 overflow-x-auto custom-scrollbar">
                 {terminals.map((t) => (
                   <div
@@ -318,7 +294,7 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
                         : 'text-white/30 hover:text-white/60 hover:bg-white/[0.03]'}`}
                   >
                     <div className={`w-1.5 h-1.5 rounded-full ${
-                      t.status === 'connected' ? 'bg-green-500' : t.status === 'reconnecting' ? 'bg-yellow-500' : 'bg-white/20'
+                      t.status === 'connected' ? 'bg-green-500' : t.status === 'connecting' ? 'bg-yellow-500 animate-pulse' : 'bg-white/20'
                     }`} />
                     <span>{t.label}</span>
                     {terminals.length > 1 && (
@@ -343,14 +319,12 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
                 </button>
               </div>
 
-              {/* Active terminal */}
               {activeTerminal && (
                 <TerminalInstance
                   key={activeTerminal.id}
                   tab={activeTerminal}
                   onOutput={(data) => handleOutput(activeTerminal.id, data)}
                   onStatusChange={(status) => handleStatusChange(activeTerminal.id, status)}
-                  containerRef={containerRef}
                 />
               )}
             </>

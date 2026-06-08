@@ -1,9 +1,22 @@
 'use client';
 
 import React, { useCallback, useRef } from 'react';
-import Editor from '@monaco-editor/react';
+import { DiffEditor as MonacoDiffEditor } from '@monaco-editor/react';
 import { X, GitCompareArrows } from 'lucide-react';
 import { useIdeStore } from '@/store/ideStore';
+
+function getLanguageFromPath(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase() || '';
+  const langMap: Record<string, string> = {
+    ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
+    py: 'python', rb: 'ruby', go: 'go', rs: 'rust', java: 'java',
+    c: 'c', cpp: 'cpp', h: 'c', hpp: 'cpp', cs: 'csharp',
+    html: 'html', htm: 'html', css: 'css', scss: 'scss', less: 'less',
+    json: 'json', yaml: 'yaml', yml: 'yaml', toml: 'toml', xml: 'xml',
+    md: 'markdown', txt: 'plaintext', sql: 'sql', sh: 'shell', bash: 'shell',
+  };
+  return langMap[ext] || 'plaintext';
+}
 
 export default function DiffEditorPanel() {
   const { diffMode, diffFilePath, diffOriginal, diffModified, closeDiff, editorSettings } = useIdeStore();
@@ -36,7 +49,7 @@ export default function DiffEditorPanel() {
 
       {/* Monaco Diff Editor */}
       <div className="flex-1 min-h-0">
-        <Editor
+        <MonacoDiffEditor
           height="100%"
           language={getLanguageFromPath(diffFilePath)}
           original={diffOriginal}
@@ -66,17 +79,4 @@ export default function DiffEditorPanel() {
       </div>
     </div>
   );
-}
-
-function getLanguageFromPath(path: string): string {
-  const ext = path.split('.').pop()?.toLowerCase() || '';
-  const langMap: Record<string, string> = {
-    ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
-    py: 'python', rb: 'ruby', go: 'go', rs: 'rust', java: 'java',
-    c: 'c', cpp: 'cpp', h: 'c', hpp: 'cpp', cs: 'csharp',
-    html: 'html', htm: 'html', css: 'css', scss: 'scss', less: 'less',
-    json: 'json', yaml: 'yaml', yml: 'yaml', toml: 'toml', xml: 'xml',
-    md: 'markdown', txt: 'plaintext', sql: 'sql', sh: 'shell', bash: 'shell',
-  };
-  return langMap[ext] || 'plaintext';
 }

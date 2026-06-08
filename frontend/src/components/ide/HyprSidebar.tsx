@@ -149,7 +149,8 @@ const TreeItem = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [children, setChildren] = useState<FileEntry[]>([]);
-  const { setActiveFile, activeFile } = useIdeStore();
+  const { setActiveFile, getActiveGroup } = useIdeStore();
+  const activeFile = getActiveGroup()?.activeFile || null;
 
   const handleToggle = async () => {
     if (node.isDirectory) {

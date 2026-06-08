@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
-from routers import fs_router, web_router, tasks_router, git_router, agent_router, settings_router
+from routers import fs_router, web_router, tasks_router, git_router, agent_router, settings_router, workspace_router
 from services import terminal, watcher
 
 app = FastAPI(title="Mirai Backend")
@@ -22,6 +22,7 @@ app.include_router(tasks_router.router, prefix="/api/tasks", tags=["Tasks"])
 app.include_router(git_router.router, prefix="/api/git", tags=["Git"])
 app.include_router(agent_router.router, prefix="/api", tags=["Agent"])
 app.include_router(settings_router.router, prefix="/api/settings", tags=["Settings"])
+app.include_router(workspace_router.router, prefix="/api/workspace", tags=["Workspace"])
 
 # Setup WebSockets
 terminal.setup_terminal_websockets(app)

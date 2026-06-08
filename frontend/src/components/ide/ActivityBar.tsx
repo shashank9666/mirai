@@ -6,6 +6,7 @@ import { Files, Search, GitBranch, Blocks, Bot, Database, Settings, Bug } from '
 interface ActivityBarProps {
   activeView: string;
   onViewChange: (view: string) => void;
+  onShowSettings: () => void;
 }
 
 const VIEWS = [
@@ -18,7 +19,7 @@ const VIEWS = [
   { id: 'debug', icon: Bug, label: 'Debugger' },
 ];
 
-export default function ActivityBar({ activeView, onViewChange }: ActivityBarProps) {
+export default function ActivityBar({ activeView, onViewChange, onShowSettings }: ActivityBarProps) {
   return (
     <div className="w-[48px] h-full flex flex-col items-center py-2 gap-1 shrink-0"
       style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderRight: '1px solid rgba(255,255,255,0.06)' }}
@@ -45,8 +46,12 @@ export default function ActivityBar({ activeView, onViewChange }: ActivityBarPro
 
       {/* Bottom: Settings */}
       <button
+        onClick={onShowSettings}
         title="Settings"
-        className="w-10 h-10 rounded-xl flex items-center justify-center text-white/30 hover:text-white/70 hover:bg-white/5 transition-colors"
+        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors
+          ${activeView === 'settings'
+            ? 'bg-[var(--color-primary-accent)]/20 text-white'
+            : 'text-white/30 hover:text-white/70 hover:bg-white/5'}`}
       >
         <Settings className="w-[18px] h-[18px]" />
       </button>

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import {
   Maximize2, Minimize2, Columns2, Rows2, WrapText, Map,
-  Pin, MousePointer2, Braces, Pilcrow,
+  Pin, MousePointer2, Braces, Pilcrow, Settings,
 } from 'lucide-react';
 import { useIdeStore, type EditorSettings } from '@/store/ideStore';
 

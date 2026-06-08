@@ -122,4 +122,17 @@ export const api = {
 
   gitAdd: async (files: string = '.', cwd?: string): Promise<{ success: boolean; output: string }> =>
     post('/git/add', { cwd: cwd || null, files }),
+
+  workspaceCurrent: async (): Promise<{ path: string; name: string }> => {
+    const res = await fetch(`${getApiBase()}/workspace/current`);
+    return res.json();
+  },
+  workspaceSet: async (path: string): Promise<{ path: string; name: string }> =>
+    post('/workspace/set', { path }),
+  workspaceListDrives: async (): Promise<{ drives: { name: string; label: string }[] }> => {
+    const res = await fetch(`${getApiBase()}/workspace/listDrives`);
+    return res.json();
+  },
+  workspaceListDirectory: async (path: string): Promise<{ path: string; entries: FileEntry[] }> =>
+    post('/workspace/listDirectory', { path }),
 };
