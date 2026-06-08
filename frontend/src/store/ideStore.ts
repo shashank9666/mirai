@@ -1,13 +1,14 @@
 import { create } from 'zustand';
 import { api } from '@/lib/api';
 
-interface Tab {
+export interface Tab {
   id: string;
   name: string;
   path: string;
   dirty: boolean;
   savedContent: string;
   editedContent: string;
+  language?: string;
 }
 
 interface ClosedTab {
@@ -15,11 +16,125 @@ interface ClosedTab {
   path: string;
 }
 
-interface IdeState {
+export interface EditorGroup {
+  id: string;
   activeFile: string | null;
   activeFileContent: string;
   tabs: Tab[];
   closedTabs: ClosedTab[];
+}
+
+export interface EditorSettings {
+  wordWrap: 'off' | 'on' | 'wordWrapColumn' | 'bounded';
+  wordWrapColumn: number;
+  minimap: boolean;
+  minimapScale: number;
+  fontSize: number;
+  lineHeight: number;
+  tabSize: number;
+  renderWhitespace: 'none' | 'boundary' | 'all';
+  showIndentGuides: boolean;
+  bracketPairColorization: boolean;
+  autoClosingBrackets: boolean;
+  autoClosingQuotes: boolean;
+  formatOnSave: boolean;
+  formatOnPaste: boolean;
+  stickyScroll: boolean;
+  smoothScrolling: boolean;
+  cursorBlinking: 'blink' | 'smooth' | 'phase' | 'expand' | 'solid';
+  cursorStyle: 'line' | 'block' | 'underline' | 'line-thin' | 'block-outline' | 'underline-thin';
+  cursorWidth: number;
+  fontSizeMinimap: number;
+  renderLineHighlight: 'none' | 'gutter' | 'all';
+  showFoldingControls: 'always' | 'mouseover';
+  folding: boolean;
+  rulers: number[];
+  padding: { top: number; bottom: number };
+  scrollBeyondLastLine: boolean;
+  links: boolean;
+  colorDecorators: boolean;
+  contextmenu: boolean;
+  mouseWheelZoom: boolean;
+  quickSuggestions: boolean;
+  suggestOnTriggerCharacters: boolean;
+  acceptSuggestionOnEnter: 'on' | 'smart' | 'off';
+  tabCompletion: 'on' | 'off' | 'onlySnippets';
+  wordBasedSuggestions: 'off' | 'allDocuments' | 'currentDocument';
+  overviewRulerBorder: boolean;
+  hideCursorInOverviewRuler: boolean;
+  automaticLayout: boolean;
+}
+
+const defaultEditorSettings: EditorSettings = {
+  wordWrap: 'off',
+  wordWrapColumn: 80,
+  minimap: true,
+  minimapScale: 1,
+  fontSize: 13,
+  lineHeight: 20,
+  tabSize: 2,
+  renderWhitespace: 'none',
+  showIndentGuides: true,
+  bracketPairColorization: true,
+  autoClosingBrackets: true,
+  autoClosingQuotes: true,
+  formatOnSave: false,
+  formatOnPaste: true,
+  stickyScroll: true,
+  smoothScrolling: true,
+  cursorBlinking: 'smooth',
+  cursorStyle: 'line',
+  cursorWidth: 2,
+  fontSizeMinimap: 12,
+  renderLineHighlight: 'gutter',
+  showFoldingControls: 'mouseover',
+  folding: true,
+  rulers: [],
+  padding: { top: 16, bottom: 16 },
+  scrollBeyondLastLine: false,
+  links: true,
+  colorDecorators: true,
+  contextmenu: true,
+  mouseWheelZoom: true,
+  quickSuggestions: true,
+  suggestOnTriggerCharacters: true,
+  acceptSuggestionOnEnter: 'smart',
+  tabCompletion: 'on',
+  wordBasedSuggestions: 'currentDocument',
+  overviewRulerBorder: false,
+  hideCursorInOverviewRuler: false,
+  automaticLayout: true,
+};
+
+function getLanguageFromPath(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase() || '';
+  const langMap: Record<string, string> = {
+    ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
+    py: 'python', rb: 'ruby', go: 'go', rs: 'rust', java: 'java',
+    c: 'c', cpp: 'cpp', h: 'c', hpp: 'cpp', cs: 'csharp',
+    html: 'html', htm: 'html', css: 'css', scss: 'scss', less: 'less',
+    json: 'json', yaml: 'yaml', yml: 'yaml', toml: 'toml', xml: 'xml',
+    md: 'markdown', txt: 'plaintext', sql: 'sql', sh: 'shell', bash: 'shell',
+    vue: 'html', svelte: 'html', graphql: 'graphql',
+  };
+  return langMap[ext] || 'plaintext';
+}
+
+interface IdeState {
+  activeGroupId: string;
+  groups: EditorGroup[];
+  editorSettings: EditorSettings;
+  zenMode: boolean;
+  fullscreenMode: boolean;
+  splitDirection: 'horizontal' | 'vertical';
+  diffMode: boolean;
+  diffOriginal: string;
+  diffModified: string;
+  diffFilePath: string;
+
+  getActiveGroup: () => EditorGroup | undefined;
+  getGroupById: (id: string) => EditorGroup | undefined;
+
   setActiveFile: (path: string, name: string, content: string) => void;
   closeTab: (id: string) => void;
   closeAllTabs: () => void;
@@ -30,96 +145,185 @@ interface IdeState {
   saveAllFiles: () => Promise<void>;
   revertFile: (path?: string) => Promise<void>;
   renameTab: (oldPath: string, newPath: string) => void;
+
+  addGroup: (direction: 'horizontal' | 'vertical') => string;
+  removeGroup: (groupId: string) => void;
+  setActiveGroup: (groupId: string) => void;
+  moveTabToGroup: (tabPath: string, fromGroupId: string, toGroupId: string) => void;
+
+  setEditorSettings: (settings: Partial<EditorSettings>) => void;
+  toggleZenMode: () => void;
+  toggleFullscreenMode: () => void;
+  toggleWordWrap: () => void;
+  toggleMinimap: () => void;
+  toggleStickyScroll: () => void;
+  toggleFormatOnSave: () => void;
+  toggleBracketPairColorization: () => void;
+  toggleFolding: () => void;
+  increaseFontSize: () => void;
+  decreaseFontSize: () => void;
+  resetFontSize: () => void;
+  toggleMouseWheelZoom: () => void;
+  setSplitDirection: (dir: 'horizontal' | 'vertical') => void;
+
+  openDiff: (filePath: string, original: string, modified: string) => void;
+  closeDiff: () => void;
 }
 
+let groupCounter = 1;
+
 export const useIdeStore = create<IdeState>((set, get) => ({
-  activeFile: null,
-  activeFileContent: '',
-  tabs: [],
-  closedTabs: [],
+  activeGroupId: 'group-1',
+  groups: [
+    {
+      id: 'group-1',
+      activeFile: null,
+      activeFileContent: '',
+      tabs: [],
+      closedTabs: [],
+    },
+  ],
+  editorSettings: { ...defaultEditorSettings },
+  zenMode: false,
+  fullscreenMode: false,
+  splitDirection: 'horizontal',
+  diffMode: false,
+  diffOriginal: '',
+  diffModified: '',
+  diffFilePath: '',
+
+  getActiveGroup: () => {
+    const state = get();
+    return state.groups.find((g) => g.id === state.activeGroupId);
+  },
+
+  getGroupById: (id: string) => {
+    return get().groups.find((g) => g.id === id);
+  },
 
   setActiveFile: (path, name, content) => set((state) => {
-    const existingTab = state.tabs.find((t) => t.path === path);
-    if (existingTab) {
-      return {
-        activeFile: path,
-        activeFileContent: existingTab.editedContent || content,
-      };
-    }
-    return {
-      activeFile: path,
-      activeFileContent: content,
-      tabs: [...state.tabs, { id: path, name, path, dirty: false, savedContent: content, editedContent: content }],
-    };
+    const lang = getLanguageFromPath(path);
+    const groupIndex = state.groups.findIndex((g) => g.id === state.activeGroupId);
+    if (groupIndex === -1) return {};
+
+    const group = state.groups[groupIndex];
+    const existingTab = group.tabs.find((t) => t.path === path);
+    const newTabs = existingTab
+      ? group.tabs
+      : [...group.tabs, { id: path, name, path, dirty: false, savedContent: content, editedContent: content, language: lang }];
+    const newContent = existingTab ? (existingTab.editedContent || content) : content;
+
+    const newGroups = [...state.groups];
+    newGroups[groupIndex] = { ...group, tabs: newTabs, activeFile: path, activeFileContent: newContent };
+
+    return { groups: newGroups };
   }),
 
   closeTab: (id) => set((state) => {
-    const closedTab = state.tabs.find((t) => t.id === id);
-    const newTabs = state.tabs.filter((t) => t.id !== id);
-    const newActiveFile = state.activeFile === id
+    const groupIndex = state.groups.findIndex((g) => g.id === state.activeGroupId);
+    if (groupIndex === -1) return {};
+
+    const group = state.groups[groupIndex];
+    const closedTab = group.tabs.find((t) => t.id === id);
+    const newTabs = group.tabs.filter((t) => t.id !== id);
+    const newActiveFile = group.activeFile === id
       ? (newTabs.length > 0 ? newTabs[newTabs.length - 1].path : null)
-      : state.activeFile;
+      : group.activeFile;
     const newActiveContent = newActiveFile
       ? (newTabs.find(t => t.path === newActiveFile)?.editedContent || '')
       : '';
-    return {
-      tabs: newTabs,
-      activeFile: newActiveFile,
-      activeFileContent: newActiveContent,
-      closedTabs: closedTab
-        ? [{ name: closedTab.name, path: closedTab.path }, ...state.closedTabs].slice(0, 50)
-        : state.closedTabs,
-    };
+    const newClosedTabs = closedTab
+      ? [{ name: closedTab.name, path: closedTab.path }, ...group.closedTabs].slice(0, 50)
+      : group.closedTabs;
+
+    const newGroups = [...state.groups];
+    newGroups[groupIndex] = { ...group, tabs: newTabs, activeFile: newActiveFile, activeFileContent: newActiveContent, closedTabs: newClosedTabs };
+
+    return { groups: newGroups };
   }),
 
-  closeAllTabs: () => set(() => ({
-    tabs: [],
-    activeFile: null,
-    activeFileContent: '',
-  })),
+  closeAllTabs: () => set((state) => {
+    const groupIndex = state.groups.findIndex((g) => g.id === state.activeGroupId);
+    if (groupIndex === -1) return {};
+    const newGroups = [...state.groups];
+    newGroups[groupIndex] = { ...newGroups[groupIndex], tabs: [], activeFile: null, activeFileContent: '' };
+    return { groups: newGroups };
+  }),
 
   closeOtherTabs: (id) => set((state) => {
-    const kept = state.tabs.find(t => t.id === id);
-    return {
+    const groupIndex = state.groups.findIndex((g) => g.id === state.activeGroupId);
+    if (groupIndex === -1) return {};
+    const group = state.groups[groupIndex];
+    const kept = group.tabs.find(t => t.id === id);
+    const newGroups = [...state.groups];
+    newGroups[groupIndex] = {
+      ...group,
       tabs: kept ? [kept] : [],
       activeFile: kept ? kept.path : null,
       activeFileContent: kept ? kept.editedContent : '',
     };
+    return { groups: newGroups };
   }),
 
   reopenClosedTab: () => set((state) => {
-    if (state.closedTabs.length === 0) return {};
-    const [next, ...rest] = state.closedTabs;
-    const exists = state.tabs.find(t => t.path === next.path);
-    if (exists) return { closedTabs: rest };
-    return {
+    const groupIndex = state.groups.findIndex((g) => g.id === state.activeGroupId);
+    if (groupIndex === -1) return {};
+    const group = state.groups[groupIndex];
+    if (group.closedTabs.length === 0) return {};
+    const [next, ...rest] = group.closedTabs;
+    const exists = group.tabs.find(t => t.path === next.path);
+    if (exists) {
+      const newGroups = [...state.groups];
+      newGroups[groupIndex] = { ...group, closedTabs: rest };
+      return { groups: newGroups };
+    }
+    const lang = getLanguageFromPath(next.path);
+    const newGroups = [...state.groups];
+    newGroups[groupIndex] = {
+      ...group,
       closedTabs: rest,
-      tabs: [...state.tabs, { id: next.path, name: next.name, path: next.path, dirty: false, savedContent: '', editedContent: '' }],
+      tabs: [...group.tabs, { id: next.path, name: next.name, path: next.path, dirty: false, savedContent: '', editedContent: '', language: lang }],
       activeFile: next.path,
     };
+    return { groups: newGroups };
   }),
 
   updateFileContent: (content) => set((state) => {
-    const newTabs = state.tabs.map(t =>
-      t.path === state.activeFile
+    const groupIndex = state.groups.findIndex((g) => g.id === state.activeGroupId);
+    if (groupIndex === -1) return {};
+    const group = state.groups[groupIndex];
+    const newTabs = group.tabs.map(t =>
+      t.path === group.activeFile
         ? { ...t, dirty: content !== t.savedContent, editedContent: content }
         : t
     );
-    return { activeFileContent: content, tabs: newTabs };
+    const newGroups = [...state.groups];
+    newGroups[groupIndex] = { ...group, activeFileContent: content, tabs: newTabs };
+    return { groups: newGroups };
   }),
 
   saveFile: async (path?: string) => {
     const state = get();
-    const targetPath = path || state.activeFile;
+    const groupIndex = state.groups.findIndex((g) => g.id === state.activeGroupId);
+    if (groupIndex === -1) return;
+    const group = state.groups[groupIndex];
+    const targetPath = path || group.activeFile;
     if (!targetPath) return;
-    const tab = state.tabs.find(t => t.path === targetPath);
+    const tab = group.tabs.find(t => t.path === targetPath);
     if (!tab) return;
-    const content = targetPath === state.activeFile ? state.activeFileContent : tab.editedContent;
+    const content = targetPath === group.activeFile ? group.activeFileContent : tab.editedContent;
     try {
       await api.writeFile(targetPath, content);
-      set((s) => ({
-        tabs: s.tabs.map(t => t.path === targetPath ? { ...t, dirty: false, savedContent: content, editedContent: content } : t),
-      }));
+      set((s) => {
+        const gi = s.groups.findIndex((g) => g.id === s.activeGroupId);
+        if (gi === -1) return {};
+        const newGroups = [...s.groups];
+        newGroups[gi] = {
+          ...newGroups[gi],
+          tabs: newGroups[gi].tabs.map(t => t.path === targetPath ? { ...t, dirty: false, savedContent: content, editedContent: content } : t),
+        };
+        return { groups: newGroups };
+      });
     } catch (err) {
       console.error('Save failed:', err);
     }
@@ -127,9 +331,11 @@ export const useIdeStore = create<IdeState>((set, get) => ({
 
   saveAllFiles: async () => {
     const state = get();
-    for (const tab of state.tabs) {
+    const group = state.groups.find(g => g.id === state.activeGroupId);
+    if (!group) return;
+    for (const tab of group.tabs) {
       if (tab.dirty) {
-        const content = tab.path === state.activeFile ? state.activeFileContent : tab.editedContent;
+        const content = tab.path === group.activeFile ? group.activeFileContent : tab.editedContent;
         try {
           await api.writeFile(tab.path, content);
         } catch (err) {
@@ -137,30 +343,174 @@ export const useIdeStore = create<IdeState>((set, get) => ({
         }
       }
     }
-    set((s) => ({
-      tabs: s.tabs.map(t => ({ ...t, dirty: false, savedContent: t.path === s.activeFile ? s.activeFileContent : t.editedContent })),
-    }));
+    set((s) => {
+      const gi = s.groups.findIndex((g) => g.id === s.activeGroupId);
+      if (gi === -1) return {};
+      const newGroups = [...s.groups];
+      newGroups[gi] = {
+        ...newGroups[gi],
+        tabs: newGroups[gi].tabs.map(t => ({ ...t, dirty: false, savedContent: t.path === newGroups[gi].activeFile ? newGroups[gi].activeFileContent : t.editedContent })),
+      };
+      return { groups: newGroups };
+    });
   },
 
   revertFile: async (path?: string) => {
     const state = get();
-    const targetPath = path || state.activeFile;
+    const groupIndex = state.groups.findIndex((g) => g.id === state.activeGroupId);
+    if (groupIndex === -1) return;
+    const group = state.groups[groupIndex];
+    const targetPath = path || group.activeFile;
     if (!targetPath) return;
     try {
       const { content } = await api.readFile(targetPath);
-      set((s) => ({
-        activeFileContent: targetPath === s.activeFile ? content : s.activeFileContent,
-        tabs: s.tabs.map(t => t.path === targetPath ? { ...t, dirty: false, savedContent: content, editedContent: content } : t),
-      }));
+      set((s) => {
+        const gi = s.groups.findIndex((g) => g.id === s.activeGroupId);
+        if (gi === -1) return {};
+        const newGroups = [...s.groups];
+        newGroups[gi] = {
+          ...newGroups[gi],
+          activeFileContent: targetPath === newGroups[gi].activeFile ? content : newGroups[gi].activeFileContent,
+          tabs: newGroups[gi].tabs.map(t => t.path === targetPath ? { ...t, dirty: false, savedContent: content, editedContent: content } : t),
+        };
+        return { groups: newGroups };
+      });
     } catch (err) {
       console.error('Revert failed:', err);
     }
   },
 
-  renameTab: (oldPath, newPath) => set((state) => ({
-    tabs: state.tabs.map(t =>
-      t.path === oldPath ? { ...t, id: newPath, path: newPath } : t
-    ),
-    activeFile: state.activeFile === oldPath ? newPath : state.activeFile,
+  renameTab: (oldPath, newPath) => set((state) => {
+    const newGroups = state.groups.map(g => ({
+      ...g,
+      tabs: g.tabs.map(t => t.path === oldPath ? { ...t, id: newPath, path: newPath, language: getLanguageFromPath(newPath) } : t),
+      activeFile: g.activeFile === oldPath ? newPath : g.activeFile,
+    }));
+    return { groups: newGroups };
+  }),
+
+  addGroup: (direction) => set((state) => {
+    const newId = `group-${++groupCounter}`;
+    const newGroup: EditorGroup = {
+      id: newId,
+      activeFile: null,
+      activeFileContent: '',
+      tabs: [],
+      closedTabs: [],
+    };
+    return {
+      groups: [...state.groups, newGroup],
+      activeGroupId: newId,
+      splitDirection: direction,
+    };
+  }),
+
+  removeGroup: (groupId) => set((state) => {
+    if (state.groups.length <= 1) return {};
+    const newGroups = state.groups.filter(g => g.id !== groupId);
+    const newActiveId = state.activeGroupId === groupId
+      ? newGroups[newGroups.length - 1].id
+      : state.activeGroupId;
+    return { groups: newGroups, activeGroupId: newActiveId };
+  }),
+
+  setActiveGroup: (groupId) => set(() => ({ activeGroupId: groupId })),
+
+  moveTabToGroup: (tabPath, fromGroupId, toGroupId) => set((state) => {
+    const fromIndex = state.groups.findIndex(g => g.id === fromGroupId);
+    const toIndex = state.groups.findIndex(g => g.id === toGroupId);
+    if (fromIndex === -1 || toIndex === -1) return {};
+
+    const fromGroup = state.groups[fromIndex];
+    const tab = fromGroup.tabs.find(t => t.path === tabPath);
+    if (!tab) return {};
+
+    const newGroups = [...state.groups];
+    newGroups[fromIndex] = {
+      ...fromGroup,
+      tabs: fromGroup.tabs.filter(t => t.path !== tabPath),
+      activeFile: fromGroup.activeFile === tabPath
+        ? (fromGroup.tabs.filter(t => t.path !== tabPath).length > 0
+          ? fromGroup.tabs.filter(t => t.path !== tabPath)[fromGroup.tabs.filter(t => t.path !== tabPath).length - 1].path
+          : null)
+        : fromGroup.activeFile,
+    };
+
+    const toGroup = newGroups[toIndex];
+    const existsInTarget = toGroup.tabs.find(t => t.path === tabPath);
+    if (!existsInTarget) {
+      newGroups[toIndex] = {
+        ...toGroup,
+        tabs: [...toGroup.tabs, tab],
+      };
+    }
+
+    return { groups: newGroups };
+  }),
+
+  setEditorSettings: (settings) => set((state) => ({
+    editorSettings: { ...state.editorSettings, ...settings },
+  })),
+
+  toggleZenMode: () => set((state) => ({ zenMode: !state.zenMode })),
+  toggleFullscreenMode: () => set((state) => ({ fullscreenMode: !state.fullscreenMode })),
+
+  toggleWordWrap: () => set((state) => ({
+    editorSettings: {
+      ...state.editorSettings,
+      wordWrap: state.editorSettings.wordWrap === 'off' ? 'on' : 'off',
+    },
+  })),
+
+  toggleMinimap: () => set((state) => ({
+    editorSettings: { ...state.editorSettings, minimap: !state.editorSettings.minimap },
+  })),
+
+  toggleStickyScroll: () => set((state) => ({
+    editorSettings: { ...state.editorSettings, stickyScroll: !state.editorSettings.stickyScroll },
+  })),
+
+  toggleFormatOnSave: () => set((state) => ({
+    editorSettings: { ...state.editorSettings, formatOnSave: !state.editorSettings.formatOnSave },
+  })),
+
+  toggleBracketPairColorization: () => set((state) => ({
+    editorSettings: { ...state.editorSettings, bracketPairColorization: !state.editorSettings.bracketPairColorization },
+  })),
+
+  toggleFolding: () => set((state) => ({
+    editorSettings: { ...state.editorSettings, folding: !state.editorSettings.folding },
+  })),
+
+  increaseFontSize: () => set((state) => ({
+    editorSettings: { ...state.editorSettings, fontSize: Math.min(state.editorSettings.fontSize + 1, 40) },
+  })),
+
+  decreaseFontSize: () => set((state) => ({
+    editorSettings: { ...state.editorSettings, fontSize: Math.max(state.editorSettings.fontSize - 1, 8) },
+  })),
+
+  resetFontSize: () => set((state) => ({
+    editorSettings: { ...state.editorSettings, fontSize: 13 },
+  })),
+
+  toggleMouseWheelZoom: () => set((state) => ({
+    editorSettings: { ...state.editorSettings, mouseWheelZoom: !state.editorSettings.mouseWheelZoom },
+  })),
+
+  setSplitDirection: (dir) => set(() => ({ splitDirection: dir })),
+
+  openDiff: (filePath, original, modified) => set(() => ({
+    diffMode: true,
+    diffFilePath: filePath,
+    diffOriginal: original,
+    diffModified: modified,
+  })),
+
+  closeDiff: () => set(() => ({
+    diffMode: false,
+    diffFilePath: '',
+    diffOriginal: '',
+    diffModified: '',
   })),
 }));
