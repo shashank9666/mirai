@@ -41,7 +41,7 @@ export interface GitBranchInfo {
 export const api = {
   healthCheck: async (): Promise<boolean> => {
     try {
-      const res = await fetch(`${getApiBase().replace('/api', '')}/docs`);
+      const res = await fetch(`${getApiBase().replace('/api', '')}/health`);
       return res.ok;
     } catch {
       return false;

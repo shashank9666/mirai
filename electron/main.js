@@ -2,6 +2,8 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 
+app.commandLine.appendSwitch('disable-web-security');
+
 let mainWindow;
 let nextServer;
 const isDev = process.env.NODE_ENV !== 'production';

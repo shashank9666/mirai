@@ -79,7 +79,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   useEffect(() => {
     const checkBackend = async () => {
       try {
-        const res = await fetch('http://127.0.0.1:8000/docs', { method: 'HEAD', signal: AbortSignal.timeout(3000) });
+        const res = await fetch('http://127.0.0.1:8000/health', { method: 'GET', signal: AbortSignal.timeout(3000) });
         setBackendAvailable(res.ok);
       } catch {
         setBackendAvailable(false);
