@@ -1,11 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import os
 
 from routers import fs_router, web_router, tasks_router, git_router, agent_router, settings_router, workspace_router
 from services import terminal, watcher
 
 app = FastAPI(title="Mirai Backend")
+
+
+@app.get("/health")
+async def health():
+    return JSONResponse({"status": "ok"})
 
 # Allow all origins, similar to Express setup
 app.add_middleware(
@@ -30,4 +36,4 @@ watcher.setup_watcher_websockets(app)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="localhost", port=8000, reload=True)
+    uvicorn.run("main:app", host="localhost", port=8080, reload=True)
