@@ -10,6 +10,8 @@ import {
   Bug,
   Plus,
   X,
+  Pin,
+  GripVertical,
 } from 'lucide-react';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws/terminal';
@@ -37,6 +39,7 @@ interface TerminalTab {
   label: string;
   output: string[];
   status: ConnectionStatus;
+  pinned: boolean;
 }
 
 function TerminalInstance({ tab, onOutput, onStatusChange }: {
@@ -100,6 +103,10 @@ function TerminalInstance({ tab, onOutput, onStatusChange }: {
       outputRef.current.scrollTop = outputRef.current.scrollHeight;
     }
   }, [tab.output]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   const handleSubmit = () => {
     if (!input || tab.status !== 'connected') return;
@@ -169,7 +176,7 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
     const id = `terminal-${tabCounterRef.current}`;
     const label = `Terminal ${tabCounterRef.current}`;
     tabCounterRef.current += 1;
-    return { id, label, output: [], status: 'disconnected' };
+    return { id, label, output: [], status: 'disconnected', pinned: false };
   }, []);
 
   const [activeBottomTab, setActiveBottomTab] = useState('terminal');
@@ -222,16 +229,20 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
     setActiveTermId(tab.id);
   };
 
-  const closeTerminal = (termId: string) => {
+  const closeTerminal = useCallback((termId: string) => {
     setTerminals((prev) => {
       if (prev.length <= 1) return prev;
       const next = prev.filter((t) => t.id !== termId);
-      if (activeTermId === termId) {
-        setActiveTermId(next[0].id);
-      }
       return next;
     });
-  };
+    setActiveTermId((prev) => {
+      if (prev === termId) {
+        const remaining = terminals.filter((t) => t.id !== termId);
+        return remaining.length > 0 ? remaining[0].id : prev;
+      }
+      return prev;
+    });
+  }, [terminals]);
 
   const retryConnection = () => {
     setShowRetryBanner(false);
@@ -239,6 +250,63 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
     setTerminals((prev) => [...prev, tab]);
     setActiveTermId(tab.id);
   };
+
+  const dragTermIndex = useRef<number | null>(null);
+
+  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
+    dragTermIndex.current = index;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    const fromIndex = dragTermIndex.current;
+    if (fromIndex === null || fromIndex === dropIndex) return;
+    setTerminals((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(dropIndex, 0, moved);
+      return next;
+    });
+    dragTermIndex.current = null;
+  }, []);
+
+  const togglePinTerminal = useCallback((termId: string) => {
+    setTerminals((prev) =>
+      prev.map((t) => (t.id === termId ? { ...t, pinned: !t.pinned } : t)),
+    );
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (activeBottomTab !== 'terminal') return;
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.key === 'Tab' && e.shiftKey) {
+        e.preventDefault();
+        setActiveTermId((prev) => {
+          const idx = terminals.findIndex((t) => t.id === prev);
+          return terminals[(idx - 1 + terminals.length) % terminals.length].id;
+        });
+      } else if (mod && e.key === 'Tab') {
+        e.preventDefault();
+        setActiveTermId((prev) => {
+          const idx = terminals.findIndex((t) => t.id === prev);
+          return terminals[(idx + 1) % terminals.length].id;
+        });
+      } else if (mod && e.key === 'w' && terminals.length > 1) {
+        e.preventDefault();
+        closeTerminal(activeTermId);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeBottomTab, terminals, activeTermId, closeTerminal]);
 
   return (
     <div className="hypr-panel w-full h-full flex flex-col overflow-hidden">
@@ -282,26 +350,42 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
           {activeBottomTab === 'terminal' && (
             <>
               <div className="flex items-center border-b border-white/5 shrink-0 overflow-x-auto custom-scrollbar">
-                {terminals.map((t) => (
+                {terminals.map((t, idx) => (
                   <div
                     key={t.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, idx)}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDrop={(e) => handleDrop(e, idx)}
                     onClick={() => setActiveTermId(t.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono cursor-pointer border-r border-white/5 transition-colors shrink-0
+                    className={`flex items-center gap-1 px-2 py-1.5 text-[10px] font-mono cursor-pointer border-r border-white/5 transition-colors shrink-0
                       ${t.id === activeTermId
                         ? 'bg-white/5 text-white'
                         : 'text-white/30 hover:text-white/60 hover:bg-white/[0.03]'}`}
                   >
-                    <div className={`w-1.5 h-1.5 rounded-full ${
+                    <span className="text-white/20 hover:text-white/40 cursor-grab active:cursor-grabbing shrink-0">
+                      <GripVertical className="w-2.5 h-2.5" />
+                    </span>
+                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                       t.status === 'connected' ? 'bg-green-500' : t.status === 'connecting' ? 'bg-yellow-500 animate-pulse' : 'bg-white/20'
                     }`} />
-                    <span>{t.label}</span>
+                    <span className="truncate max-w-[100px]">{t.label}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); togglePinTerminal(t.id); }}
+                      className={`p-0.5 rounded hover:bg-white/10 transition-colors shrink-0 ${
+                        t.pinned ? 'text-[var(--color-primary-accent)]' : 'text-white/20 hover:text-white/60'
+                      }`}
+                      title={t.pinned ? 'Unpin' : 'Pin'}
+                    >
+                      <Pin className={`w-2.5 h-2.5 ${t.pinned ? 'rotate-45' : ''}`} />
+                    </button>
                     {terminals.length > 1 && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           closeTerminal(t.id);
                         }}
-                        className="ml-1 p-0.5 rounded hover:bg-white/10 text-white/20 hover:text-white/60 transition-colors"
+                        className="p-0.5 rounded hover:bg-white/10 text-white/20 hover:text-white/60 transition-colors shrink-0"
                       >
                         <X className="w-2.5 h-2.5" />
                       </button>
