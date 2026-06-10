@@ -404,7 +404,7 @@ export default function Home() {
             <>
               <ResizeHandle direction="vertical" onResize={handleTerminalResize} />
               <div 
-                className={`flex-shrink-0 overflow-hidden ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''}`} 
+                className={`flex-shrink-0 overflow-hidden ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg mx-2 mb-2' : ''}`} 
                 style={{ height: terminalMinimized ? 36 : terminalHeight }}
               >
                 <HyprTerminal

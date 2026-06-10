@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Save, RotateCcw, Type, Palette, Sparkles, Globe, Braces, Pilcrow } from 'lucide-react';
+import { X, Save, RotateCcw, Type, Palette, Sparkles, Globe, Braces, Pilcrow, Blocks } from 'lucide-react';
 import { useIdeStore, type EditorSettings } from '@/store/ideStore';
 import { api } from '@/lib/api';
 
-type SettingsTab = 'editor' | 'ai' | 'general';
+type SettingsTab = 'editor' | 'theme' | 'ai' | 'mcp' | 'general';
 
 export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('editor');
@@ -38,7 +38,9 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
 
   const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
     { id: 'editor', label: 'Editor', icon: <Type className="w-3.5 h-3.5" /> },
-    { id: 'ai', label: 'AI', icon: <Sparkles className="w-3.5 h-3.5" /> },
+    { id: 'theme', label: 'Theme', icon: <Palette className="w-3.5 h-3.5" /> },
+    { id: 'ai', label: 'AI Settings', icon: <Sparkles className="w-3.5 h-3.5" /> },
+    { id: 'mcp', label: 'MCP Servers', icon: <Blocks className="w-3.5 h-3.5" /> },
     { id: 'general', label: 'General', icon: <Globe className="w-3.5 h-3.5" /> },
   ];
 
@@ -84,9 +86,47 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
       {/* Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
         {activeTab === 'editor' && <EditorSettings />}
+        {activeTab === 'theme' && (
+          <div className="space-y-4">
+            <SectionTitle>Theme Selection</SectionTitle>
+            <div className="grid grid-cols-3 gap-3">
+              {['Midnight', 'Dracula', 'GitHub Dark', 'Nord', 'Monokai'].map(t => (
+                <button key={t} className="p-3 border border-white/10 rounded-lg hover:border-[var(--color-primary-accent)]/50 bg-white/5 transition-colors flex flex-col items-center gap-2">
+                  <div className="w-full h-12 rounded bg-black/50 shadow-inner" />
+                  <span className="text-[11px] font-mono text-white/70">{t}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {activeTab === 'ai' && (
-          <div className="text-[11px] font-mono text-white/40 p-4 text-center">
-            AI settings coming soon
+          <div className="space-y-4">
+            <SectionTitle>AI Providers</SectionTitle>
+            <div className="space-y-3">
+              {['OpenAI', 'Anthropic', 'Google Gemini'].map(p => (
+                <div key={p} className="p-3 border border-white/10 rounded-lg bg-white/5 flex items-center justify-between">
+                  <span className="text-[12px] font-mono text-white/80">{p}</span>
+                  <input type="password" placeholder="API Key..." className="bg-black/40 border border-white/10 rounded px-2 py-1 text-[11px] font-mono text-white/70 outline-none w-64 focus:border-[var(--color-primary-accent)]/50" />
+                </div>
+              ))}
+            </div>
+            <SectionTitle>Default Model</SectionTitle>
+            <select className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-[11px] font-mono text-white/70 outline-none focus:border-[var(--color-primary-accent)]/50">
+              <option>gpt-4o</option>
+              <option>claude-3-opus</option>
+              <option>gemini-1.5-pro</option>
+            </select>
+          </div>
+        )}
+        {activeTab === 'mcp' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-2">
+              <span className="text-[11px] font-mono text-white/40">Model Context Protocol (MCP) Servers</span>
+              <button className="px-2 py-1 bg-white/10 hover:bg-white/20 rounded text-[10px] font-mono text-white transition-colors">Add Server</button>
+            </div>
+            <div className="text-[11px] font-mono text-white/40 p-4 text-center border border-white/10 border-dashed rounded-lg">
+              No MCP servers configured yet.
+            </div>
           </div>
         )}
         {activeTab === 'general' && (
