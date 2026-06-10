@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mirai IDE
+
+Mirai is an AI-powered IDE that combines a modern, responsive web interface with a robust local backend.
+
+## Architecture & Tech Stack
+
+Mirai is built using a modern desktop application architecture:
+- **Frontend**: Next.js (React), Tailwind CSS, Lucide Icons.
+- **Backend**: Python Flask, providing local filesystem access, git integration, terminal PTY support, and AI agent endpoints.
+- **Desktop Environment**: Electron, bridging the frontend and backend into a seamless desktop application.
+
+### Recent Changes
+The backend has been completely migrated from `FastAPI` (with `asyncio` and `websockets`) to a more straightforward, synchronous **Flask** architecture using standard threading and `flask-sock` for WebSocket support. This ensures better compatibility for synchronous AI and filesystem tasks while remaining performant for local use.
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- Node.js (v18+)
+- Python 3.10+
+- `pip` package manager
+
+### Installation
+
+1. **Install Frontend and Electron Dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Set up the Python Backend:**
+   Navigate to the backend directory and create a virtual environment:
+   ```bash
+   cd backend/python
+   python -m venv venv
+   # On Windows:
+   .\venv\Scripts\activate
+   # On Unix/MacOS:
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+
+### Running the App
+
+You can start both the Electron application and the Flask backend concurrently using the root package.json:
 
 ```bash
+# From the root of the project
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The script will automatically start:
+1. The Flask backend server on `127.0.0.1:8000`.
+2. The Next.js frontend dev server (used by Electron).
+3. The Electron window wrapper.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Project Structure
+- `/frontend`: Contains the Next.js UI, React components (e.g., `HyprEditor`, `HyprTerminal`), and global state (`ideStore.ts`).
+- `/backend/python`: Contains the Flask server (`main.py`), REST routers (`routers/`), and WebSocket services (`services/`).
+- `/electron`: Contains the Electron main process script (`main.js`).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Features
+- Full local filesystem workspace explorer.
+- Floating panels with drag-and-drop support.
+- Fully integrated AI Chat and autonomous Agent.
+- Local command-line terminal emulation.
+- Git version control interface.

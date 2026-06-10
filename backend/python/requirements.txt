@@ -1,10 +1,9 @@
-fastapi
-uvicorn[standard]
-websockets
+flask
+flask-cors
+flask-sock
 pywinpty; sys_platform == 'win32'
 ptyprocess; sys_platform != 'win32'
 watchdog
-aiofiles
 beautifulsoup4
 httpx
 

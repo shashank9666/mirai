@@ -4,19 +4,41 @@ export interface FileEntry {
   path: string;
 }
 
-const getApiBase = () => 'http://127.0.0.1:8000/api';
+const API_BASE = 'http://127.0.0.1:8000/api';
+const BACKEND_BASE = 'http://127.0.0.1:8000';
 
-const post = async <T>(endpoint: string, body: Record<string, unknown>): Promise<T> => {
-  const res = await fetch(`${getApiBase()}${endpoint}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || `Request failed: ${res.status}`);
+const getApiBase = () => API_BASE;
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+const post = async <T>(endpoint: string, body: Record<string, unknown>, retries = 3): Promise<T> => {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || `Request failed: ${res.status}`);
+      }
+      return res.json();
+    } catch (err) {
+      lastError = err as Error;
+      // Only retry on network errors, not HTTP errors
+      if (err instanceof TypeError || (err as Error).message?.includes('fetch')) {
+        if (attempt < retries - 1) {
+          await sleep(500 * (attempt + 1));
+          continue;
+        }
+      }
+      throw err;
+    }
   }
-  return res.json();
+  throw lastError;
 };
 
 export interface SearchResult {
@@ -41,7 +63,7 @@ export interface GitBranchInfo {
 export const api = {
   healthCheck: async (): Promise<boolean> => {
     try {
-      const res = await fetch(`${getApiBase().replace('/api', '')}/health`);
+      const res = await fetch(`${BACKEND_BASE}/health`);
       return res.ok;
     } catch {
       return false;

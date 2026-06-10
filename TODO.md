@@ -35,11 +35,11 @@
   - [ ] Symbol search (v1: file symbols via indexing if available)
 
 ## Phase 3 — Terminal backend execution (Priority C)
-- [ ] Replace terminal mock in `HyprTerminal` with real backend execution
-  - [ ] Inspect `backend/python/services/terminal.py`
-  - [ ] Add backend endpoints for running commands / session management
-  - [ ] Add streaming output to frontend
-  - [ ] Multiple terminal tabs
+- [x] Replace terminal mock in `HyprTerminal` with real backend execution
+  - [x] Inspect `backend/python/services/terminal.py`
+  - [x] Add backend endpoints for running commands / session management
+  - [x] Add streaming output to frontend
+  - [x] Multiple terminal tabs
 
 ## Phase 4 — Search UX + navigation (Priority D)
 - [ ] Implement workspace search UI panel

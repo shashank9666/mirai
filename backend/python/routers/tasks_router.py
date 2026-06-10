@@ -1,97 +1,102 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-import asyncio
+from flask import Blueprint, request, jsonify
+import subprocess
+import threading
 import os
 import uuid
 import sys
-from typing import Optional
 from services.workspace import workspace_manager
 
-router = APIRouter()
+bp = Blueprint("tasks", __name__)
 
 tasks = {}
 
-class ExecuteCommandRequest(BaseModel):
-    command: str
-    cwd: Optional[str] = None
+@bp.route("/executeCommand", methods=["POST"])
+def execute_command():
+    data = request.get_json() or {}
+    command = data.get("command")
+    cwd = data.get("cwd")
+    if not command:
+        return jsonify({"detail": "command is required"}), 400
 
-@router.post("/executeCommand")
-async def execute_command(req: ExecuteCommandRequest):
     try:
-        target_cwd = workspace_manager.resolve_path(req.cwd) if req.cwd else workspace_manager.workspace_root
+        target_cwd = workspace_manager.resolve_path(cwd) if cwd else workspace_manager.workspace_root
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return jsonify({"detail": str(e)}), 400
     
-    is_long_running = any(k in req.command for k in ['dev', 'start', 'watch', 'serve', 'nodemon', 'server'])
+    is_long_running = any(k in command for k in ['dev', 'start', 'watch', 'serve', 'nodemon', 'server'])
     
     if is_long_running:
         task_id = "task-" + str(uuid.uuid4())[:8]
         
         shell = "powershell.exe" if sys.platform == "win32" else "bash"
-        shell_args = ["-Command", req.command] if sys.platform == "win32" else ["-c", req.command]
+        shell_args = ["-Command", command] if sys.platform == "win32" else ["-c", command]
         
-        process = await asyncio.create_subprocess_exec(
-            shell, *shell_args,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=target_cwd
+        process = subprocess.Popen(
+            [shell] + shell_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=target_cwd,
+            text=False
         )
         
         tasks[task_id] = {
             "id": task_id,
-            "command": req.command,
+            "command": command,
             "cwd": target_cwd,
             "status": "running",
             "logs": "",
             "process": process
         }
         
-        async def read_stream(stream, task_id):
-            while True:
-                line = await stream.read(1024)
-                if not line:
-                    break
-                text = line.decode('utf-8', errors='replace')
-                tasks[task_id]["logs"] += text
-                if len(tasks[task_id]["logs"]) > 50000:
-                    tasks[task_id]["logs"] = tasks[task_id]["logs"][-50000:]
-                    
-        async def wait_process(process, task_id):
-            code = await process.wait()
-            tasks[task_id]["status"] = "completed" if code == 0 else "failed"
-            tasks[task_id]["logs"] += f"\n[Process exited with code {code}]"
+        def read_stream(stream, tid):
+            try:
+                for chunk in iter(lambda: stream.read(1024), b''):
+                    if not chunk:
+                        break
+                    text = chunk.decode('utf-8', errors='replace')
+                    tasks[tid]["logs"] += text
+                    if len(tasks[tid]["logs"]) > 50000:
+                        tasks[tid]["logs"] = tasks[tid]["logs"][-50000:]
+            except Exception:
+                pass
+
+        def wait_process(proc, tid):
+            code = proc.wait()
+            tasks[tid]["status"] = "completed" if code == 0 else "failed"
+            tasks[tid]["logs"] += f"\n[Process exited with code {code}]"
             
-        asyncio.create_task(read_stream(process.stdout, task_id))
-        asyncio.create_task(read_stream(process.stderr, task_id))
-        asyncio.create_task(wait_process(process, task_id))
+        threading.Thread(target=read_stream, args=(process.stdout, task_id), daemon=True).start()
+        threading.Thread(target=read_stream, args=(process.stderr, task_id), daemon=True).start()
+        threading.Thread(target=wait_process, args=(process, task_id), daemon=True).start()
         
-        return {
+        return jsonify({
             "success": True,
             "stdout": f"Command started in the background (Task ID: {task_id}).\nYou can view logs and manage it in the Tasks panel.",
             "stderr": "",
             "code": 0
-        }
+        })
     else:
         shell = "powershell.exe" if sys.platform == "win32" else "bash"
-        shell_args = ["-Command", req.command] if sys.platform == "win32" else ["-c", req.command]
+        shell_args = ["-Command", command] if sys.platform == "win32" else ["-c", command]
         
-        process = await asyncio.create_subprocess_exec(
-            shell, *shell_args,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=target_cwd
+        process = subprocess.Popen(
+            [shell] + shell_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=target_cwd,
+            text=False
         )
         
-        stdout, stderr = await process.communicate()
-        return {
+        stdout, stderr = process.communicate()
+        return jsonify({
             "success": process.returncode == 0,
             "stdout": stdout.decode('utf-8', errors='replace'),
             "stderr": stderr.decode('utf-8', errors='replace'),
             "code": process.returncode
-        }
+        })
 
-@router.get("/list")
-async def list_tasks():
+@bp.route("/list", methods=["GET"])
+def list_tasks():
     list_res = []
     for t in tasks.values():
         list_res.append({
@@ -101,16 +106,18 @@ async def list_tasks():
             "status": t["status"],
             "logs": t["logs"]
         })
-    return {"success": True, "tasks": list_res}
+    return jsonify({"success": True, "tasks": list_res})
 
-class KillTaskRequest(BaseModel):
-    id: str
-
-@router.post("/kill")
-async def kill_task(req: KillTaskRequest):
-    task = tasks.get(req.id)
+@bp.route("/kill", methods=["POST"])
+def kill_task():
+    data = request.get_json() or {}
+    task_id = data.get("id")
+    if not task_id:
+        return jsonify({"detail": "id is required"}), 400
+        
+    task = tasks.get(task_id)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        return jsonify({"detail": "Task not found"}), 404
         
     if task["status"] == "running" and task["process"]:
         try:
@@ -118,6 +125,6 @@ async def kill_task(req: KillTaskRequest):
             task["status"] = "killed"
             task["logs"] += "\n[Process killed by user]"
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            return jsonify({"detail": str(e)}), 500
             
-    return {"success": True}
+    return jsonify({"success": True})

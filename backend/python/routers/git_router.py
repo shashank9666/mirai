@@ -1,60 +1,65 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from flask import Blueprint, request, jsonify
 import subprocess
 import os
-from typing import Optional, List
 from services.workspace import workspace_manager
 
-router = APIRouter()
+bp = Blueprint("git", __name__)
 
-class GitCwdRequest(BaseModel):
-    cwd: Optional[str] = None
-
-def _get_cwd(cwd: Optional[str] = None) -> str:
+def _get_cwd(cwd: str = None) -> str:
     try:
         return workspace_manager.resolve_path(cwd) if cwd else workspace_manager.workspace_root
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise ValueError(str(e))
 
-def _run_git(args: List[str], cwd: str) -> subprocess.CompletedProcess:
+def _run_git(args: list, cwd: str) -> subprocess.CompletedProcess:
     return subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True, timeout=30)
 
-@router.post("/branch")
-async def git_branch(req: GitCwdRequest):
-    cwd = _get_cwd(req.cwd)
+@bp.route("/branch", methods=["POST"])
+def git_branch():
+    data = request.get_json() or {}
     try:
+        cwd = _get_cwd(data.get("cwd"))
         result = _run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd)
         if result.returncode != 0:
-            return {"branch": None, "error": "Not a git repository"}
+            return jsonify({"branch": None, "error": "Not a git repository"})
         branch = result.stdout.strip()
         status_result = _run_git(["status", "--porcelain"], cwd)
         is_dirty = len(status_result.stdout.strip()) > 0
-        return {"branch": branch, "dirty": is_dirty}
+        return jsonify({"branch": branch, "dirty": is_dirty})
+    except ValueError as e:
+        return jsonify({"detail": str(e)}), 400
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
-@router.post("/diff")
-async def git_diff(req: GitCwdRequest):
-    cwd = _get_cwd(req.cwd)
+@bp.route("/diff", methods=["POST"])
+def git_diff():
+    data = request.get_json() or {}
     try:
+        cwd = _get_cwd(data.get("cwd"))
         result = _run_git(["diff"], cwd)
-        return {"diff": result.stdout}
+        return jsonify({"diff": result.stdout})
+    except ValueError as e:
+        return jsonify({"detail": str(e)}), 400
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
-@router.post("/diffStaged")
-async def git_diff_staged(req: GitCwdRequest):
-    cwd = _get_cwd(req.cwd)
+@bp.route("/diffStaged", methods=["POST"])
+def git_diff_staged():
+    data = request.get_json() or {}
     try:
+        cwd = _get_cwd(data.get("cwd"))
         result = _run_git(["diff", "--cached"], cwd)
-        return {"diff": result.stdout}
+        return jsonify({"diff": result.stdout})
+    except ValueError as e:
+        return jsonify({"detail": str(e)}), 400
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
-@router.post("/status")
-async def git_status(req: GitCwdRequest):
-    cwd = _get_cwd(req.cwd)
+@bp.route("/status", methods=["POST"])
+def git_status():
+    data = request.get_json() or {}
     try:
+        cwd = _get_cwd(data.get("cwd"))
         result = _run_git(["status", "--porcelain"], cwd)
         files = []
         for line in result.stdout.strip().splitlines():
@@ -62,122 +67,158 @@ async def git_status(req: GitCwdRequest):
                 status_code = line[:2].strip()
                 file_path = line[3:]
                 files.append({"path": file_path, "status": status_code})
-        return {"files": files}
+        return jsonify({"files": files})
+    except ValueError as e:
+        return jsonify({"detail": str(e)}), 400
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
-@router.post("/log")
-async def git_log(req: GitCwdRequest):
-    cwd = _get_cwd(req.cwd)
+@bp.route("/log", methods=["POST"])
+def git_log():
+    data = request.get_json() or {}
     try:
+        cwd = _get_cwd(data.get("cwd"))
         result = _run_git(["log", "--oneline", "-20"], cwd)
         commits = []
         for line in result.stdout.strip().splitlines():
             if ' ' in line:
                 sha, message = line.split(' ', 1)
                 commits.append({"sha": sha, "message": message})
-        return {"commits": commits}
+        return jsonify({"commits": commits})
+    except ValueError as e:
+        return jsonify({"detail": str(e)}), 400
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
-@router.post("/commit")
-async def git_commit(req: GitCwdRequest, message: str = ""):
-    cwd = _get_cwd(req.cwd)
+@bp.route("/commit", methods=["POST"])
+def git_commit():
+    data = request.get_json() or {}
+    message = data.get("message", "")
     if not message.strip():
-        raise HTTPException(status_code=400, detail="Commit message is required")
+        return jsonify({"detail": "Commit message is required"}), 400
     try:
+        cwd = _get_cwd(data.get("cwd"))
         result = _run_git(["commit", "-m", message], cwd)
-        return {"success": result.returncode == 0, "output": result.stdout + result.stderr}
+        return jsonify({"success": result.returncode == 0, "output": result.stdout + result.stderr})
+    except ValueError as e:
+        return jsonify({"detail": str(e)}), 400
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
-@router.post("/push")
-async def git_push(req: GitCwdRequest):
-    cwd = _get_cwd(req.cwd)
+@bp.route("/push", methods=["POST"])
+def git_push():
+    data = request.get_json() or {}
     try:
+        cwd = _get_cwd(data.get("cwd"))
         result = _run_git(["push"], cwd)
-        return {"success": result.returncode == 0, "output": result.stdout + result.stderr}
+        return jsonify({"success": result.returncode == 0, "output": result.stdout + result.stderr})
+    except ValueError as e:
+        return jsonify({"detail": str(e)}), 400
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
-@router.post("/pull")
-async def git_pull(req: GitCwdRequest):
-    cwd = _get_cwd(req.cwd)
+@bp.route("/pull", methods=["POST"])
+def git_pull():
+    data = request.get_json() or {}
     try:
+        cwd = _get_cwd(data.get("cwd"))
         result = _run_git(["pull"], cwd)
-        return {"success": result.returncode == 0, "output": result.stdout + result.stderr}
+        return jsonify({"success": result.returncode == 0, "output": result.stdout + result.stderr})
+    except ValueError as e:
+        return jsonify({"detail": str(e)}), 400
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
-@router.post("/stash")
-async def git_stash(req: GitCwdRequest):
-    cwd = _get_cwd(req.cwd)
+@bp.route("/stash", methods=["POST"])
+def git_stash():
+    data = request.get_json() or {}
     try:
+        cwd = _get_cwd(data.get("cwd"))
         result = _run_git(["stash"], cwd)
-        return {"success": result.returncode == 0, "output": result.stdout.strip()}
+        return jsonify({"success": result.returncode == 0, "output": result.stdout.strip()})
+    except ValueError as e:
+        return jsonify({"detail": str(e)}), 400
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
-@router.post("/stashPop")
-async def git_stash_pop(req: GitCwdRequest):
-    cwd = _get_cwd(req.cwd)
+@bp.route("/stashPop", methods=["POST"])
+def git_stash_pop():
+    data = request.get_json() or {}
     try:
+        cwd = _get_cwd(data.get("cwd"))
         result = _run_git(["stash", "pop"], cwd)
-        return {"success": result.returncode == 0, "output": result.stdout + result.stderr}
+        return jsonify({"success": result.returncode == 0, "output": result.stdout + result.stderr})
+    except ValueError as e:
+        return jsonify({"detail": str(e)}), 400
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
-@router.post("/branches")
-async def git_branches(req: GitCwdRequest):
-    cwd = _get_cwd(req.cwd)
+@bp.route("/branches", methods=["POST"])
+def git_branches():
+    data = request.get_json() or {}
     try:
+        cwd = _get_cwd(data.get("cwd"))
         result = _run_git(["branch", "--list"], cwd)
         branches = [b.lstrip('* ').strip() for b in result.stdout.strip().splitlines() if b.strip()]
-        return {"branches": branches}
+        return jsonify({"branches": branches})
+    except ValueError as e:
+        return jsonify({"detail": str(e)}), 400
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
-class GitCheckoutRequest(BaseModel):
-    branch: str
-    cwd: Optional[str] = None
-
-@router.post("/checkout")
-async def git_checkout(req: GitCheckoutRequest):
-    cwd = _get_cwd(req.cwd)
+@bp.route("/checkout", methods=["POST"])
+def git_checkout():
+    data = request.get_json() or {}
+    branch = data.get("branch")
+    if not branch:
+        return jsonify({"detail": "branch is required"}), 400
     try:
-        result = _run_git(["checkout", req.branch], cwd)
-        return {"success": result.returncode == 0, "output": result.stdout + result.stderr}
+        cwd = _get_cwd(data.get("cwd"))
+        result = _run_git(["checkout", branch], cwd)
+        return jsonify({"success": result.returncode == 0, "output": result.stdout + result.stderr})
+    except ValueError as e:
+        return jsonify({"detail": str(e)}), 400
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
-class GitNewBranchRequest(BaseModel):
-    branch: str
-    cwd: Optional[str] = None
-
-@router.post("/newBranch")
-async def git_new_branch(req: GitNewBranchRequest):
-    cwd = _get_cwd(req.cwd)
+@bp.route("/newBranch", methods=["POST"])
+def git_new_branch():
+    data = request.get_json() or {}
+    branch = data.get("branch")
+    if not branch:
+        return jsonify({"detail": "branch is required"}), 400
     try:
-        result = _run_git(["checkout", "-b", req.branch], cwd)
-        return {"success": result.returncode == 0, "output": result.stdout + result.stderr}
+        cwd = _get_cwd(data.get("cwd"))
+        result = _run_git(["checkout", "-b", branch], cwd)
+        return jsonify({"success": result.returncode == 0, "output": result.stdout + result.stderr})
+    except ValueError as e:
+        return jsonify({"detail": str(e)}), 400
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
-@router.post("/add")
-async def git_add(req: GitCwdRequest, files: str = "."):
-    cwd = _get_cwd(req.cwd)
+@bp.route("/add", methods=["POST"])
+def git_add():
+    data = request.get_json() or {}
+    files = data.get("files", ".")
     try:
+        cwd = _get_cwd(data.get("cwd"))
         result = _run_git(["add"] + files.split(), cwd)
-        return {"success": result.returncode == 0, "output": result.stdout + result.stderr}
+        return jsonify({"success": result.returncode == 0, "output": result.stdout + result.stderr})
+    except ValueError as e:
+        return jsonify({"detail": str(e)}), 400
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
-@router.post("/addPatch")
-async def git_add_patch(req: GitCwdRequest, file: str = ""):
-    cwd = _get_cwd(req.cwd)
+@bp.route("/addPatch", methods=["POST"])
+def git_add_patch():
+    data = request.get_json() or {}
+    file = data.get("file", "")
     try:
+        cwd = _get_cwd(data.get("cwd"))
         args = ["add", "-p"] + ([file] if file else [])
         result = _run_git(args, cwd)
-        return {"success": result.returncode == 0, "output": result.stdout + result.stderr}
+        return jsonify({"success": result.returncode == 0, "output": result.stdout + result.stderr})
+    except ValueError as e:
+        return jsonify({"detail": str(e)}), 400
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500

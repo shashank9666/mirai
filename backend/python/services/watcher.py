@@ -1,19 +1,15 @@
-import asyncio
 import threading
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from fastapi import WebSocket, WebSocketDisconnect
 import json
 import os
 
 active_connections = set()
-_loop = None
+connections_lock = threading.Lock()
 
 def _schedule_notify(event_type, path, new_path=None):
-    """Thread-safe: schedule async notify on the main event loop."""
-    if _loop is None or _loop.is_closed():
-        return
-    asyncio.run_coroutine_threadsafe(notify_change(event_type, path, new_path), _loop)
+    """Notify all connected websockets directly from the watchdog thread."""
+    notify_change(event_type, path, new_path)
 
 class WorkspaceHandler(FileSystemEventHandler):
     def on_created(self, event):
@@ -46,43 +42,50 @@ def setup_watcher(workspace_path):
     observer.schedule(event_handler, workspace_path, recursive=True)
     observer.start()
 
-async def notify_change(event_type, path, new_path=None):
-    if not active_connections:
-        return
-    
-    data = {"type": event_type, "path": path}
-    if new_path:
-        data["oldPath"] = path
-        data["newPath"] = new_path
+def notify_change(event_type, path, new_path=None):
+    with connections_lock:
+        if not active_connections:
+            return
         
-    message = json.dumps({"event": "workspace:change", "data": data})
-    
-    disconnected = set()
-    for ws in active_connections:
-        try:
-            await ws.send_text(message)
-        except Exception:
-            disconnected.add(ws)
+        data = {"type": event_type, "path": path}
+        if new_path:
+            data["oldPath"] = path
+            data["newPath"] = new_path
             
-    for ws in disconnected:
-        active_connections.remove(ws)
+        message = json.dumps({"event": "workspace:change", "data": data})
+        
+        disconnected = set()
+        for ws in active_connections:
+            try:
+                ws.send(message)
+            except Exception:
+                disconnected.add(ws)
+                
+        for ws in disconnected:
+            active_connections.remove(ws)
 
-def setup_watcher_websockets(app):
-    global _loop
-
-    @app.websocket("/ws/watcher")
-    async def watcher_endpoint(websocket: WebSocket):
-        await websocket.accept()
-        if _loop is None:
-            _loop = asyncio.get_running_loop()
-        active_connections.add(websocket)
+def setup_watcher_websockets(sock):
+    @sock.route("/ws/watcher")
+    def watcher_endpoint(ws):
+        with connections_lock:
+            active_connections.add(ws)
         try:
             while True:
-                data = await websocket.receive_text()
-                msg = json.loads(data)
+                data = ws.receive()
+                if data is None:
+                    break
+                try:
+                    msg = json.loads(data)
+                except Exception:
+                    continue
+                
                 if msg.get("event") == "watch-workspace":
                     workspace_path = msg.get("data", {}).get("workspacePath")
                     if workspace_path:
                         setup_watcher(workspace_path)
-        except WebSocketDisconnect:
-            active_connections.remove(websocket)
+        except Exception:
+            pass
+        finally:
+            with connections_lock:
+                if ws in active_connections:
+                    active_connections.remove(ws)

@@ -1,18 +1,16 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from flask import Blueprint, request, jsonify, Response
 import os
 import json
 import time
-from typing import Any, Dict, Optional, List
-import aiofiles
-from fastapi.responses import StreamingResponse
+import queue as thread_queue
+import threading
 import asyncio
 import uuid
 from services.watcher import notify_change
 from core.agent import MiraiAgent
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
-router = APIRouter()
+bp = Blueprint("agent", __name__)
 
 MIRAI_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.mirai')
 SESSIONS_DIR = os.path.join(MIRAI_DIR, 'sessions')
@@ -40,138 +38,149 @@ def save_approvals():
 
 load_approvals()
 
-class RegisterApprovalRequest(BaseModel):
-    id: str
-    toolName: str
-    arguments: Dict[str, Any]
-    oldContent: Optional[str] = None
-    newContent: Optional[str] = None
+@bp.route("/approvals/register", methods=["POST"])
+def register_approval():
+    data = request.get_json() or {}
+    req_id = data.get("id")
+    tool_name = data.get("toolName")
+    arguments = data.get("arguments")
+    old_content = data.get("oldContent")
+    new_content = data.get("newContent")
 
-@router.post("/approvals/register")
-async def register_approval(req: RegisterApprovalRequest):
-    approvals[req.id] = {
-        "id": req.id,
-        "toolName": req.toolName,
-        "arguments": req.arguments,
-        "oldContent": req.oldContent,
-        "newContent": req.newContent,
+    approvals[req_id] = {
+        "id": req_id,
+        "toolName": tool_name,
+        "arguments": arguments,
+        "oldContent": old_content,
+        "newContent": new_content,
         "status": "pending",
         "timestamp": int(time.time() * 1000)
     }
     save_approvals()
-    # Ideally, we emit via websocket 'approval:pending' here
-    return {"success": True}
+    return jsonify({"success": True})
 
-class ReplyApprovalRequest(BaseModel):
-    id: str
-    approved: bool
+@bp.route("/approvals/reply", methods=["POST"])
+def reply_approval():
+    data = request.get_json() or {}
+    req_id = data.get("id")
+    approved = data.get("approved")
 
-@router.post("/approvals/reply")
-async def reply_approval(req: ReplyApprovalRequest):
-    if req.id not in approvals:
-        raise HTTPException(status_code=404, detail="Approval request not found")
+    if req_id not in approvals:
+        return jsonify({"detail": "Approval request not found"}), 404
         
-    approvals[req.id]["status"] = "approved" if req.approved else "rejected"
+    approvals[req_id]["status"] = "approved" if approved else "rejected"
     save_approvals()
-    # Ideally, we emit via websocket 'approval:resolved' here
-    return {"success": True}
+    return jsonify({"success": True})
 
-@router.get("/approvals/status/{id}")
-async def get_approval_status(id: str):
+@bp.route("/approvals/status/<id>", methods=["GET"])
+def get_approval_status(id):
     if id not in approvals:
-        raise HTTPException(status_code=404, detail="Approval request not found")
-    return approvals[id]
+        return jsonify({"detail": "Approval request not found"}), 404
+    return jsonify(approvals[id])
 
-@router.get("/approvals/pending")
-async def get_pending_approvals():
+@bp.route("/approvals/pending", methods=["GET"])
+def get_pending_approvals():
     pending = next((a for a in approvals.values() if a["status"] == "pending"), None)
-    return {"pending": pending}
+    return jsonify({"pending": pending})
 
-class SessionSaveRequest(BaseModel):
-    sessionId: str
-    state: Dict[str, Any]
+@bp.route("/session/save", methods=["POST"])
+def save_session():
+    data = request.get_json() or {}
+    session_id = data.get("sessionId")
+    state = data.get("state")
 
-@router.post("/session/save")
-async def save_session(req: SessionSaveRequest):
-    session_file = os.path.join(SESSIONS_DIR, f"{req.sessionId}.json")
+    session_file = os.path.join(SESSIONS_DIR, f"{session_id}.json")
     try:
-        async with aiofiles.open(session_file, mode='w', encoding='utf-8') as f:
-            await f.write(json.dumps(req.state, indent=2))
-        return {"success": True}
+        with open(session_file, mode='w', encoding='utf-8') as f:
+            f.write(json.dumps(state, indent=2))
+        return jsonify({"success": True})
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
-class SessionLoadRequest(BaseModel):
-    sessionId: str
+@bp.route("/session/load", methods=["POST"])
+def load_session():
+    data = request.get_json() or {}
+    session_id = data.get("sessionId")
 
-@router.post("/session/load")
-async def load_session(req: SessionLoadRequest):
-    session_file = os.path.join(SESSIONS_DIR, f"{req.sessionId}.json")
+    session_file = os.path.join(SESSIONS_DIR, f"{session_id}.json")
     try:
         if os.path.exists(session_file):
-            async with aiofiles.open(session_file, mode='r', encoding='utf-8') as f:
-                data = await f.read()
-            return {"success": True, "state": json.loads(data)}
+            with open(session_file, mode='r', encoding='utf-8') as f:
+                content = f.read()
+            return jsonify({"success": True, "state": json.loads(content)})
         else:
-            return {"success": True, "state": None}
+            return jsonify({"success": True, "state": None})
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"detail": str(e)}), 500
 
-class ChatMessagePayload(BaseModel):
-    role: str
-    content: str
+@bp.route("/chat", methods=["POST"])
+def agent_chat():
+    data = request.get_json() or {}
+    messages = data.get("messages", [])
+    provider = data.get("provider", "openai")
+    model = data.get("model", "gpt-4o")
+    api_key = data.get("apiKey", "")
+    base_url = data.get("baseUrl", "")
 
-class ChatRequest(BaseModel):
-    messages: List[ChatMessagePayload]
-    provider: str = "openai"
-    model: str = "gpt-4o"
-    apiKey: str = ""
-    baseUrl: str = ""
-
-@router.post("/chat")
-async def agent_chat(req: ChatRequest):
     # Convert payload to LangChain message types
     lc_messages = []
-    for msg in req.messages:
-        if msg.role == "user":
-            lc_messages.append(HumanMessage(content=msg.content))
-        elif msg.role == "assistant":
-            lc_messages.append(AIMessage(content=msg.content))
-        elif msg.role == "system":
-            lc_messages.append(SystemMessage(content=msg.content))
+    for msg in messages:
+        if msg.get("role") == "user":
+            lc_messages.append(HumanMessage(content=msg.get("content", "")))
+        elif msg.get("role") == "assistant":
+            lc_messages.append(AIMessage(content=msg.get("content", "")))
+        elif msg.get("role") == "system":
+            lc_messages.append(SystemMessage(content=msg.get("content", "")))
             
     agent = MiraiAgent(
-        provider=req.provider,
-        model=req.model,
-        api_key=req.apiKey,
-        base_url=req.baseUrl
+        provider=provider,
+        model=model,
+        api_key=api_key,
+        base_url=base_url
     )
     
     session_id = str(uuid.uuid4())
     from core.event_bus import event_bus
-    queue = event_bus.subscribe(session_id)
     
-    async def run_agent():
-        try:
-            result = await agent.run(lc_messages, session_id=session_id)
-            last_msg = result["messages"][-1]
-            await event_bus.publish(session_id, {"type": "final", "content": last_msg.content})
-        except Exception as e:
-            await event_bus.publish(session_id, {"type": "error", "error": str(e)})
-        finally:
-            await event_bus.publish(session_id, {"type": "done"})
-            
-    async def stream_generator():
-        task = asyncio.create_task(run_agent())
-        try:
+    q = thread_queue.Queue()
+
+    def run_agent_in_thread():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # Subscribe locally within this loop
+        async_q = event_bus.subscribe(session_id)
+        
+        async def forward_events():
             while True:
-                event = await queue.get()
-                yield f"data: {json.dumps(event)}\n\n"
+                event = await async_q.get()
+                q.put(event)
                 if event.get("type") == "done":
                     break
-        finally:
-            event_bus.unsubscribe(session_id, queue)
-            if not task.done():
-                task.cancel()
-                
-    return StreamingResponse(stream_generator(), media_type="text/event-stream")
+
+        forward_task = loop.create_task(forward_events())
+
+        async def _run():
+            try:
+                result = await agent.run(lc_messages, session_id=session_id)
+                last_msg = result["messages"][-1]
+                await event_bus.publish(session_id, {"type": "final", "content": last_msg.content})
+            except Exception as e:
+                await event_bus.publish(session_id, {"type": "error", "error": str(e)})
+            finally:
+                await event_bus.publish(session_id, {"type": "done"})
+
+        loop.run_until_complete(asyncio.gather(_run(), forward_task))
+        event_bus.unsubscribe(session_id, async_q)
+        loop.close()
+
+    threading.Thread(target=run_agent_in_thread, daemon=True).start()
+
+    def stream_generator():
+        while True:
+            event = q.get()
+            yield f"data: {json.dumps(event)}\n\n"
+            if event.get("type") == "done":
+                break
+
+    return Response(stream_generator(), mimetype="text/event-stream")

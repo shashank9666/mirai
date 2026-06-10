@@ -30,12 +30,18 @@ function createWindow() {
     icon: path.join(__dirname, 'icons', 'icon.png'),
   });
 
-  // Set Content-Security-Policy to remove electron security warning
+  // Set permissive Content-Security-Policy for Electron desktop app
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        'Content-Security-Policy': ["default-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:*; connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:*;"],
+        'Content-Security-Policy': [
+          "default-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* data: blob:; " +
+          "connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* https:; " +
+          "img-src 'self' data: blob: http://localhost:* http://127.0.0.1:* https:; " +
+          "font-src 'self' data: https:; " +
+          "style-src 'self' 'unsafe-inline' https:;"
+        ],
       },
     });
   });
@@ -94,18 +100,97 @@ function startNextDev() {
   });
 }
 
+// Wait for backend to be healthy (Python FastAPI on port 8000)
+function waitForBackend(maxRetries = 60, intervalMs = 1000) {
+  return new Promise((resolve, reject) => {
+    const http = require('http');
+    let attempts = 0;
+
+    const check = () => {
+      attempts++;
+      const req = http.request(
+        { hostname: '127.0.0.1', port: 8000, path: '/health', method: 'GET', timeout: 2000 },
+        (res) => {
+          if (res.statusCode === 200) {
+            console.log(`[Backend] Health check passed after ${attempts} attempt(s)`);
+            resolve();
+          } else {
+            retry();
+          }
+        }
+      );
+      req.on('error', retry);
+      req.on('timeout', () => { req.destroy(); retry(); });
+      req.end();
+    };
+
+    const retry = () => {
+      if (attempts >= maxRetries) {
+        console.error(`[Backend] Health check failed after ${maxRetries} attempts`);
+        // Still resolve — let the app load, frontend will show connection errors
+        resolve();
+      } else {
+        setTimeout(check, intervalMs);
+      }
+    };
+
+    check();
+  });
+}
+
+// Wait for Next.js dev server to be ready
+function waitForNextJs(maxRetries = 30, intervalMs = 1000) {
+  return new Promise((resolve) => {
+    const http = require('http');
+    let attempts = 0;
+
+    const check = () => {
+      attempts++;
+      const req = http.request(
+        { hostname: 'localhost', port: NEXT_PORT, path: '/', method: 'HEAD', timeout: 2000 },
+        (res) => {
+          console.log(`[Next.js] Server ready after ${attempts} attempt(s)`);
+          resolve();
+        }
+      );
+      req.on('error', () => {
+        if (attempts >= maxRetries) {
+          console.error(`[Next.js] Server not ready after ${maxRetries} attempts, proceeding anyway`);
+          resolve();
+        } else {
+          setTimeout(check, intervalMs);
+        }
+      });
+      req.on('timeout', () => {
+        req.destroy();
+        if (attempts >= maxRetries) {
+          resolve();
+        } else {
+          setTimeout(check, intervalMs);
+        }
+      });
+      req.end();
+    };
+
+    check();
+  });
+}
+
 // --- App Lifecycle ---
 
 app.whenReady().then(async () => {
-  if (isDev) {
-    // In dev, assume the user is already running `npm run dev` separately
-    // Just create the window pointing at localhost:3000
-    createWindow();
-  } else {
-    // In production, start the Next.js server first
-    await startNextDev();
-    createWindow();
-  }
+  // Start Next.js dev server
+  await startNextDev();
+
+  // Wait for both Next.js and backend to be available
+  console.log('[Startup] Waiting for Next.js and backend...');
+  await Promise.all([
+    waitForNextJs(),
+    waitForBackend(),
+  ]);
+  console.log('[Startup] Both servers ready, creating window');
+
+  createWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

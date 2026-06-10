@@ -1,13 +1,18 @@
 import os
 import sys
-import asyncio
-from fastapi import WebSocket, WebSocketDisconnect
+import json
+import threading
 from typing import Dict
 
-def setup_terminal_websockets(app):
-    @app.websocket("/ws/terminal")
-    async def terminal_endpoint(websocket: WebSocket, cwd: str = None, shell: str = "default"):
-        await websocket.accept()
+def setup_terminal_websockets(sock):
+    @sock.route("/ws/terminal")
+    def terminal_endpoint(ws):
+        # We don't get query params nicely in flask_sock by default, so we'll expect an init message or just use default
+        # But wait, flask_sock lets us access `request.args` if we import it!
+        from flask import request
+        cwd = request.args.get("cwd")
+        shell = request.args.get("shell", "default")
+        
         target_cwd = cwd or os.getcwd()
         
         # Cross platform pty support
@@ -27,7 +32,7 @@ def setup_terminal_websockets(app):
                 shell_cmd = shell
             pty_process = ptyprocess.PtyProcessUnicode.spawn([shell_cmd], cwd=target_cwd)
 
-        async def read_from_pty():
+        def read_from_pty():
             try:
                 while True:
                     if sys.platform == "win32":
@@ -35,30 +40,35 @@ def setup_terminal_websockets(app):
                     else:
                         data = pty_process.read(1024)
                     if data:
-                        await websocket.send_json({"event": "terminal:data", "data": data})
-                    await asyncio.sleep(0.01)
+                        ws.send(json.dumps({"event": "terminal:data", "data": data}))
             except Exception:
                 pass
 
-        reader_task = asyncio.create_task(read_from_pty())
+        reader_thread = threading.Thread(target=read_from_pty, daemon=True)
+        reader_thread.start()
 
         try:
             while True:
-                data = await websocket.receive_json()
-                event = data.get("event")
-                payload = data.get("data")
+                data = ws.receive()
+                if data is None:
+                    break
+                try:
+                    msg = json.loads(data)
+                except Exception:
+                    continue
+                
+                event = msg.get("event")
+                payload = msg.get("data")
                 
                 if event == "terminal:write":
-                    if sys.platform == "win32":
-                        pty_process.write(payload)
-                    else:
-                        pty_process.write(payload)
+                    pty_process.write(payload)
                 elif event == "terminal:resize":
                     cols = payload.get("cols", 80)
                     rows = payload.get("rows", 30)
                     pty_process.setwinsize(rows, cols)
-        except WebSocketDisconnect:
-            reader_task.cancel()
+        except Exception:
+            pass
+        finally:
             if sys.platform == "win32":
                 pty_process.close()
             else:

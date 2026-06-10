@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import Waybar from '@/components/ide/Waybar';
 import ActivityBar from '@/components/ide/ActivityBar';
 import HyprSidebar from '@/components/ide/HyprSidebar';
@@ -107,27 +107,69 @@ export default function Home() {
   const [terminalVisible, setTerminalVisible] = useState(true);
   const [terminalPinned, setTerminalPinned] = useState(false);
   const [terminalMinimized, setTerminalMinimized] = useState(false);
-  const [panelOrder, setPanelOrder] = useState<'normal' | 'reversed'>('normal');
+
+  const [panelOrderList, setPanelOrderList] = useState<string[]>(['sidebar', 'editor', 'chat']);
   const [dragOverSide, setDragOverSide] = useState<string | null>(null);
 
   const { zenMode, fullscreenMode, toggleZenMode, toggleFullscreenMode, workspacePath, setWorkspace } = useIdeStore();
   const hasWorkspace = !!workspacePath;
-  const [showWelcome, setShowWelcome] = useState(false);
-
-  // On mount, try to restore last workspace from localStorage
-  useEffect(() => {
-    const lastWorkspace = localStorage.getItem('miraiLastWorkspace');
-    if (lastWorkspace) {
-      fetch('http://127.0.0.1:8000/api/workspace/set', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: lastWorkspace }),
-      }).then(r => r.json()).then((result) => {
-        if (result?.path) {
-          setWorkspace(result.path, result.name);
-        }
-      }).catch(() => {});
+  const [welcomeOverride, setWelcomeOverride] = useState<{ show: boolean; forWorkspace: string | null } | null>(null);
+  const showWelcome = useMemo(() => {
+    if (welcomeOverride !== null && welcomeOverride.forWorkspace === workspacePath) {
+      return welcomeOverride.show;
     }
+    return !workspacePath;
+  }, [welcomeOverride, workspacePath]);
+
+  // On mount, wait for backend to be ready then restore last workspace
+  useEffect(() => {
+    let cancelled = false;
+    let retryTimeout: ReturnType<typeof setTimeout>;
+
+    const tryConnect = async (attempt = 0) => {
+      if (cancelled) return;
+
+      // First check if backend is healthy
+      try {
+        const healthRes = await fetch('http://127.0.0.1:8000/health', { signal: AbortSignal.timeout(2000) });
+        if (!healthRes.ok) throw new Error('Backend not healthy');
+      } catch {
+        // Backend not ready yet, retry with backoff (max ~5s delay)
+        if (attempt < 30) {
+          const delay = Math.min(1000 * Math.pow(1.2, attempt), 5000);
+          retryTimeout = setTimeout(() => tryConnect(attempt + 1), delay);
+          return;
+        }
+        // Give up after 30 attempts
+        console.error('Backend never became available');
+        return;
+      }
+
+      // Backend is ready, restore workspace
+      const lastWorkspace = localStorage.getItem('miraiLastWorkspace');
+      if (lastWorkspace && !cancelled) {
+        try {
+          const res = await fetch('http://127.0.0.1:8000/api/workspace/set', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: lastWorkspace }),
+          });
+          const result = await res.json();
+          if (result?.path && !cancelled) {
+            setWorkspace(result.path, result.name);
+          }
+        } catch (err) {
+          console.error('Failed to restore workspace:', err);
+        }
+      }
+    };
+
+    tryConnect();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimeout);
+    };
   }, [setWorkspace]);
 
   const handleSidebarResize = useCallback((delta: number) => {
@@ -142,19 +184,21 @@ export default function Home() {
     setTerminalHeight(h => Math.max(80, Math.min(500, h - delta)));
   }, []);
 
-  const handleViewChange = (view: string) => {
+  const handleViewChange = useCallback((view: string) => {
     if (view === 'settings') {
       setActiveView('settings');
       setSidebarVisible(true);
       return;
     }
-    if (activeView === view && sidebarVisible) {
-      setSidebarVisible(false);
-    } else {
-      setActiveView(view);
+    setActiveView(prev => {
+      if (prev === view) {
+        setSidebarVisible(v => !v);
+        return prev;
+      }
       setSidebarVisible(true);
-    }
-  };
+      return view;
+    });
+  }, []);
 
   const handleShowSettings = () => {
     handleViewChange('settings');
@@ -189,7 +233,7 @@ export default function Home() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [zenMode, toggleZenMode, toggleFullscreenMode]);
+  }, [zenMode, toggleZenMode, toggleFullscreenMode, handleViewChange]);
 
   useEffect(() => {
     const handleCommand = (e: CustomEvent) => {
@@ -217,7 +261,7 @@ export default function Home() {
           state.removeGroup(state.activeGroupId);
         }
       } else if (cmd === 'openFolder') {
-        setShowWelcome(true);
+        setWelcomeOverride({ show: true, forWorkspace: workspacePath });
       } else if (cmd === 'closeSettings') {
         if (activeView === 'settings') {
           setActiveView('explorer');
@@ -226,7 +270,7 @@ export default function Home() {
     };
     window.addEventListener('ide:command', handleCommand as EventListener);
     return () => window.removeEventListener('ide:command', handleCommand as EventListener);
-  }, [toggleZenMode, toggleFullscreenMode, activeView]);
+  }, [toggleZenMode, toggleFullscreenMode, activeView, handleViewChange, workspacePath]);
 
   useEffect(() => {
     if (fullscreenMode) {
@@ -260,10 +304,17 @@ export default function Home() {
     e.preventDefault();
     setDragOverSide(null);
     const source = e.dataTransfer.getData('text/panel');
-    if (source === 'sidebar' && target === 'chat') {
-      setPanelOrder('reversed');
-    } else if (source === 'chat' && target === 'sidebar') {
-      setPanelOrder('normal');
+    if (source && source !== target) {
+      setPanelOrderList((prev) => {
+        const newOrder = [...prev];
+        const sourceIdx = newOrder.indexOf(source);
+        const targetIdx = newOrder.indexOf(target);
+        if (sourceIdx !== -1 && targetIdx !== -1) {
+          newOrder[sourceIdx] = target;
+          newOrder[targetIdx] = source;
+        }
+        return newOrder;
+      });
     }
   }, []);
 
@@ -272,19 +323,7 @@ export default function Home() {
     e.dataTransfer.effectAllowed = 'move';
   }, []);
 
-  // Sync showWelcome with workspacePath changes
-  useEffect(() => {
-    if (workspacePath) {
-      setShowWelcome(false);
-    }
-  }, [workspacePath]);
 
-  // If no workspace on mount, show welcome
-  useEffect(() => {
-    if (!workspacePath) {
-      setShowWelcome(true);
-    }
-  }, [workspacePath]);
 
   return (
     <main className={`h-screen w-screen flex flex-col overflow-hidden text-[var(--color-text-normal)] select-none transition-all duration-300 ${zenMode ? 'bg-black' : ''}`} style={{ backgroundColor: zenMode ? 'black' : 'var(--background)' }}>
@@ -296,8 +335,8 @@ export default function Home() {
       <div className="flex-1 flex min-h-0">
         {!zenMode && <ActivityBar activeView={activeView} onViewChange={handleViewChange} onShowSettings={handleShowSettings} />}
 
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="flex-1 flex min-h-0">
+        <div className={`flex-1 flex flex-col min-h-0 ${!zenMode ? 'gap-2 p-2' : ''}`}>
+          <div className={`flex-1 flex min-h-0 ${!zenMode ? 'gap-2' : ''}`}>
             {!zenMode && sidebarVisible && (
               <>
                 <div
@@ -306,22 +345,32 @@ export default function Home() {
                   onDragOver={(e) => handleDragOver(e, 'sidebar')}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, 'sidebar')}
-                  className={`flex-shrink-0 overflow-hidden transition-all duration-200 ${
-                    dragOverSide === 'sidebar' ? 'ring-2 ring-[var(--color-primary-accent)]/50 rounded-lg' : ''
+                  className={`flex-shrink-0 overflow-hidden transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${
+                    dragOverSide === 'sidebar' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
                   }`}
-                  style={{ width: sidebarWidth }}
+                  style={{ width: sidebarWidth, order: panelOrderList.indexOf('sidebar') }}
                 >
                   <SidebarContent activeView={activeView} />
                 </div>
-                <ResizeHandle direction="horizontal" onResize={handleSidebarResize} />
+                {panelOrderList.indexOf('sidebar') !== 2 && <ResizeHandle direction="horizontal" onResize={handleSidebarResize} />}
               </>
             )}
 
-            <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
+            <div 
+              draggable={!zenMode}
+              onDragStart={(e) => handleDragStart(e, 'editor')}
+              onDragOver={(e) => handleDragOver(e, 'editor')}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, 'editor')}
+              className={`flex-1 min-w-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${
+                dragOverSide === 'editor' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
+              }`}
+              style={{ order: panelOrderList.indexOf('editor') }}
+            >
               {hasWorkspace && !showWelcome && <EditorToolbar />}
               <div className="flex-1 min-h-0">
                 {showWelcome || !hasWorkspace ? (
-                  <WelcomeScreen onWorkspaceOpened={() => setShowWelcome(false)} />
+                  <WelcomeScreen onWorkspaceOpened={() => setWelcomeOverride({ show: false, forWorkspace: workspacePath })} />
                 ) : (
                   <HyprEditor />
                 )}
@@ -330,17 +379,17 @@ export default function Home() {
 
             {!zenMode && chatVisible && (
               <>
-                <ResizeHandle direction="horizontal" onResize={handleChatResize} />
+                {panelOrderList.indexOf('chat') !== 0 && <ResizeHandle direction="horizontal" onResize={(delta) => handleChatResize(-delta)} />}
                 <div
                   draggable={!zenMode}
                   onDragStart={(e) => handleDragStart(e, 'chat')}
                   onDragOver={(e) => handleDragOver(e, 'chat')}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, 'chat')}
-                  className={`flex-shrink-0 overflow-hidden transition-all duration-200 ${
-                    dragOverSide === 'chat' ? 'ring-2 ring-[var(--color-secondary-accent)]/50 rounded-lg' : ''
+                  className={`flex-shrink-0 overflow-hidden transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${
+                    dragOverSide === 'chat' ? 'ring-2 ring-[var(--color-secondary-accent)]/50' : ''
                   }`}
-                  style={{ width: chatMinimized ? 200 : chatWidth }}
+                  style={{ width: chatMinimized ? 200 : chatWidth, order: panelOrderList.indexOf('chat') }}
                 >
                   <HyprChat
                     isPinned={chatPinned}
@@ -357,7 +406,10 @@ export default function Home() {
           {!zenMode && terminalVisible && (
             <>
               <ResizeHandle direction="vertical" onResize={handleTerminalResize} />
-              <div className="flex-shrink-0 overflow-hidden" style={{ height: terminalMinimized ? 36 : terminalHeight }}>
+              <div 
+                className={`flex-shrink-0 overflow-hidden ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''}`} 
+                style={{ height: terminalMinimized ? 36 : terminalHeight }}
+              >
                 <HyprTerminal
                   isPinned={terminalPinned}
                   isMinimized={terminalMinimized}

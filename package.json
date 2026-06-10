@@ -7,10 +7,10 @@
   "main": "electron/main.js",
   "scripts": {
     "dev:frontend": "npm run dev --prefix frontend -- -p 3000",
-    "dev:backend": "cd backend/python && .\\venv\\Scripts\\python.exe -m uvicorn main:app --reload --host 127.0.0.1 --port 8000",
-    "dev:electron": "npx wait-on http-get://localhost:3000 http-get://127.0.0.1:8000/health && npx electron .",
+    "dev:backend": "cd backend/python && .\\venv\\Scripts\\python.exe main.py",
+    "dev:electron": " npx electron .",
     "dev:clean": "powershell -ExecutionPolicy Bypass -File scripts/kill-all.ps1 && npm run dev",
-    "dev": "npx concurrently -n fe,be,el -c cyan,green,magenta \"npm run dev:frontend\" \"npm run dev:backend\" \"npm run dev:electron\"",
+    "dev": "npm run kill && npx concurrently -n be,el -c green,magenta \"npm run dev:backend\" \"npm run dev:electron\"",
     "dev:noel": "npx concurrently -n fe,be -c cyan,green \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:fe": "npm run dev:frontend",
     "dev:be": "npm run dev:backend",

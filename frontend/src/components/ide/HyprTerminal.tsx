@@ -40,12 +40,13 @@ interface TerminalTab {
   pinned: boolean;
 }
 
-function TerminalInstance({ tab, onOutput, onStatusChange }: {
-  tab: TerminalTab;
-  onOutput: (data: string) => void;
-  onStatusChange: (status: ConnectionStatus) => void;
+function TerminalInstance({ tabId, tabOutput, tabStatus, onOutput, onStatusChange }: {
+  tabId: string;
+  tabOutput: string[];
+  tabStatus: ConnectionStatus;
+  onOutput: (termId: string, data: string) => void;
+  onStatusChange: (termId: string, status: ConnectionStatus) => void;
 }) {
-  const [input, setInput] = useState('');
   const outputRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const mountedRef = useRef(true);
@@ -53,14 +54,14 @@ function TerminalInstance({ tab, onOutput, onStatusChange }: {
 
   useEffect(() => {
     mountedRef.current = true;
-    onStatusChange('connecting');
+    onStatusChange(tabId, 'connecting');
 
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
 
     ws.onopen = () => {
       if (mountedRef.current) {
-        onStatusChange('connected');
+        onStatusChange(tabId, 'connected');
       }
     };
 
@@ -69,23 +70,23 @@ function TerminalInstance({ tab, onOutput, onStatusChange }: {
       try {
         const msg = JSON.parse(event.data);
         if (msg.event === 'terminal:data' && typeof msg.data === 'string') {
-          onOutput(msg.data);
+          onOutput(tabId, msg.data);
         }
       } catch {
-        onOutput(event.data);
+        onOutput(tabId, event.data);
       }
     };
 
     ws.onclose = () => {
       if (mountedRef.current) {
-        onStatusChange('disconnected');
+        onStatusChange(tabId, 'disconnected');
       }
     };
 
     ws.onerror = () => {
       if (mountedRef.current) {
-        onStatusChange('disconnected');
-        onOutput('\r\n[Error: Could not connect to terminal backend. Is the server running?]\r\n');
+        onStatusChange(tabId, 'disconnected');
+        onOutput(tabId, '\r\n[Error: Could not connect to terminal backend. Is the server running?]\r\n');
       }
     };
 
@@ -93,34 +94,18 @@ function TerminalInstance({ tab, onOutput, onStatusChange }: {
       mountedRef.current = false;
       if (wsRef.current) wsRef.current.close();
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabId]);
 
   useEffect(() => {
     if (outputRef.current) {
       outputRef.current.scrollTop = outputRef.current.scrollHeight;
     }
-  }, [tab.output]);
+  }, [tabOutput]);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
-
-  const handleSubmit = () => {
-    if (!input || tab.status !== 'connected') return;
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ event: 'terminal:write', data: input + '\n' }));
-    }
-    setInput('');
-    inputRef.current?.focus();
-  };
-
-  const statusText = tab.status === 'connected'
-    ? 'Connected'
-    : tab.status === 'connecting'
-      ? 'Connecting...'
-      : tab.status === 'reconnecting'
-        ? 'Reconnecting...'
-        : 'Disconnected';
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-[#1E1E1E]">
@@ -128,58 +113,38 @@ function TerminalInstance({ tab, onOutput, onStatusChange }: {
         ref={outputRef}
         className="flex-1 p-3 font-mono text-[12px] overflow-y-auto custom-scrollbar leading-relaxed whitespace-pre-wrap break-all"
       >
-        {tab.output.length === 0 && tab.status === 'connecting' && (
+        {tabOutput.length === 0 && tabStatus === 'connecting' && (
           <div className="text-white/30 animate-pulse">Connecting to terminal...</div>
         )}
-        {tab.output.length === 0 && tab.status === 'disconnected' && (
+        {tabOutput.length === 0 && tabStatus === 'disconnected' && (
           <div className="text-white/20">
             <div className="text-red-400/60 mb-2">Terminal disconnected</div>
             <div className="text-white/20 text-[11px]">Make sure the backend server is running on port 8000</div>
           </div>
         )}
-        {tab.output.map((line, i) => (
+        {tabOutput.map((line, i) => (
           <div key={i} className="text-[#CCCCCC]">{line}</div>
         ))}
       </div>
 
-      <div className="flex items-center gap-2 px-3 py-1.5 border-t border-white/5 shrink-0 bg-[#1E1E1E]">
-        <span className="text-[#4DAAF1] text-[12px] font-mono shrink-0">$</span>
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-          placeholder={tab.status === 'connected' ? 'Type a command...' : statusText}
-          disabled={tab.status !== 'connected'}
-          className="flex-1 bg-transparent border-none outline-none text-[12px] text-[#CCCCCC] placeholder:text-white/20 font-mono disabled:opacity-40"
-          autoFocus
-        />
-      </div>
     </div>
   );
 }
 
 export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize, onClose }: TerminalPanelProps) {
-  const tabCounterRef = useRef(1);
+  const tabCounterRef = useRef(2);
 
-  const createTab = useCallback((): TerminalTab => {
-    const id = `terminal-${tabCounterRef.current}`;
+  const createTab = useCallback((counter: number): TerminalTab => {
+    const id = `terminal-${counter}`;
     // E.g., 'bash' or 'powershell' (using a generic name for now)
-    const label = `cmd ${tabCounterRef.current}`;
-    tabCounterRef.current += 1;
+    const label = `cmd ${counter}`;
     return { id, label, output: [], status: 'disconnected', pinned: false };
   }, []);
 
   const [activeBottomTab, setActiveBottomTab] = useState('terminal');
-  const [terminals, setTerminals] = useState<TerminalTab[]>(() => [createTab()]);
-  const [activeTermId, setActiveTermId] = useState<string>(() => '');
+  const [terminals, setTerminals] = useState<TerminalTab[]>([{ id: 'terminal-1', label: 'cmd 1', output: [], status: 'disconnected', pinned: false }]);
+  const [activeTermId, setActiveTermId] = useState<string>('terminal-1');
   const [showRetryBanner, setShowRetryBanner] = useState(false);
-
-  useEffect(() => {
-    if (!activeTermId && terminals.length > 0) {
-      setActiveTermId(terminals[0].id);
-    }
-  }, [terminals, activeTermId]);
 
   const activeTerminal = terminals.find((t) => t.id === activeTermId) ?? terminals[0];
 
@@ -214,7 +179,8 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
   }, []);
 
   const addTerminal = () => {
-    const tab = createTab();
+    const tab = createTab(tabCounterRef.current);
+    tabCounterRef.current += 1;
     setTerminals((prev) => [...prev, tab]);
     setActiveTermId(tab.id);
   };
@@ -223,7 +189,8 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
     setTerminals((prev) => {
       if (prev.length <= 1) {
         // If last terminal is closed, create a new one to replace it
-        const newTab = createTab();
+        const newTab = createTab(tabCounterRef.current);
+        tabCounterRef.current += 1;
         setActiveTermId(newTab.id);
         return [newTab];
       }
@@ -241,7 +208,8 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
 
   const retryConnection = () => {
     setShowRetryBanner(false);
-    const tab = createTab();
+    const tab = createTab(tabCounterRef.current);
+    tabCounterRef.current += 1;
     setTerminals((prev) => [...prev, tab]);
     setActiveTermId(tab.id);
   };
@@ -321,9 +289,11 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
                 {activeTerminal && (
                   <TerminalInstance
                     key={activeTerminal.id}
-                    tab={activeTerminal}
-                    onOutput={(data) => handleOutput(activeTerminal.id, data)}
-                    onStatusChange={(status) => handleStatusChange(activeTerminal.id, status)}
+                    tabId={activeTerminal.id}
+                    tabOutput={activeTerminal.output}
+                    tabStatus={activeTerminal.status}
+                    onOutput={handleOutput}
+                    onStatusChange={handleStatusChange}
                   />
                 )}
               </div>

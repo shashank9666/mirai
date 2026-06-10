@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api, FileEntry } from '@/lib/api';
 import { useIdeStore } from '@/store/ideStore';
-import { ChevronRight, ChevronDown, Folder, FolderOpen } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, FolderOpen, FilePlus, FolderPlus, Edit2, Monitor } from 'lucide-react';
 
 const FILE_ICONS: Record<string, string> = {
   '.tsx': '\u269B\uFE0F', '.ts': '\uD83D\uDD37', '.js': '\uD83D\uDFE1', '.jsx': '\u269B\uFE0F',
@@ -217,7 +217,7 @@ export default function HyprSidebar() {
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const [renameTarget, setRenameTarget] = useState<ContextMenu | null>(null);
   const [newItemTarget, setNewItemTarget] = useState<{ parentPath: string; type: 'file' | 'folder' } | null>(null);
-  const { renameTab, workspacePath } = useIdeStore();
+  const { renameTab, workspacePath, getActiveGroup } = useIdeStore();
 
   const refresh = useCallback(() => {
     api.readDir().then(({ entries }) => setRootNodes(entries)).catch(() => setRootNodes([]));
@@ -251,9 +251,26 @@ export default function HyprSidebar() {
     <div className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
       <div className="px-4 py-3 border-b border-white/5 font-mono text-[10px] text-white/40 tracking-widest uppercase shrink-0 flex items-center justify-between">
         <span>Explorer</span>
-        <button onClick={refresh} className="text-white/30 hover:text-white/70 transition-colors" title="Refresh">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => setNewItemTarget({ parentPath: rootNodes[0]?.path || workspacePath || '', type: 'file' })} className="text-white/30 hover:text-white/70 transition-colors p-0.5" title="New File">
+            <FilePlus className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => setNewItemTarget({ parentPath: rootNodes[0]?.path || workspacePath || '', type: 'folder' })} className="text-white/30 hover:text-white/70 transition-colors p-0.5" title="New Folder">
+            <FolderPlus className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => {
+            const active = getActiveGroup()?.activeFile;
+            if (active) setRenameTarget({ path: active, name: active.split(/[\\/]/).pop() || '', isDir: false, x: 0, y: 0, type: 'file' });
+          }} className="text-white/30 hover:text-white/70 transition-colors p-0.5" title="Rename Active File">
+            <Edit2 className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'openFolder' } }))} className="text-white/30 hover:text-white/70 transition-colors p-0.5" title="Open Workspace">
+            <Monitor className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={refresh} className="text-white/30 hover:text-white/70 transition-colors p-0.5 ml-1" title="Refresh">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          </button>
+        </div>
       </div>
 
       <div
