@@ -135,7 +135,6 @@ export function HyprDebug() {
         <div className="mt-4 text-[10px] font-mono text-white/20">Configure in .vscode/launch.json</div>
       </div>
     </div>
-    </div>
   );
 }
 
