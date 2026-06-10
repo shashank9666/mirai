@@ -9,7 +9,8 @@ import {
   SplitSquareHorizontal,
   ChevronDown,
   Maximize2,
-  Pin
+  Pin,
+  Columns2
 } from 'lucide-react';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws/terminal';
@@ -174,6 +175,7 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
   const [activeTermId, setActiveTermId] = useState<string>('terminal-1');
   const [showRetryBanner, setShowRetryBanner] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [isSplitMode, setIsSplitMode] = useState(false);
 
   const activeTerminal = terminals.find((t) => t.id === activeTermId) ?? terminals[0];
 
@@ -299,8 +301,11 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
               
               <div className="w-[1px] h-4 bg-white/10 mx-1"></div>
               
-              <button className="p-1 rounded text-[#CCCCCC] hover:text-white hover:bg-white/10 transition-colors" title="Split Terminal">
+              <button onClick={() => { if (!isSplitMode) setIsSplitMode(true); addTerminal(); }} className="p-1 rounded text-[#CCCCCC] hover:text-white hover:bg-white/10 transition-colors" title="Split Terminal">
                 <SplitSquareHorizontal className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => setIsSplitMode(!isSplitMode)} className={`p-1 rounded transition-colors ${isSplitMode ? 'text-white bg-[var(--color-primary-accent)]/30' : 'text-[#CCCCCC] hover:text-white hover:bg-white/10'}`} title="Toggle Split View">
+                <Columns2 className="w-3.5 h-3.5" />
               </button>
               <button onClick={() => closeTerminal(activeTermId)} className="p-1 rounded text-[#CCCCCC] hover:text-red-400 hover:bg-white/10 transition-colors" title="Kill Terminal">
                 <Trash2 className="w-3.5 h-3.5" />
@@ -344,19 +349,25 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
           {activeBottomTab === 'terminal' && (
             <>
               {/* Terminal Instance */}
-              <div className="flex-1 flex flex-col relative min-w-0">
-                {activeTerminal && (
-                  <TerminalInstance
-                    key={activeTerminal.id}
-                    tabId={activeTerminal.id}
-                    tabOutput={activeTerminal.output}
-                    tabStatus={activeTerminal.status}
-                    tabProfile={activeTerminal.profile}
-                    onOutput={handleOutput}
-                    onStatusChange={handleStatusChange}
-                    onClear={handleClear}
-                  />
-                )}
+              {/* Terminal Instances */}
+              <div className="flex-1 flex flex-row relative min-w-0">
+                {terminals.map((t, i) => (
+                  <div 
+                    key={t.id} 
+                    className={`flex-1 flex flex-col min-w-0 ${i > 0 && isSplitMode ? 'border-l border-white/10' : ''}`}
+                    style={{ display: !isSplitMode && t.id !== activeTermId ? 'none' : 'flex' }}
+                  >
+                    <TerminalInstance
+                      tabId={t.id}
+                      tabOutput={t.output}
+                      tabStatus={t.status}
+                      tabProfile={t.profile}
+                      onOutput={handleOutput}
+                      onStatusChange={handleStatusChange}
+                      onClear={handleClear}
+                    />
+                  </div>
+                ))}
               </div>
 
               {/* Terminal Sidebar (Right) */}

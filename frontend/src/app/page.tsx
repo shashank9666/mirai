@@ -15,7 +15,7 @@ import HyprSearch from '@/components/ide/HyprSearch';
 import HyprGit from '@/components/ide/HyprGit';
 import WelcomeScreen from '@/components/ide/WelcomeScreen';
 import SettingsPanel from '@/components/ide/SettingsPanel';
-import { HyprExtensions, HyprAgent, HyprDatabase, HyprDebug } from '@/components/ide/HyprPanels';
+import { HyprExtensions, HyprAgent, HyprDatabase, HyprDebug, HyprAIProviders } from '@/components/ide/HyprPanels';
 import { useIdeStore } from '@/store/ideStore';
 
 function ResizeHandle({
@@ -82,6 +82,8 @@ function SidebarContent({ activeView }: { activeView: string }) {
       return <HyprAgent />;
     case 'database':
       return <HyprDatabase />;
+    case 'ai-providers':
+      return <HyprAIProviders />;
     case 'debug':
       return <HyprDebug />;
     case 'explorer':
@@ -115,7 +117,7 @@ export default function Home() {
   const [dragOverSide, setDragOverSide] = useState<string | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
-  const { zenMode, fullscreenMode, toggleZenMode, toggleFullscreenMode, workspacePath, setWorkspace } = useIdeStore();
+  const { zenMode, fullscreenMode, toggleZenMode, toggleFullscreenMode, workspacePath, setWorkspace, editorSettings } = useIdeStore();
   const hasWorkspace = !!workspacePath;
   const [welcomeOverride, setWelcomeOverride] = useState<{ show: boolean; forWorkspace: string | null } | null>(null);
   const showWelcome = useMemo(() => {
@@ -360,134 +362,147 @@ export default function Home() {
     : `1fr${bottomVisible && !zenMode ? ' 5px ' + (terminalMinimized ? 36 : terminalHeight) + 'px' : ''}`;
 
   return (
-    <main className={`h-screen w-screen flex flex-col overflow-hidden text-[var(--color-text-normal)] select-none transition-all duration-300 ${zenMode ? 'bg-black' : ''}`} style={{ backgroundColor: zenMode ? 'black' : 'var(--background)' }}>
-      <CommandPalette />
-      <QuickOpen />
+    <div className="w-screen h-screen overflow-hidden flex flex-col bg-[#050505] text-white/90 selection:bg-white/20 relative"
+      style={{
+        backgroundImage: editorSettings.backgroundImage ? `url(${editorSettings.backgroundImage})` : 'none',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      {editorSettings.backgroundImage && (
+        <div className="absolute inset-0 z-0 pointer-events-none" style={{ backgroundColor: `rgba(5,5,5,${1 - editorSettings.backgroundOpacity})` }} />
+      )}
+      
+      <div className="relative z-10 flex flex-col w-full h-full">
+        <CommandPalette />
+        <QuickOpen />
 
-      {!zenMode && <Waybar />}
+        {!zenMode && <Waybar />}
 
-      <div className="flex-1 flex min-h-0">
-        {!zenMode && <ActivityBar activeView={activeView} onViewChange={handleViewChange} onShowSettings={handleShowSettings} />}
+        <div className="flex-1 flex min-h-0">
+          {!zenMode && <ActivityBar activeView={activeView} onViewChange={handleViewChange} onShowSettings={handleShowSettings} />}
 
-        <div 
-          className={`flex-1 grid min-h-0 ${!zenMode ? 'p-2' : ''}`}
-          style={{
-            gridTemplateColumns: gridCols,
-            gridTemplateRows: gridRows,
-            gridTemplateAreas: gridAreas,
-          }}
-        >
-          {/* Resize Handles */}
-          {!zenMode && leftVisible && (
-            <div style={{ gridArea: 'h-res-1' }} className="flex">
-              <ResizeHandle direction="horizontal" onResize={handleSidebarResize} />
-            </div>
-          )}
-          {!zenMode && rightVisible && (
-            <div style={{ gridArea: 'h-res-2' }} className="flex">
-              <ResizeHandle direction="horizontal" onResize={(delta) => handleChatResize(-delta)} />
-            </div>
-          )}
-          {!zenMode && bottomVisible && (
-            <div style={{ gridArea: 'v-res' }} className="flex">
-              <ResizeHandle direction="vertical" onResize={handleTerminalResize} />
-            </div>
-          )}
-
-          {/* Sidebar */}
-          <div
-            draggable={!zenMode}
-            onDragStart={(e) => handleDragStart(e, 'sidebar')}
-            onDragOver={(e) => handleDragOver(e, 'sidebar')}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, 'sidebar')}
-            className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${
-              dragOverSide === 'sidebar' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
-            }`}
-            style={{ 
-              gridArea: panelSlots['sidebar'], 
-              display: (!zenMode && visibility['sidebar']) || (zenMode && panelSlots['sidebar'] === 'center') ? 'flex' : 'none' 
-            }}
-          >
-            <SidebarContent activeView={activeView} />
-          </div>
-
-          {/* Editor */}
           <div 
-            draggable={!zenMode}
-            onDragStart={(e) => handleDragStart(e, 'editor')}
-            onDragOver={(e) => handleDragOver(e, 'editor')}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, 'editor')}
-            className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${
-              dragOverSide === 'editor' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
-            }`}
-            style={{ 
-              gridArea: panelSlots['editor'],
-              display: (!zenMode && visibility['editor']) || (zenMode && panelSlots['editor'] === 'center') ? 'flex' : 'none' 
+            className={`flex-1 grid min-h-0 ${!zenMode ? 'p-2' : ''}`}
+            style={{
+              gridTemplateColumns: gridCols,
+              gridTemplateRows: gridRows,
+              gridTemplateAreas: gridAreas,
             }}
           >
-            {hasWorkspace && !showWelcome && <EditorToolbar />}
-            <div className="flex-1 min-h-0">
-              {showWelcome || !hasWorkspace ? (
-                <WelcomeScreen onWorkspaceOpened={() => setWelcomeOverride({ show: false, forWorkspace: workspacePath })} />
-              ) : (
-                <HyprEditor />
-              )}
+            {/* Resize Handles */}
+            {!zenMode && leftVisible && (
+              <div style={{ gridArea: 'h-res-1' }} className="flex">
+                <ResizeHandle direction="horizontal" onResize={handleSidebarResize} />
+              </div>
+            )}
+            {!zenMode && rightVisible && (
+              <div style={{ gridArea: 'h-res-2' }} className="flex">
+                <ResizeHandle direction="horizontal" onResize={(delta) => handleChatResize(-delta)} />
+              </div>
+            )}
+            {!zenMode && bottomVisible && (
+              <div style={{ gridArea: 'v-res' }} className="flex">
+                <ResizeHandle direction="vertical" onResize={handleTerminalResize} />
+              </div>
+            )}
+
+            {/* Sidebar */}
+            <div
+              draggable={!zenMode}
+              onDragStart={(e) => handleDragStart(e, 'sidebar')}
+              onDragOver={(e) => handleDragOver(e, 'sidebar')}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, 'sidebar')}
+              className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${
+                dragOverSide === 'sidebar' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
+              }`}
+              style={{ 
+                gridArea: panelSlots['sidebar'], 
+                display: (!zenMode && visibility['sidebar']) || (zenMode && panelSlots['sidebar'] === 'center') ? 'flex' : 'none' 
+              }}
+            >
+              <SidebarContent activeView={activeView} />
             </div>
-          </div>
 
-          {/* Chat */}
-          <div
-            draggable={!zenMode}
-            onDragStart={(e) => handleDragStart(e, 'chat')}
-            onDragOver={(e) => handleDragOver(e, 'chat')}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, 'chat')}
-            className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${
-              dragOverSide === 'chat' ? 'ring-2 ring-[var(--color-secondary-accent)]/50' : ''
-            }`}
-            style={{ 
-              gridArea: panelSlots['chat'],
-              display: (!zenMode && visibility['chat']) || (zenMode && panelSlots['chat'] === 'center') ? 'flex' : 'none' 
-            }}
-          >
-            <HyprChat
-              isPinned={chatPinned}
-              isMinimized={chatMinimized}
-              onPin={() => setChatPinned(p => !p)}
-              onMinimize={() => setChatMinimized(m => !m)}
-              onClose={() => setChatVisible(false)}
-            />
-          </div>
+            {/* Editor */}
+            <div 
+              draggable={!zenMode}
+              onDragStart={(e) => handleDragStart(e, 'editor')}
+              onDragOver={(e) => handleDragOver(e, 'editor')}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, 'editor')}
+              className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${
+                dragOverSide === 'editor' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
+              }`}
+              style={{ 
+                gridArea: panelSlots['editor'],
+                display: (!zenMode && visibility['editor']) || (zenMode && panelSlots['editor'] === 'center') ? 'flex' : 'none' 
+              }}
+            >
+              {hasWorkspace && !showWelcome && <EditorToolbar />}
+              <div className="flex-1 min-h-0">
+                {showWelcome || !hasWorkspace ? (
+                  <WelcomeScreen onWorkspaceOpened={() => setWelcomeOverride({ show: false, forWorkspace: workspacePath })} />
+                ) : (
+                  <HyprEditor />
+                )}
+              </div>
+            </div>
 
-          {/* Terminal */}
-          <div
-            draggable={!zenMode}
-            onDragStart={(e) => handleDragStart(e, 'terminal')}
-            onDragOver={(e) => handleDragOver(e, 'terminal')}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, 'terminal')}
-            className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${
-              dragOverSide === 'terminal' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
-            }`}
-            style={{ 
-              gridArea: panelSlots['terminal'],
-              display: (!zenMode && visibility['terminal']) || (zenMode && panelSlots['terminal'] === 'center') ? 'flex' : 'none' 
-            }}
-          >
-            <HyprTerminal
-              isPinned={terminalPinned}
-              isMinimized={terminalMinimized}
-              onPin={() => setTerminalPinned(p => !p)}
-              onMinimize={() => setTerminalMinimized(m => !m)}
-              onClose={() => setTerminalVisible(false)}
-            />
+            {/* Chat */}
+            <div
+              draggable={!zenMode}
+              onDragStart={(e) => handleDragStart(e, 'chat')}
+              onDragOver={(e) => handleDragOver(e, 'chat')}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, 'chat')}
+              className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${
+                dragOverSide === 'chat' ? 'ring-2 ring-[var(--color-secondary-accent)]/50' : ''
+              }`}
+              style={{ 
+                gridArea: panelSlots['chat'],
+                display: (!zenMode && visibility['chat']) || (zenMode && panelSlots['chat'] === 'center') ? 'flex' : 'none' 
+              }}
+            >
+              <HyprChat
+                isPinned={chatPinned}
+                isMinimized={chatMinimized}
+                onPin={() => setChatPinned(p => !p)}
+                onMinimize={() => setChatMinimized(m => !m)}
+                onClose={() => setChatVisible(false)}
+              />
+            </div>
+
+            {/* Terminal */}
+            <div
+              draggable={!zenMode}
+              onDragStart={(e) => handleDragStart(e, 'terminal')}
+              onDragOver={(e) => handleDragOver(e, 'terminal')}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, 'terminal')}
+              className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${
+                dragOverSide === 'terminal' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
+              }`}
+              style={{ 
+                gridArea: panelSlots['terminal'],
+                display: (!zenMode && visibility['terminal']) || (zenMode && panelSlots['terminal'] === 'center') ? 'flex' : 'none' 
+              }}
+            >
+              <HyprTerminal
+                isPinned={terminalPinned}
+                isMinimized={terminalMinimized}
+                onPin={() => setTerminalPinned(p => !p)}
+                onMinimize={() => setTerminalMinimized(m => !m)}
+                onClose={() => setTerminalVisible(false)}
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      {!zenMode && <HyprStatusBar />}
+        {!zenMode && <HyprStatusBar />}
+      </div>
 
       {showSettingsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">

@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 type SettingsTab = 'editor' | 'theme' | 'ai' | 'mcp' | 'general';
 
 export default function SettingsPanel({ onClose }: { onClose: () => void }) {
+  const { editorSettings, setEditorSettings } = useIdeStore();
   const [activeTab, setActiveTab] = useState<SettingsTab>('editor');
   const [settingsJson, setSettingsJson] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
@@ -87,15 +88,60 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
       <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
         {activeTab === 'editor' && <EditorSettings />}
         {activeTab === 'theme' && (
-          <div className="space-y-4">
-            <SectionTitle>Theme Selection</SectionTitle>
-            <div className="grid grid-cols-3 gap-3">
-              {['Midnight', 'Dracula', 'GitHub Dark', 'Nord', 'Monokai'].map(t => (
-                <button key={t} className="p-3 border border-white/10 rounded-lg hover:border-[var(--color-primary-accent)]/50 bg-white/5 transition-colors flex flex-col items-center gap-2">
-                  <div className="w-full h-12 rounded bg-black/50 shadow-inner" />
-                  <span className="text-[11px] font-mono text-white/70">{t}</span>
-                </button>
-              ))}
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <SectionTitle>Theme Selection</SectionTitle>
+              <div className="grid grid-cols-3 gap-3">
+                {['vs-dark', 'hc-black', 'vs'].map(t => (
+                  <button 
+                    key={t}
+                    onClick={() => setEditorSettings({ theme: t })}
+                    className={`p-3 border rounded-lg transition-colors flex flex-col items-center gap-2 ${
+                      editorSettings.theme === t 
+                        ? 'border-[var(--color-primary-accent)] bg-[var(--color-primary-accent)]/10' 
+                        : 'border-white/10 hover:border-[var(--color-primary-accent)]/50 bg-white/5'
+                    }`}
+                  >
+                    <div className="w-full h-12 rounded bg-black/50 shadow-inner flex items-center justify-center">
+                      <span className="text-[10px] text-white/30">{t}</span>
+                    </div>
+                    <span className="text-[11px] font-mono text-white/70">{t}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <SectionTitle>Background Settings</SectionTitle>
+              <div className="space-y-3">
+                <div className="p-3 border border-white/10 rounded-lg bg-white/5 flex flex-col gap-2">
+                  <span className="text-[12px] font-mono text-white/80">Background Image URL</span>
+                  <input 
+                    type="text" 
+                    value={editorSettings.backgroundImage || ''}
+                    onChange={(e) => setEditorSettings({ backgroundImage: e.target.value })}
+                    placeholder="https://example.com/image.jpg..." 
+                    className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-[11px] font-mono text-white/70 outline-none focus:border-[var(--color-primary-accent)]/50" 
+                  />
+                  <span className="text-[10px] font-mono text-white/40">Leave empty to use flat background color.</span>
+                </div>
+
+                <div className="p-3 border border-white/10 rounded-lg bg-white/5 flex flex-col gap-2">
+                  <span className="text-[12px] font-mono text-white/80">Background Opacity</span>
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="1" 
+                      step="0.05"
+                      value={editorSettings.backgroundOpacity}
+                      onChange={(e) => setEditorSettings({ backgroundOpacity: parseFloat(e.target.value) })}
+                      className="flex-1" 
+                    />
+                    <span className="text-[11px] font-mono text-white/60 w-8">{Math.round(editorSettings.backgroundOpacity * 100)}%</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}

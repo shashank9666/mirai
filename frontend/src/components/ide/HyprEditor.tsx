@@ -2,7 +2,7 @@
 
 import React, { useEffect, useCallback, useRef, useState } from 'react';
 import Editor, { type OnMount, type OnChange, loader } from '@monaco-editor/react';
-import { X, ChevronRight } from 'lucide-react';
+import { X, ChevronRight, Pin } from 'lucide-react';
 import { useIdeStore, type EditorGroup } from '@/store/ideStore';
 import DiffEditorPanel from './DiffEditor';
 
@@ -25,12 +25,34 @@ function Breadcrumbs({ filePath }: { filePath: string }) {
 }
 
 function EditorTabs({ group }: { group: EditorGroup }) {
-  const { setActiveGroup, closeTab } = useIdeStore();
-  const { activeGroupId } = useIdeStore();
+  const { setActiveGroup, closeTab, reorderTabs, toggleTabPin, activeGroupId } = useIdeStore();
 
   const handleTabClick = (path: string, name: string, savedContent: string) => {
     setActiveGroup(group.id);
     useIdeStore.getState().setActiveFile(path, name, savedContent);
+  };
+
+  const handleDragStart = (e: React.DragEvent, tabPath: string) => {
+    e.dataTransfer.setData('tabPath', tabPath);
+    e.dataTransfer.setData('groupId', group.id);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // necessary to allow dropping
+  };
+
+  const handleDrop = (e: React.DragEvent, targetTabPath: string) => {
+    e.preventDefault();
+    const draggedPath = e.dataTransfer.getData('tabPath');
+    const sourceGroupId = e.dataTransfer.getData('groupId');
+    
+    // We only support reordering within the same group for now, or we can move tab to this group if it's different.
+    if (sourceGroupId === group.id && draggedPath) {
+      reorderTabs(group.id, draggedPath, targetTabPath);
+    } else if (sourceGroupId && sourceGroupId !== group.id && draggedPath) {
+      useIdeStore.getState().moveTabToGroup(draggedPath, sourceGroupId, group.id);
+      reorderTabs(group.id, draggedPath, targetTabPath);
+    }
   };
 
   const isActive = group.id === activeGroupId;
@@ -43,12 +65,17 @@ function EditorTabs({ group }: { group: EditorGroup }) {
         group.tabs.map((tab) => (
           <div
             key={tab.id}
+            draggable
+            onDragStart={(e) => handleDragStart(e, tab.path)}
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, tab.path)}
             className={`flex items-center gap-2 px-3 py-[6px] border-r border-white/5 text-[11px] font-mono cursor-pointer transition-all duration-150 group ${
               group.activeFile === tab.path && isActive
                 ? 'bg-white/5 text-white border-t-2 border-t-[var(--color-primary-accent)]'
                 : 'text-white/40 hover:text-white/70 hover:bg-white/[0.03]'
             }`}
             onClick={() => handleTabClick(tab.path, tab.name, tab.savedContent)}
+            onDoubleClick={() => toggleTabPin(group.id, tab.path)}
             onMouseDown={(e) => {
               if (e.button === 1) {
                 e.preventDefault();
@@ -56,6 +83,7 @@ function EditorTabs({ group }: { group: EditorGroup }) {
               }
             }}
           >
+            {tab.pinned && <Pin className="w-2.5 h-2.5 text-white/50 shrink-0 transform -rotate-45" />}
             {tab.dirty && <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />}
             <span>{tab.name}</span>
             <X
@@ -226,7 +254,7 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
         {group.activeFile ? (
           <Editor
             height="100%"
-            theme="vs-dark"
+            theme={editorSettings.theme}
             path={group.id + ':' + group.activeFile}
             value={group.activeFileContent}
             language={group.tabs.find(t => t.path === group.activeFile)?.language}

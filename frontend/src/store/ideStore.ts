@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { api } from '@/lib/api';
 
 export interface Tab {
@@ -9,6 +10,14 @@ export interface Tab {
   savedContent: string;
   editedContent: string;
   language?: string;
+  pinned?: boolean;
+}
+
+export interface Extension {
+  name: string;
+  enabled: boolean;
+  desc: string;
+  builtin: boolean;
 }
 
 interface ClosedTab {
@@ -63,6 +72,9 @@ export interface EditorSettings {
   overviewRulerBorder: boolean;
   hideCursorInOverviewRuler: boolean;
   automaticLayout: boolean;
+  theme: string;
+  backgroundImage: string;
+  backgroundOpacity: number;
 }
 
 const defaultEditorSettings: EditorSettings = {
@@ -104,7 +116,21 @@ const defaultEditorSettings: EditorSettings = {
   overviewRulerBorder: false,
   hideCursorInOverviewRuler: false,
   automaticLayout: true,
+  theme: 'vs-dark',
+  backgroundImage: '',
+  backgroundOpacity: 0.1,
 };
+
+const DEFAULT_EXTENSIONS: Extension[] = [
+  { name: 'Tailwind CSS IntelliSense', enabled: true, desc: 'Autocomplete & linting for Tailwind', builtin: true },
+  { name: 'ESLint', enabled: true, desc: 'JavaScript/TypeScript linting', builtin: true },
+  { name: 'Prettier', enabled: true, desc: 'Code formatting', builtin: true },
+  { name: 'Error Lens', enabled: true, desc: 'Inline error display', builtin: true },
+  { name: 'GitLens', enabled: false, desc: 'Git history & blame', builtin: false },
+  { name: 'GitHub Copilot', enabled: false, desc: 'AI-powered code suggestions', builtin: false },
+  { name: 'Docker', enabled: false, desc: 'Docker container management', builtin: false },
+  { name: 'Python', enabled: false, desc: 'Python language support', builtin: false },
+];
 
 function getLanguageFromPath(path: string): string {
   const ext = path.split('.').pop()?.toLowerCase() || '';
@@ -134,6 +160,9 @@ interface IdeState {
   diffOriginal: string;
   diffModified: string;
   diffFilePath: string;
+  extensions: Extension[];
+
+  setExtensions: (exts: Extension[] | ((prev: Extension[]) => Extension[])) => void;
 
   getActiveGroup: () => EditorGroup | undefined;
   getGroupById: (id: string) => EditorGroup | undefined;
@@ -148,6 +177,8 @@ interface IdeState {
   saveAllFiles: () => Promise<void>;
   revertFile: (path?: string) => Promise<void>;
   renameTab: (oldPath: string, newPath: string) => void;
+  reorderTabs: (groupId: string, draggedPath: string, targetPath: string) => void;
+  toggleTabPin: (groupId: string, tabPath: string) => void;
 
   addGroup: (direction: 'horizontal' | 'vertical') => string;
   removeGroup: (groupId: string) => void;
@@ -179,10 +210,13 @@ interface IdeState {
 
 let groupCounter = 1;
 
-export const useIdeStore = create<IdeState>((set, get) => ({
+export const useIdeStore = create<IdeState>()(
+  persist(
+    (set, get) => ({
   workspacePath: null,
   workspaceName: null,
   recentWorkspaces: [],
+  extensions: DEFAULT_EXTENSIONS,
   activeGroupId: 'group-1',
   groups: [
     {
@@ -399,6 +433,40 @@ export const useIdeStore = create<IdeState>((set, get) => ({
     return { groups: newGroups };
   }),
 
+  reorderTabs: (groupId, draggedPath, targetPath) => set((state) => {
+    if (draggedPath === targetPath) return {};
+    const groupIndex = state.groups.findIndex(g => g.id === groupId);
+    if (groupIndex === -1) return {};
+    const group = state.groups[groupIndex];
+    const newTabs = [...group.tabs];
+    const draggedIdx = newTabs.findIndex(t => t.path === draggedPath);
+    const targetIdx = newTabs.findIndex(t => t.path === targetPath);
+    if (draggedIdx === -1 || targetIdx === -1) return {};
+    
+    const [draggedTab] = newTabs.splice(draggedIdx, 1);
+    newTabs.splice(targetIdx, 0, draggedTab);
+    
+    // Sort so pinned are always first
+    newTabs.sort((a, b) => (a.pinned === b.pinned ? 0 : a.pinned ? -1 : 1));
+
+    const newGroups = [...state.groups];
+    newGroups[groupIndex] = { ...group, tabs: newTabs };
+    return { groups: newGroups };
+  }),
+
+  toggleTabPin: (groupId, tabPath) => set((state) => {
+    const groupIndex = state.groups.findIndex(g => g.id === groupId);
+    if (groupIndex === -1) return {};
+    const group = state.groups[groupIndex];
+    const newTabs = group.tabs.map(t => t.path === tabPath ? { ...t, pinned: !t.pinned } : t);
+    
+    newTabs.sort((a, b) => (a.pinned === b.pinned ? 0 : a.pinned ? -1 : 1));
+    
+    const newGroups = [...state.groups];
+    newGroups[groupIndex] = { ...group, tabs: newTabs };
+    return { groups: newGroups };
+  }),
+
   addGroup: (direction) => {
     const newId = `group-${++groupCounter}`;
     set((state) => {
@@ -555,4 +623,20 @@ export const useIdeStore = create<IdeState>((set, get) => ({
     const recent = state.recentWorkspaces.filter(p => p !== path);
     return { recentWorkspaces: [path, ...recent].slice(0, 10) };
   }),
-}));
+
+  setExtensions: (exts) => set((state) => ({
+    extensions: typeof exts === 'function' ? exts(state.extensions) : exts,
+  })),
+    }),
+    {
+      name: 'mirai-ide-storage',
+      partialize: (state) => ({
+        workspacePath: state.workspacePath,
+        workspaceName: state.workspaceName,
+        recentWorkspaces: state.recentWorkspaces,
+        editorSettings: state.editorSettings,
+        extensions: state.extensions,
+      }),
+    }
+  )
+);

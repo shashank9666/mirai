@@ -270,6 +270,10 @@ export default function HyprSidebar() {
           <button onClick={refresh} className="text-white/30 hover:text-white/70 transition-colors p-0.5 ml-1" title="Refresh">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
           </button>
+          <div className="w-px h-3 bg-white/10 mx-1" />
+          <button onClick={() => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'toggleSidebar' } }))} className="text-white/30 hover:text-white/70 transition-colors p-0.5" title="Close Sidebar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
         </div>
       </div>
 

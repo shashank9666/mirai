@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import {
   Maximize2, Minimize2, Columns2, Rows2, WrapText, Map,
   Pin, MousePointer2, Braces, Pilcrow, Settings,
+  Undo2, Redo2,
 } from 'lucide-react';
 import { useIdeStore, type EditorSettings } from '@/store/ideStore';
 
@@ -58,6 +59,16 @@ export default function EditorToolbar() {
       {/* Zen Mode */}
       <ToolbarButton active={zenMode} onClick={toggleZenMode} title="Toggle Zen Mode (Ctrl+K Z)">
         {zenMode ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+      </ToolbarButton>
+
+      <ToolbarDivider />
+
+      {/* Undo/Redo */}
+      <ToolbarButton onClick={() => (window as any).__miraiEditor?.trigger('keyboard', 'undo', null)} title="Undo (Ctrl+Z)">
+        <Undo2 className="w-3.5 h-3.5" />
+      </ToolbarButton>
+      <ToolbarButton onClick={() => (window as any).__miraiEditor?.trigger('keyboard', 'redo', null)} title="Redo (Ctrl+Y)">
+        <Redo2 className="w-3.5 h-3.5" />
       </ToolbarButton>
 
       <ToolbarDivider />

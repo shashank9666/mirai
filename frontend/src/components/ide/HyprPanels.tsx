@@ -3,27 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { Puzzle, Bot, Database, Bug, RefreshCw, Zap, Plus, X, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
-
-const DEFAULT_EXTENSIONS = [
-  { name: 'Tailwind CSS IntelliSense', enabled: true, desc: 'Autocomplete & linting for Tailwind', builtin: true },
-  { name: 'ESLint', enabled: true, desc: 'JavaScript/TypeScript linting', builtin: true },
-  { name: 'Prettier', enabled: true, desc: 'Code formatting', builtin: true },
-  { name: 'Error Lens', enabled: true, desc: 'Inline error display', builtin: true },
-  { name: 'GitLens', enabled: false, desc: 'Git history & blame', builtin: false },
-  { name: 'GitHub Copilot', enabled: false, desc: 'AI-powered code suggestions', builtin: false },
-  { name: 'Docker', enabled: false, desc: 'Docker container management', builtin: false },
-  { name: 'Python', enabled: false, desc: 'Python language support', builtin: false },
-];
-
-interface Extension {
-  name: string;
-  enabled: boolean;
-  desc: string;
-  builtin: boolean;
-}
+import { useIdeStore } from '@/store/ideStore';
 
 export function HyprExtensions() {
-  const [extensions, setExtensions] = useState<Extension[]>(DEFAULT_EXTENSIONS);
+  const { extensions, setExtensions } = useIdeStore();
 
   const toggleExtension = (name: string) => {
     setExtensions((prev) =>
@@ -150,6 +133,35 @@ export function HyprDebug() {
           </button>
         </div>
         <div className="mt-4 text-[10px] font-mono text-white/20">Configure in .vscode/launch.json</div>
+      </div>
+    </div>
+    </div>
+  );
+}
+
+export function HyprAIProviders() {
+  return (
+    <div className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
+      <div className="px-4 py-3 border-b border-white/5 font-mono text-[10px] text-white/40 tracking-widest uppercase shrink-0 flex items-center justify-between">
+        <span>AI Providers</span>
+        <Zap className="w-3 h-3 text-[var(--color-primary-accent)]" />
+      </div>
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-3 space-y-4">
+        {['OpenAI', 'Anthropic', 'Google Gemini', 'DeepSeek', 'Local Custom'].map(provider => (
+          <div key={provider} className="bg-white/5 border border-white/10 rounded-lg p-3 flex flex-col gap-2 group hover:border-white/20 transition-colors">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] font-mono text-white/80">{provider}</span>
+              <button className="text-[9px] font-mono bg-white/10 hover:bg-[var(--color-primary-accent)]/50 px-2 py-0.5 rounded text-white/60 transition-colors">
+                Connect
+              </button>
+            </div>
+            {provider === 'Local Custom' ? (
+              <input type="text" placeholder="Endpoint URL..." className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-[10px] font-mono text-white/70 outline-none focus:border-[var(--color-primary-accent)]/50" />
+            ) : (
+              <input type="password" placeholder="API Key..." className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-[10px] font-mono text-white/70 outline-none focus:border-[var(--color-primary-accent)]/50" />
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
