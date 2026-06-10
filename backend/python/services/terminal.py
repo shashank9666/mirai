@@ -35,9 +35,8 @@ def setup_terminal_websockets(sock):
 
         def read_from_process():
             try:
-                # Read character by character or line by line
                 while True:
-                    data = process.stdout.readline()
+                    data = process.stdout.read(1)
                     if not data:
                         break
                     ws.send(json.dumps({"event": "terminal:data", "data": data}))

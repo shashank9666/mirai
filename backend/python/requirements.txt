@@ -18,6 +18,7 @@ ollama
 langgraph
 langchain
 
+
 # Model Context Protocol
 mcp
 
@@ -58,3 +59,4 @@ opencv-python
 
 rich
 tiktoken
+langchain_openai
