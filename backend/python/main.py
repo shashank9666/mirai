@@ -3,7 +3,7 @@ from flask_cors import CORS
 from flask_sock import Sock
 import os
 
-from routers import fs_router, web_router, tasks_router, git_router, agent_router, settings_router, workspace_router
+from routers import fs_router, web_router, tasks_router, git_router, agent_router, settings_router, workspace_router, mcp_router
 from services import terminal, watcher
 
 app = Flask("Mirai Backend")
@@ -26,6 +26,7 @@ app.register_blueprint(git_router.bp, url_prefix="/api/git")
 app.register_blueprint(agent_router.bp, url_prefix="/api")
 app.register_blueprint(settings_router.bp, url_prefix="/api/settings")
 app.register_blueprint(workspace_router.bp, url_prefix="/api/workspace")
+app.register_blueprint(mcp_router.bp, url_prefix="/api/mcp")
 
 terminal.setup_terminal_websockets(sock)
 watcher.setup_watcher_websockets(sock)
