@@ -55,5 +55,6 @@ pydantic
 tenacity
 pillow
 opencv-python
-llama-cpp-python
+
 rich
+tiktoken

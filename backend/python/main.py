@@ -34,4 +34,5 @@ if __name__ == "__main__":
     # In a real production setup you might use waitress or gunicorn,
     # but for local IDE backend, the built-in server is usually fine.
     # We use threaded=True for simultaneous connections and websockets.
-    app.run(host="127.0.0.1", port=8000, debug=True, threaded=True)
+    # We disable use_reloader on Windows because it causes the socket to hang with flask-sock.
+    app.run(host="127.0.0.1", port=8000, debug=True, use_reloader=False, threaded=True)

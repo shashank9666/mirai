@@ -108,7 +108,7 @@ function TerminalInstance({ tabId, tabOutput, tabStatus, onOutput, onStatusChang
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-[#1E1E1E]">
+    <div className="flex-1 flex flex-col overflow-hidden bg-transparent">
       <div
         ref={outputRef}
         className="flex-1 p-3 font-mono text-[12px] overflow-y-auto custom-scrollbar leading-relaxed whitespace-pre-wrap break-all"
@@ -215,17 +215,17 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
   };
 
   return (
-    <div className="hypr-panel w-full h-full flex flex-col overflow-hidden bg-[#181818] border border-white/5 rounded-md shadow-2xl">
+    <div className="hypr-panel w-full h-full flex flex-col overflow-hidden bg-[#1a1a2e]/40 backdrop-blur-md rounded-xl">
       {/* VS Code Style Header */}
-      <div className="flex items-center justify-between px-3 h-9 shrink-0 select-none cursor-grab active:cursor-grabbing bg-[#181818]">
+      <div className="flex items-center justify-between px-3 h-9 shrink-0 select-none cursor-grab active:cursor-grabbing bg-white/5 border-b border-white/10">
         <div className="flex items-center gap-5 h-full">
           {MAIN_TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveBottomTab(tab.id)}
-              className={`h-full text-[11px] font-sans tracking-wide flex items-center border-b-[1px] transition-colors mt-[1px] ${activeBottomTab === tab.id
-                  ? 'border-[#E5E4E2] text-[#E5E4E2]'
-                  : 'border-transparent text-[#969696] hover:text-[#E5E4E2]'
+              className={`h-full text-[11px] font-sans tracking-wide flex items-center border-b-[2px] transition-colors mt-[2px] ${activeBottomTab === tab.id
+                  ? 'border-[var(--color-primary-accent)] text-white font-medium'
+                  : 'border-transparent text-white/50 hover:text-white/80'
                 }`}
             >
               {tab.label}
@@ -272,7 +272,7 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
       </div>
 
       {!isMinimized && (
-        <div className="flex-1 flex overflow-hidden border-t border-white/5 bg-[#1E1E1E]">
+        <div className="flex-1 flex overflow-hidden bg-transparent">
           {showRetryBanner && (
             <div className="absolute top-10 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-md bg-[#5A1D1D] border border-red-500/20 flex items-center gap-3 shadow-lg">
               <span className="text-[11px] font-sans text-red-200">Cannot connect to terminal backend</span>
@@ -299,7 +299,7 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
               </div>
 
               {/* Terminal Sidebar (Right) */}
-              <div className="w-[200px] border-l border-white/5 bg-[#1E1E1E] flex flex-col py-2 overflow-y-auto custom-scrollbar shrink-0">
+              <div className="w-[200px] border-l border-white/5 bg-black/20 flex flex-col py-2 overflow-y-auto custom-scrollbar shrink-0">
                 {terminals.map((t) => (
                   <div
                     key={t.id}

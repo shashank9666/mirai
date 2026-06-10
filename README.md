@@ -27,14 +27,9 @@ The backend has been completely migrated from `FastAPI` (with `asyncio` and `web
    ```
 
 2. **Set up the Python Backend:**
-   Navigate to the backend directory and create a virtual environment:
+   Navigate to the backend directory and install requirements globally (or use your preferred environment manager):
    ```bash
    cd backend/python
-   python -m venv venv
-   # On Windows:
-   .\venv\Scripts\activate
-   # On Unix/MacOS:
-   source venv/bin/activate
    pip install -r requirements.txt
    ```
 

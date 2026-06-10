@@ -10,7 +10,7 @@ app.commandLine.appendSwitch('disable-web-security');
 let mainWindow;
 let nextServer;
 const isDev = process.env.NODE_ENV !== 'production';
-const NEXT_PORT = 3000;
+const NEXT_PORT = 4000;
 
 function createWindow() {
   mainWindow = new BrowserWindow({

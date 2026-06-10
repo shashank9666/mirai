@@ -233,11 +233,11 @@ function FolderPicker({
                 <div className="text-center py-8 text-[11px] font-mono text-white/20">Empty directory</div>
               )}
               {entries.filter(e => e.isDirectory).map((entry) => (
-                <button
+                <div
                   key={entry.path}
                   onDoubleClick={() => onSelect(entry.path)}
                   onClick={() => onNavigate(entry.path)}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/5 transition-colors group"
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/5 transition-colors group cursor-pointer"
                 >
                   <Folder className="w-4 h-4 text-yellow-500/60" />
                   <span className="text-[12px] font-mono text-white/60 group-hover:text-white/90 transition-colors flex-1 text-left truncate">{entry.name}</span>
@@ -247,7 +247,7 @@ function FolderPicker({
                   >
                     Select
                   </button>
-                </button>
+                </div>
               ))}
             </div>
           )}
