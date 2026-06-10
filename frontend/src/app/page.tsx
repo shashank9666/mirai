@@ -1,5 +1,6 @@
 'use client';
 
+<<<<<<< HEAD
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import Waybar from '@/components/ide/Waybar';
 import ActivityBar from '@/components/ide/ActivityBar';
@@ -68,6 +69,12 @@ function ResizeHandle({
       />
     </div>
   );
+=======
+import ClientHome from './ClientHome';
+
+export default function Page() {
+  return <ClientHome />;
+>>>>>>> bffe6817ecd28f5f4d2b6d43b4883a38d56ea6fd
 }
 
 function SidebarContent({ activeView }: { activeView: string }) {

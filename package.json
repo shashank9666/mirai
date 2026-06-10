@@ -6,6 +6,7 @@
   "license": "MIT",
   "main": "electron/main.js",
   "scripts": {
+<<<<<<< HEAD
     "dev:frontend": "npm run dev --prefix frontend -- -p 4000",
     "dev:backend": "cd backend/python && py main.py",
     "dev:electron": " npx electron .",
@@ -56,5 +57,17 @@
       "target": "AppImage",
       "icon": "electron/icons/icon.png"
     }
+=======
+    "dev:frontend": "npm run dev --prefix frontend -- -p 3000",
+    "dev:backend": "cd backend/python && .\\venv\\Scripts\\python.exe -m uvicorn main:app --host 0.0.0.0 --port 4000 --reload",
+    "dev:clean": "powershell -ExecutionPolicy Bypass -File scripts/kill-all.ps1 && npm run dev",
+    "dev": "npx concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "build:frontend": "npm run build --prefix frontend",
+    "build:backend": "echo \"Python backend does not require a build step\"",
+    "build": "npm run build:frontend && npm run build:backend"
+  },
+  "devDependencies": {
+    "@tsconfig/bun": "^1.0.10"
+>>>>>>> bffe6817ecd28f5f4d2b6d43b4883a38d56ea6fd
   }
 }
