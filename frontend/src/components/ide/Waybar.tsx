@@ -2,13 +2,31 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useIdeStore } from '@/store/ideStore';
-import { FolderOpen, ChevronDown, History, ArrowLeftRight, Terminal, Sparkles, X, Minus, Square, Maximize2 } from 'lucide-react';
+import {
+  FolderOpen,
+  ArrowLeftRight,
+  Terminal,
+  X,
+  Minus,
+  Square,
+  Maximize2,
+  Undo2,
+  Redo2,
+  Scissors,
+  Copy,
+  Clipboard,
+  MousePointerSquareDashed,
+  Eye,
+  Search,
+  Hash,
+  Play,
+  HelpCircle
+} from 'lucide-react';
 
 export default function Waybar() {
-  const { getActiveGroup, setWorkspace, clearWorkspace } = useIdeStore();
+  const { getActiveGroup, clearWorkspace, workspaceName, workspacePath } = useIdeStore();
   const activeFile = getActiveGroup()?.activeFile || null;
-  const { workspaceName, workspacePath } = useIdeStore();
-  const [showFileMenu, setShowFileMenu] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -34,7 +52,9 @@ export default function Waybar() {
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as HTMLElement)) setShowFileMenu(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as HTMLElement)) {
+        setActiveMenu(null);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -49,6 +69,99 @@ export default function Waybar() {
 
   const workspaceLabel = workspaceName || 'No Workspace';
 
+  const menuConfig = [
+    {
+      id: 'file',
+      label: 'File',
+      items: [
+        { label: 'Open Folder', icon: <FolderOpen className="w-3.5 h-3.5" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'openFolder' } })) },
+        { label: 'Switch Workspace', icon: <ArrowLeftRight className="w-3.5 h-3.5" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'openFolder' } })) },
+        ...(workspacePath ? [{ label: 'Close Workspace', icon: <X className="w-3.5 h-3.5" />, action: () => clearWorkspace() }] : []),
+        { divider: true },
+        { label: 'New Terminal', shortcut: 'Ctrl+`', icon: <Terminal className="w-3.5 h-3.5" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'toggleTerminal' } })) }
+      ]
+    },
+    {
+      id: 'edit',
+      label: 'Edit',
+      items: [
+        { label: 'Undo', shortcut: 'Ctrl+Z', icon: <Undo2 className="w-3.5 h-3.5" />, action: () => document.execCommand('undo') },
+        { label: 'Redo', shortcut: 'Ctrl+Y', icon: <Redo2 className="w-3.5 h-3.5" />, action: () => document.execCommand('redo') },
+        { divider: true },
+        { label: 'Cut', shortcut: 'Ctrl+X', icon: <Scissors className="w-3.5 h-3.5" />, action: () => document.execCommand('cut') },
+        { label: 'Copy', shortcut: 'Ctrl+C', icon: <Copy className="w-3.5 h-3.5" />, action: () => document.execCommand('copy') },
+        { label: 'Paste', shortcut: 'Ctrl+V', icon: <Clipboard className="w-3.5 h-3.5" />, action: () => navigator.clipboard.readText().then(text => {
+          const activeEl = document.activeElement as HTMLTextAreaElement | HTMLInputElement;
+          if (activeEl && ('value' in activeEl)) {
+            const start = activeEl.selectionStart || 0;
+            const end = activeEl.selectionEnd || 0;
+            activeEl.value = activeEl.value.substring(0, start) + text + activeEl.value.substring(end);
+          }
+        }).catch(() => {}) }
+      ]
+    },
+    {
+      id: 'selection',
+      label: 'Selection',
+      items: [
+        { label: 'Select All', shortcut: 'Ctrl+A', icon: <MousePointerSquareDashed className="w-3.5 h-3.5" />, action: () => {
+          const activeEl = document.activeElement as HTMLTextAreaElement | HTMLInputElement;
+          if (activeEl && typeof activeEl.select === 'function') {
+            activeEl.select();
+          }
+        }}
+      ]
+    },
+    {
+      id: 'view',
+      label: 'View',
+      items: [
+        { label: 'Toggle Sidebar', shortcut: 'Ctrl+B', icon: <Eye className="w-3.5 h-3.5" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'toggleSidebar' } })) },
+        { label: 'Toggle Terminal', shortcut: 'Ctrl+`', icon: <Terminal className="w-3.5 h-3.5" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'toggleTerminal' } })) },
+        { label: 'Toggle Chat', shortcut: 'Ctrl+J', icon: <Play className="w-3.5 h-3.5" rotate={90} />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'toggleChat' } })) },
+        { divider: true },
+        { label: 'Zen Mode', shortcut: 'Esc', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'toggleZenMode' } })) },
+        { label: 'Fullscreen', shortcut: 'F11', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'toggleFullscreen' } })) },
+        { divider: true },
+        { label: 'Zoom In', shortcut: 'Ctrl+=', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'increaseFontSize' } })) },
+        { label: 'Zoom Out', shortcut: 'Ctrl+-', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'decreaseFontSize' } })) },
+        { label: 'Reset Zoom', shortcut: 'Ctrl+0', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'resetFontSize' } })) }
+      ]
+    },
+    {
+      id: 'go',
+      label: 'Go',
+      items: [
+        { label: 'Go to File', shortcut: 'Ctrl+P', icon: <Search className="w-3.5 h-3.5" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'openQuickOpen' } })) },
+        { label: 'Go to Line', shortcut: 'Ctrl+G', icon: <Hash className="w-3.5 h-3.5" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'openCommandPalette' } })) }
+      ]
+    },
+    {
+      id: 'run',
+      label: 'Run',
+      items: [
+        { label: 'Split Horizontal', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'splitHorizontal' } })) },
+        { label: 'Split Vertical', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'splitVertical' } })) },
+        { label: 'Close Active Editor Group', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'closeGroup' } })) }
+      ]
+    },
+    {
+      id: 'terminal',
+      label: 'Terminal',
+      items: [
+        { label: 'New Terminal', shortcut: 'Ctrl+`', icon: <Terminal className="w-3.5 h-3.5" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'toggleTerminal' } })) }
+      ]
+    },
+    {
+      id: 'help',
+      label: 'Help',
+      items: [
+        { label: 'Documentation', icon: <HelpCircle className="w-3.5 h-3.5" />, action: () => window.open('https://github.com/shashank9666/mirai', '_blank') },
+        { label: 'About Mirai', action: () => alert('Mirai IDE - v1.0.0\nAI-powered development environment.') }
+      ]
+    }
+  ];
+
   return (
     <div className="h-10 w-full px-4 flex items-center justify-between text-xs font-mono select-none shrink-0" style={{ background: 'linear-gradient(90deg, rgba(124,58,237,0.08) 0%, rgba(59,130,246,0.08) 100%)', borderBottom: '1px solid rgba(255,255,255,0.06)', WebkitAppRegion: 'drag' } as React.CSSProperties}>
       {/* Left side */}
@@ -60,55 +173,53 @@ export default function Waybar() {
           <span className="text-white/60 tracking-wide font-semibold">{workspaceLabel}</span>
         </div>
 
-        {/* File Menu */}
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={() => setShowFileMenu(!showFileMenu)}
-            className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-white/10 text-white/60 hover:text-white/80 transition-colors"
-          >
-            File <ChevronDown className="w-3 h-3" />
-          </button>
-          {showFileMenu && (
-            <div className="absolute top-full left-0 mt-1 z-50 w-56 bg-[#0f0f0f]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden">
-              <MenuButton
-                icon={<FolderOpen className="w-3.5 h-3.5" />}
-                label="Open Folder"
-                shortcut={workspacePath ? workspacePath.split(/[\\/]/).pop() || '' : ''}
-                onClick={() => {
-                  setShowFileMenu(false);
-                  window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'openFolder' } }));
-                }}
-              />
-              <MenuButton
-                icon={<ArrowLeftRight className="w-3.5 h-3.5" />}
-                label="Switch Workspace"
-                onClick={() => {
-                  setShowFileMenu(false);
-                  window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'openFolder' } }));
-                }}
-              />
-              {workspacePath && (
-                <MenuButton
-                  icon={<X className="w-3.5 h-3.5" />}
-                  label="Close Workspace"
-                  onClick={() => {
-                    setShowFileMenu(false);
-                    clearWorkspace();
+        {/* Menu Bar */}
+        <div className="flex items-center gap-1 relative" ref={menuRef} style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          {menuConfig.map((menu) => {
+            const isOpen = activeMenu === menu.id;
+            return (
+              <div key={menu.id} className="relative">
+                <button
+                  onClick={() => setActiveMenu(isOpen ? null : menu.id)}
+                  onMouseEnter={() => {
+                    if (activeMenu !== null) {
+                      setActiveMenu(menu.id);
+                    }
                   }}
-                />
-              )}
-              <div className="border-t border-white/5 my-1" />
-              <MenuButton
-                icon={<Terminal className="w-3.5 h-3.5" />}
-                label="New Terminal"
-                shortcut="Ctrl+`"
-                onClick={() => {
-                  setShowFileMenu(false);
-                  window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'toggleTerminal' } }));
-                }}
-              />
-            </div>
-          )}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded transition-colors text-[11px] font-sans ${
+                    isOpen
+                      ? 'bg-white/10 text-white font-semibold shadow-[0_0_8px_rgba(255,255,255,0.08)]'
+                      : 'text-white/60 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  {menu.label}
+                </button>
+                {isOpen && (
+                  <div className="absolute top-full left-0 mt-1 z-50 w-52 bg-[#0f0f0f]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-1.5 overflow-hidden">
+                    {menu.items.map((item: any, index) => {
+                      if ('divider' in item) {
+                        return <div key={index} className="border-t border-white/5 my-1" />;
+                      }
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => {
+                            setActiveMenu(null);
+                            item.action();
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+                        >
+                          {item.icon && <span className="text-white/30">{item.icon}</span>}
+                          <span className="flex-1 text-left">{item.label}</span>
+                          {item.shortcut && <span className="text-[9px] text-white/20 font-sans">{item.shortcut}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Active File Breadcrumb */}
@@ -134,18 +245,5 @@ export default function Waybar() {
         </div>
       </div>
     </div>
-  );
-}
-
-function MenuButton({ icon, label, shortcut, onClick }: { icon: React.ReactNode; label: string; shortcut?: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors"
-    >
-      <span className="text-white/30">{icon}</span>
-      <span className="flex-1 text-left">{label}</span>
-      {shortcut && <span className="text-[9px] text-white/20">{shortcut}</span>}
-    </button>
   );
 }

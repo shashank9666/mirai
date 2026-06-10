@@ -2,6 +2,9 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 
+// Suppress security warnings in the DevTools console
+process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
+
 app.commandLine.appendSwitch('disable-web-security');
 
 let mainWindow;
@@ -41,8 +44,8 @@ function createWindow() {
   // In production, load from the built files
   if (isDev) {
     mainWindow.loadURL(`http://localhost:${NEXT_PORT}`);
-    // Open DevTools in dev
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
+    // Optional: Open DevTools in dev (commented out so it doesn't pop up automatically)
+    // mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
     // Production: start Next.js server and load it
     mainWindow.loadURL(`http://localhost:${NEXT_PORT}`);

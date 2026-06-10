@@ -1,27 +1,25 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import PanelHeader from './PanelHeader';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Terminal as TerminalIcon,
-  FileText,
-  AlertTriangle,
-  ListChecks,
-  Bug,
   Plus,
   X,
-  Pin,
-  GripVertical,
+  Trash2,
+  SplitSquareHorizontal,
+  ChevronDown,
+  Maximize2,
+  Pin
 } from 'lucide-react';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws/terminal';
 
-const TABS = [
-  { id: 'terminal', label: 'Terminal', icon: TerminalIcon },
-  { id: 'output', label: 'Output', icon: FileText },
-  { id: 'problems', label: 'Problems', icon: AlertTriangle },
-  { id: 'tasks', label: 'AI Tasks', icon: ListChecks },
-  { id: 'debug', label: 'Debug', icon: Bug },
+const MAIN_TABS = [
+  { id: 'problems', label: 'PROBLEMS' },
+  { id: 'output', label: 'OUTPUT' },
+  { id: 'debug', label: 'DEBUG CONSOLE' },
+  { id: 'terminal', label: 'TERMINAL' },
+  { id: 'tasks', label: 'AI TASKS' },
 ];
 
 interface TerminalPanelProps {
@@ -48,7 +46,6 @@ function TerminalInstance({ tab, onOutput, onStatusChange }: {
   onStatusChange: (status: ConnectionStatus) => void;
 }) {
   const [input, setInput] = useState('');
-  const [manualInput, setManualInput] = useState('');
   const outputRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const mountedRef = useRef(true);
@@ -117,25 +114,19 @@ function TerminalInstance({ tab, onOutput, onStatusChange }: {
     inputRef.current?.focus();
   };
 
-  const statusColor = tab.status === 'connected'
-    ? 'bg-green-500'
-    : tab.status === 'reconnecting' || tab.status === 'connecting'
-    ? 'bg-yellow-500 animate-pulse'
-    : 'bg-red-500';
-
   const statusText = tab.status === 'connected'
     ? 'Connected'
     : tab.status === 'connecting'
-    ? 'Connecting...'
-    : tab.status === 'reconnecting'
-    ? 'Reconnecting...'
-    : 'Disconnected';
+      ? 'Connecting...'
+      : tab.status === 'reconnecting'
+        ? 'Reconnecting...'
+        : 'Disconnected';
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden bg-[#1E1E1E]">
       <div
         ref={outputRef}
-        className="flex-1 p-3 font-mono text-[11px] overflow-y-auto custom-scrollbar leading-relaxed whitespace-pre-wrap break-all"
+        className="flex-1 p-3 font-mono text-[12px] overflow-y-auto custom-scrollbar leading-relaxed whitespace-pre-wrap break-all"
       >
         {tab.output.length === 0 && tab.status === 'connecting' && (
           <div className="text-white/30 animate-pulse">Connecting to terminal...</div>
@@ -143,25 +134,24 @@ function TerminalInstance({ tab, onOutput, onStatusChange }: {
         {tab.output.length === 0 && tab.status === 'disconnected' && (
           <div className="text-white/20">
             <div className="text-red-400/60 mb-2">Terminal disconnected</div>
-            <div className="text-white/20 text-[10px]">Make sure the backend server is running on port 8000</div>
+            <div className="text-white/20 text-[11px]">Make sure the backend server is running on port 8000</div>
           </div>
         )}
         {tab.output.map((line, i) => (
-          <div key={i} className="text-white/70">{line}</div>
+          <div key={i} className="text-[#CCCCCC]">{line}</div>
         ))}
       </div>
 
-      <div className="flex items-center gap-2 px-3 py-2 border-t border-white/5 shrink-0">
-        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusColor}`} title={statusText} />
-        <span className="text-blue-400 text-[11px] font-mono shrink-0">$</span>
+      <div className="flex items-center gap-2 px-3 py-1.5 border-t border-white/5 shrink-0 bg-[#1E1E1E]">
+        <span className="text-[#4DAAF1] text-[12px] font-mono shrink-0">$</span>
         <input
           ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-          placeholder={tab.status === 'connected' ? 'Enter command...' : statusText}
+          placeholder={tab.status === 'connected' ? 'Type a command...' : statusText}
           disabled={tab.status !== 'connected'}
-          className="flex-1 bg-transparent border-none outline-none text-[11px] text-white/80 placeholder:text-white/20 font-mono disabled:opacity-40"
+          className="flex-1 bg-transparent border-none outline-none text-[12px] text-[#CCCCCC] placeholder:text-white/20 font-mono disabled:opacity-40"
           autoFocus
         />
       </div>
@@ -174,7 +164,8 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
 
   const createTab = useCallback((): TerminalTab => {
     const id = `terminal-${tabCounterRef.current}`;
-    const label = `Terminal ${tabCounterRef.current}`;
+    // E.g., 'bash' or 'powershell' (using a generic name for now)
+    const label = `cmd ${tabCounterRef.current}`;
     tabCounterRef.current += 1;
     return { id, label, output: [], status: 'disconnected', pinned: false };
   }, []);
@@ -184,7 +175,6 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
   const [activeTermId, setActiveTermId] = useState<string>(() => '');
   const [showRetryBanner, setShowRetryBanner] = useState(false);
 
-  // Set initial activeTermId after terminals is initialized
   useEffect(() => {
     if (!activeTermId && terminals.length > 0) {
       setActiveTermId(terminals[0].id);
@@ -231,10 +221,15 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
 
   const closeTerminal = useCallback((termId: string) => {
     setTerminals((prev) => {
-      if (prev.length <= 1) return prev;
-      const next = prev.filter((t) => t.id !== termId);
-      return next;
+      if (prev.length <= 1) {
+        // If last terminal is closed, create a new one to replace it
+        const newTab = createTab();
+        setActiveTermId(newTab.id);
+        return [newTab];
+      }
+      return prev.filter((t) => t.id !== termId);
     });
+
     setActiveTermId((prev) => {
       if (prev === termId) {
         const remaining = terminals.filter((t) => t.id !== termId);
@@ -242,7 +237,7 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
       }
       return prev;
     });
-  }, [terminals]);
+  }, [terminals, createTab]);
 
   const retryConnection = () => {
     setShowRetryBanner(false);
@@ -251,97 +246,69 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
     setActiveTermId(tab.id);
   };
 
-  const dragTermIndex = useRef<number | null>(null);
-
-  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
-    dragTermIndex.current = index;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', String(index));
-  }, []);
-
-  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault();
-    const fromIndex = dragTermIndex.current;
-    if (fromIndex === null || fromIndex === dropIndex) return;
-    setTerminals((prev) => {
-      const next = [...prev];
-      const [moved] = next.splice(fromIndex, 1);
-      next.splice(dropIndex, 0, moved);
-      return next;
-    });
-    dragTermIndex.current = null;
-  }, []);
-
-  const togglePinTerminal = useCallback((termId: string) => {
-    setTerminals((prev) =>
-      prev.map((t) => (t.id === termId ? { ...t, pinned: !t.pinned } : t)),
-    );
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (activeBottomTab !== 'terminal') return;
-      const mod = e.ctrlKey || e.metaKey;
-      if (mod && e.key === 'Tab' && e.shiftKey) {
-        e.preventDefault();
-        setActiveTermId((prev) => {
-          const idx = terminals.findIndex((t) => t.id === prev);
-          return terminals[(idx - 1 + terminals.length) % terminals.length].id;
-        });
-      } else if (mod && e.key === 'Tab') {
-        e.preventDefault();
-        setActiveTermId((prev) => {
-          const idx = terminals.findIndex((t) => t.id === prev);
-          return terminals[(idx + 1) % terminals.length].id;
-        });
-      } else if (mod && e.key === 'w' && terminals.length > 1) {
-        e.preventDefault();
-        closeTerminal(activeTermId);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeBottomTab, terminals, activeTermId, closeTerminal]);
-
   return (
-    <div className="hypr-panel w-full h-full flex flex-col overflow-hidden">
-      <PanelHeader
-        title="Terminal"
-        isPinned={isPinned}
-        isMinimized={isMinimized}
-        onPin={onPin}
-        onMinimize={onMinimize}
-        onClose={onClose}
-        accentColor="#3B82F6"
-      >
-        <div className="flex gap-1 ml-2">
-          {TABS.map(({ id, label, icon: Icon }) => (
+    <div className="hypr-panel w-full h-full flex flex-col overflow-hidden bg-[#181818] border border-white/5 rounded-md shadow-2xl">
+      {/* VS Code Style Header */}
+      <div className="flex items-center justify-between px-3 h-9 shrink-0 select-none cursor-grab active:cursor-grabbing bg-[#181818]">
+        <div className="flex items-center gap-5 h-full">
+          {MAIN_TABS.map((tab) => (
             <button
-              key={id}
-              onClick={() => setActiveBottomTab(id)}
-              className={`px-2 py-0.5 rounded text-[10px] font-mono flex items-center gap-1 transition-colors
-                ${activeBottomTab === id
-                  ? 'bg-white/10 text-white'
-                  : 'text-white/30 hover:text-white/60'}`}
+              key={tab.id}
+              onClick={() => setActiveBottomTab(tab.id)}
+              className={`h-full text-[11px] font-sans tracking-wide flex items-center border-b-[1px] transition-colors mt-[1px] ${activeBottomTab === tab.id
+                  ? 'border-[#E5E4E2] text-[#E5E4E2]'
+                  : 'border-transparent text-[#969696] hover:text-[#E5E4E2]'
+                }`}
             >
-              <Icon className="w-3 h-3" />
-              {label}
+              {tab.label}
             </button>
           ))}
         </div>
-      </PanelHeader>
+
+        {/* Actions Toolbar */}
+        <div className="flex items-center gap-1.5 ml-2">
+          {activeBottomTab === 'terminal' && (
+            <div className="flex items-center gap-1 mr-2">
+              <button onClick={addTerminal} className="p-1 rounded text-[#CCCCCC] hover:text-white hover:bg-white/10 transition-colors" title="New Terminal">
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+              <button className="p-1 rounded text-[#CCCCCC] hover:text-white hover:bg-white/10 transition-colors" title="Split Terminal">
+                <SplitSquareHorizontal className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => closeTerminal(activeTermId)} className="p-1 rounded text-[#CCCCCC] hover:text-red-400 hover:bg-white/10 transition-colors" title="Kill Terminal">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-0.5">
+            {onPin && (
+              <button
+                onClick={onPin}
+                className={`p-1 rounded hover:bg-white/10 transition-colors ${isPinned ? 'text-[#4DAAF1]' : 'text-[#CCCCCC] hover:text-white'}`}
+                title={isPinned ? 'Unpin' : 'Pin'}
+              >
+                <Pin className="w-3.5 h-3.5" style={isPinned ? { transform: 'rotate(45deg)' } : undefined} />
+              </button>
+            )}
+            <button onClick={onMinimize} className="p-1 rounded text-[#CCCCCC] hover:text-white hover:bg-white/10 transition-colors" title="Minimize Panel">
+              <ChevronDown className="w-4 h-4" />
+            </button>
+            <button onClick={onMinimize} className="p-1 rounded text-[#CCCCCC] hover:text-white hover:bg-white/10 transition-colors" title="Maximize Panel">
+              <Maximize2 className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={onClose} className="p-1 rounded text-[#CCCCCC] hover:text-red-400 hover:bg-red-500/20 transition-colors" title="Close Panel">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
 
       {!isMinimized && (
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex overflow-hidden border-t border-white/5 bg-[#1E1E1E]">
           {showRetryBanner && (
-            <div className="px-3 py-1.5 bg-red-500/10 border-b border-red-500/20 flex items-center justify-between">
-              <span className="text-[10px] font-mono text-red-400">Cannot connect to terminal backend</span>
-              <button onClick={retryConnection} className="text-[10px] font-mono px-2 py-0.5 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors">
+            <div className="absolute top-10 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-md bg-[#5A1D1D] border border-red-500/20 flex items-center gap-3 shadow-lg">
+              <span className="text-[11px] font-sans text-red-200">Cannot connect to terminal backend</span>
+              <button onClick={retryConnection} className="text-[11px] font-sans px-2 py-0.5 rounded bg-white/10 text-white hover:bg-white/20 transition-colors">
                 Retry
               </button>
             </div>
@@ -349,90 +316,70 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
 
           {activeBottomTab === 'terminal' && (
             <>
-              <div className="flex items-center border-b border-white/5 shrink-0 overflow-x-auto custom-scrollbar">
-                {terminals.map((t, idx) => (
-                  <div
-                    key={t.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, idx)}
-                    onDragOver={(e) => handleDragOver(e, idx)}
-                    onDrop={(e) => handleDrop(e, idx)}
-                    onClick={() => setActiveTermId(t.id)}
-                    className={`flex items-center gap-1 px-2 py-1.5 text-[10px] font-mono cursor-pointer border-r border-white/5 transition-colors shrink-0
-                      ${t.id === activeTermId
-                        ? 'bg-white/5 text-white'
-                        : 'text-white/30 hover:text-white/60 hover:bg-white/[0.03]'}`}
-                  >
-                    <span className="text-white/20 hover:text-white/40 cursor-grab active:cursor-grabbing shrink-0">
-                      <GripVertical className="w-2.5 h-2.5" />
-                    </span>
-                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      t.status === 'connected' ? 'bg-green-500' : t.status === 'connecting' ? 'bg-yellow-500 animate-pulse' : 'bg-white/20'
-                    }`} />
-                    <span className="truncate max-w-[100px]">{t.label}</span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); togglePinTerminal(t.id); }}
-                      className={`p-0.5 rounded hover:bg-white/10 transition-colors shrink-0 ${
-                        t.pinned ? 'text-[var(--color-primary-accent)]' : 'text-white/20 hover:text-white/60'
-                      }`}
-                      title={t.pinned ? 'Unpin' : 'Pin'}
-                    >
-                      <Pin className={`w-2.5 h-2.5 ${t.pinned ? 'rotate-45' : ''}`} />
-                    </button>
-                    {terminals.length > 1 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          closeTerminal(t.id);
-                        }}
-                        className="p-0.5 rounded hover:bg-white/10 text-white/20 hover:text-white/60 transition-colors shrink-0"
-                      >
-                        <X className="w-2.5 h-2.5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  onClick={addTerminal}
-                  className="px-2 py-1.5 text-white/20 hover:text-white/60 hover:bg-white/5 transition-colors shrink-0"
-                  title="New Terminal"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
+              {/* Terminal Instance */}
+              <div className="flex-1 flex flex-col relative min-w-0">
+                {activeTerminal && (
+                  <TerminalInstance
+                    key={activeTerminal.id}
+                    tab={activeTerminal}
+                    onOutput={(data) => handleOutput(activeTerminal.id, data)}
+                    onStatusChange={(status) => handleStatusChange(activeTerminal.id, status)}
+                  />
+                )}
               </div>
 
-              {activeTerminal && (
-                <TerminalInstance
-                  key={activeTerminal.id}
-                  tab={activeTerminal}
-                  onOutput={(data) => handleOutput(activeTerminal.id, data)}
-                  onStatusChange={(status) => handleStatusChange(activeTerminal.id, status)}
-                />
-              )}
+              {/* Terminal Sidebar (Right) */}
+              <div className="w-[200px] border-l border-white/5 bg-[#1E1E1E] flex flex-col py-2 overflow-y-auto custom-scrollbar shrink-0">
+                {terminals.map((t) => (
+                  <div
+                    key={t.id}
+                    onClick={() => setActiveTermId(t.id)}
+                    className={`flex items-center justify-between px-4 py-1 cursor-pointer group transition-colors ${t.id === activeTermId
+                        ? 'bg-[#37373D] text-white'
+                        : 'text-[#CCCCCC] hover:bg-[#2A2D2E]'
+                      }`}
+                  >
+                    <div className="flex items-center gap-2 overflow-hidden min-w-0">
+                      <TerminalIcon className="w-4 h-4 shrink-0 text-[#CCCCCC]" />
+                      <span className="text-[12px] font-sans truncate">{t.label}</span>
+                    </div>
+                    {/* Icons on hover */}
+                    <div className={`flex items-center gap-1 shrink-0 ml-2 ${t.id === activeTermId ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); closeTerminal(t.id); }}
+                        className="p-1 rounded-md hover:bg-white/10 text-[#CCCCCC] hover:text-white transition-colors"
+                        title="Kill Terminal"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </>
           )}
 
           {activeBottomTab === 'output' && (
-            <div className="flex-1 p-3 font-mono text-[11px] text-white/40 overflow-y-auto custom-scrollbar">
+            <div className="flex-1 p-3 font-mono text-[12px] text-[#CCCCCC] overflow-y-auto custom-scrollbar">
               No output yet.
             </div>
           )}
 
           {activeBottomTab === 'problems' && (
-            <div className="flex-1 p-3 font-mono text-[11px] text-white/40 overflow-y-auto custom-scrollbar">
-              No problems detected.
+            <div className="flex-1 p-3 font-mono text-[12px] text-[#CCCCCC] overflow-y-auto custom-scrollbar">
+              No problems have been detected in the workspace.
             </div>
           )}
 
           {activeBottomTab === 'tasks' && (
-            <div className="flex-1 p-3 font-mono text-[11px] text-white/40 overflow-y-auto custom-scrollbar">
-              No active tasks.
+            <div className="flex-1 p-3 font-mono text-[12px] text-[#CCCCCC] overflow-y-auto custom-scrollbar">
+              No AI tasks are currently running.
             </div>
           )}
 
           {activeBottomTab === 'debug' && (
-            <div className="flex-1 p-3 font-mono text-[11px] text-white/40 overflow-y-auto custom-scrollbar">
-              No debug sessions.
+            <div className="flex-1 p-3 font-mono text-[12px] text-[#CCCCCC] overflow-y-auto custom-scrollbar">
+              No active debug sessions.
             </div>
           )}
         </div>
