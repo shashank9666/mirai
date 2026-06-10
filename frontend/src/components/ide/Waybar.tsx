@@ -60,13 +60,6 @@ export default function Waybar() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const truncatePath = (path: string | null) => {
-    if (!path) return 'No File Open';
-    const parts = path.replace(/\\/g, '/').split('/');
-    if (parts.length > 4) return '.../' + parts.slice(-3).join('/');
-    return path;
-  };
-
   const workspaceLabel = workspaceName || 'No Workspace';
 
   const menuConfig = [
@@ -90,26 +83,30 @@ export default function Waybar() {
         { divider: true },
         { label: 'Cut', shortcut: 'Ctrl+X', icon: <Scissors className="w-3.5 h-3.5" />, action: () => document.execCommand('cut') },
         { label: 'Copy', shortcut: 'Ctrl+C', icon: <Copy className="w-3.5 h-3.5" />, action: () => document.execCommand('copy') },
-        { label: 'Paste', shortcut: 'Ctrl+V', icon: <Clipboard className="w-3.5 h-3.5" />, action: () => navigator.clipboard.readText().then(text => {
-          const activeEl = document.activeElement as HTMLTextAreaElement | HTMLInputElement;
-          if (activeEl && ('value' in activeEl)) {
-            const start = activeEl.selectionStart || 0;
-            const end = activeEl.selectionEnd || 0;
-            activeEl.value = activeEl.value.substring(0, start) + text + activeEl.value.substring(end);
-          }
-        }).catch(() => {}) }
+        {
+          label: 'Paste', shortcut: 'Ctrl+V', icon: <Clipboard className="w-3.5 h-3.5" />, action: () => navigator.clipboard.readText().then(text => {
+            const activeEl = document.activeElement as HTMLTextAreaElement | HTMLInputElement;
+            if (activeEl && ('value' in activeEl)) {
+              const start = activeEl.selectionStart || 0;
+              const end = activeEl.selectionEnd || 0;
+              activeEl.value = activeEl.value.substring(0, start) + text + activeEl.value.substring(end);
+            }
+          }).catch(() => { })
+        }
       ]
     },
     {
       id: 'selection',
       label: 'Selection',
       items: [
-        { label: 'Select All', shortcut: 'Ctrl+A', icon: <MousePointerSquareDashed className="w-3.5 h-3.5" />, action: () => {
-          const activeEl = document.activeElement as HTMLTextAreaElement | HTMLInputElement;
-          if (activeEl && typeof activeEl.select === 'function') {
-            activeEl.select();
+        {
+          label: 'Select All', shortcut: 'Ctrl+A', icon: <MousePointerSquareDashed className="w-3.5 h-3.5" />, action: () => {
+            const activeEl = document.activeElement as HTMLTextAreaElement | HTMLInputElement;
+            if (activeEl && typeof activeEl.select === 'function') {
+              activeEl.select();
+            }
           }
-        }}
+        }
       ]
     },
     {
@@ -168,7 +165,7 @@ export default function Waybar() {
       <div className="flex items-center h-full gap-4 text-white/80">
         <div className="flex items-center gap-3">
           <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[var(--color-primary-accent)] to-[var(--color-secondary-accent)] flex items-center justify-center shadow-[0_0_10px_rgba(124,58,237,0.5)]">
-            <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
           </div>
           <span className="text-white/60 tracking-wide font-semibold">{workspaceLabel}</span>
         </div>
@@ -186,11 +183,10 @@ export default function Waybar() {
                       setActiveMenu(menu.id);
                     }
                   }}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded transition-colors text-[11px] font-sans ${
-                    isOpen
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded transition-colors text-[11px] font-sans ${isOpen
                       ? 'bg-white/10 text-white font-semibold shadow-[0_0_8px_rgba(255,255,255,0.08)]'
                       : 'text-white/60 hover:text-white hover:bg-white/5'
-                  }`}
+                    }`}
                 >
                   {menu.label}
                 </button>
@@ -229,7 +225,7 @@ export default function Waybar() {
       {/* Right side */}
       <div className="flex items-center h-full gap-4 text-white/50">
         <button className="hover:text-white hover:bg-white/10 px-2 py-0.5 rounded transition-colors" title="Notifications">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
         </button>
 
         <div className="flex items-center h-full" style={{ 'WebkitAppRegion': 'no-drag' } as React.CSSProperties}>

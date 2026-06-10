@@ -125,8 +125,29 @@ function TerminalInstance({ tabId, tabOutput, tabStatus, onOutput, onStatusChang
         {tabOutput.map((line, i) => (
           <div key={i} className="text-[#CCCCCC]">{line}</div>
         ))}
+        {tabStatus === 'connected' && (
+          <div className="flex items-center text-[#CCCCCC] mt-1">
+            <span className="mr-2 text-green-400/80">❯</span>
+            <input
+              ref={inputRef}
+              type="text"
+              className="flex-1 bg-transparent outline-none border-none text-[#CCCCCC] font-mono text-[12px]"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const val = e.currentTarget.value;
+                  if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                    wsRef.current.send(JSON.stringify({ event: 'terminal:write', data: val + '\n' }));
+                    // Locally echo the command since subprocess pipes don't auto-echo
+                    onOutput(tabId, `\n❯ ${val}`);
+                  }
+                  e.currentTarget.value = '';
+                }
+              }}
+            />
+          </div>
+        )}
       </div>
-
     </div>
   );
 }

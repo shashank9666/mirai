@@ -84,8 +84,6 @@ function SidebarContent({ activeView }: { activeView: string }) {
       return <HyprDatabase />;
     case 'debug':
       return <HyprDebug />;
-    case 'settings':
-      return <SettingsPanel onClose={() => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'closeSettings' } }))} />;
     case 'explorer':
     default:
       return <HyprSidebar />;
@@ -110,6 +108,7 @@ export default function Home() {
 
   const [panelOrderList, setPanelOrderList] = useState<string[]>(['sidebar', 'editor', 'chat']);
   const [dragOverSide, setDragOverSide] = useState<string | null>(null);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const { zenMode, fullscreenMode, toggleZenMode, toggleFullscreenMode, workspacePath, setWorkspace } = useIdeStore();
   const hasWorkspace = !!workspacePath;
@@ -201,7 +200,7 @@ export default function Home() {
   }, []);
 
   const handleShowSettings = () => {
-    handleViewChange('settings');
+    setShowSettingsModal(true);
   };
 
   useEffect(() => {
@@ -263,9 +262,7 @@ export default function Home() {
       } else if (cmd === 'openFolder') {
         setWelcomeOverride({ show: true, forWorkspace: workspacePath });
       } else if (cmd === 'closeSettings') {
-        if (activeView === 'settings') {
-          setActiveView('explorer');
-        }
+        setShowSettingsModal(false);
       }
     };
     window.addEventListener('ide:command', handleCommand as EventListener);
@@ -424,6 +421,14 @@ export default function Home() {
       </div>
 
       {!zenMode && <HyprStatusBar />}
+
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="w-[80vw] h-[80vh] max-w-5xl rounded-xl border border-white/10 shadow-2xl bg-[#1e1e2e] overflow-hidden flex flex-col">
+            <SettingsPanel onClose={() => setShowSettingsModal(false)} />
+          </div>
+        </div>
+      )}
     </main>
   );
 }
