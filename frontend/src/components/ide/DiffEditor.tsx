@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useCallback, useRef } from 'react';
-import { DiffEditor as MonacoDiffEditor } from '@monaco-editor/react';
+import { DiffEditor as MonacoDiffEditor, loader } from '@monaco-editor/react';
 import { X, GitCompareArrows } from 'lucide-react';
 import { useIdeStore } from '@/store/ideStore';
+
+loader.config({ paths: { vs: '/vs' } });
 
 function getLanguageFromPath(path: string): string {
   const ext = path.split('.').pop()?.toLowerCase() || '';
@@ -20,8 +22,10 @@ function getLanguageFromPath(path: string): string {
 
 export default function DiffEditorPanel() {
   const { diffMode, diffFilePath, diffOriginal, diffModified, closeDiff, editorSettings } = useIdeStore();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const editorRef = useRef<any>(null);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleMount = useCallback((editor: any) => {
     editorRef.current = editor;
   }, []);

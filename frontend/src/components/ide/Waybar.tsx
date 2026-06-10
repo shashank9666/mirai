@@ -23,6 +23,15 @@ import {
   HelpCircle
 } from 'lucide-react';
 
+function truncatePath(path: string | null) {
+  if (!path) return '';
+  const parts = path.split(/[/\\]/);
+  if (parts.length > 3) {
+    return `.../${parts.slice(-2).join('/')}`;
+  }
+  return path;
+}
+
 export default function Waybar() {
   const { getActiveGroup, clearWorkspace, workspaceName, workspacePath } = useIdeStore();
   const activeFile = getActiveGroup()?.activeFile || null;
@@ -159,6 +168,8 @@ export default function Waybar() {
     }
   ];
 
+  type MenuItem = { label?: string; shortcut?: string; icon?: React.ReactNode; action?: () => void; divider?: boolean };
+
   return (
     <div className="h-10 w-full px-4 flex items-center justify-between text-xs font-mono select-none shrink-0" style={{ background: 'linear-gradient(90deg, rgba(124,58,237,0.08) 0%, rgba(59,130,246,0.08) 100%)', borderBottom: '1px solid rgba(255,255,255,0.06)', WebkitAppRegion: 'drag' } as React.CSSProperties}>
       {/* Left side */}
@@ -192,7 +203,7 @@ export default function Waybar() {
                 </button>
                 {isOpen && (
                   <div className="absolute top-full left-0 mt-1 z-50 w-52 bg-[#0f0f0f]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-1.5 overflow-hidden">
-                    {menu.items.map((item: any, index) => {
+                    {menu.items.map((item: MenuItem, index: number) => {
                       if ('divider' in item) {
                         return <div key={index} className="border-t border-white/5 my-1" />;
                       }
@@ -201,7 +212,7 @@ export default function Waybar() {
                           key={index}
                           onClick={() => {
                             setActiveMenu(null);
-                            item.action();
+                            item.action?.();
                           }}
                           className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors"
                         >

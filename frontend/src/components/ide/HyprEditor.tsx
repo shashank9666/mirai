@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useEffect, useCallback, useRef, useState } from 'react';
-import Editor, { type OnMount, type OnChange } from '@monaco-editor/react';
-import { X, ChevronRight, Columns2, Rows2, Plus, MoreHorizontal } from 'lucide-react';
-import { useIdeStore, type EditorGroup, type EditorSettings } from '@/store/ideStore';
+import Editor, { type OnMount, type OnChange, loader } from '@monaco-editor/react';
+import { X, ChevronRight } from 'lucide-react';
+import { useIdeStore, type EditorGroup } from '@/store/ideStore';
 import DiffEditorPanel from './DiffEditor';
+
+loader.config({ paths: { vs: '/vs' } });
 
 function Breadcrumbs({ filePath }: { filePath: string }) {
   const parts = filePath.replace(/\\/g, '/').split('/').filter(Boolean);
@@ -70,9 +72,10 @@ function EditorTabs({ group }: { group: EditorGroup }) {
   );
 }
 
-function EditorGroupPanel({ group, isLast }: { group: EditorGroup; isLast: boolean }) {
+function EditorGroupPanel({ group }: { group: EditorGroup }) {
   const { activeGroupId, setActiveGroup, removeGroup, groups, editorSettings, updateFileContent, saveFile } = useIdeStore();
   const isActive = group.id === activeGroupId;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const editorRef = useRef<any>(null);
   const [cursorLine, setCursorLine] = useState(1);
   const [cursorColumn, setCursorColumn] = useState(1);
@@ -123,6 +126,7 @@ function EditorGroupPanel({ group, isLast }: { group: EditorGroup; isLast: boole
   // Store editor ref for external access
   useEffect(() => {
     if (isActive && editorRef.current) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (window as any).__miraiEditor = editorRef.current;
     }
   }, [isActive]);
@@ -311,10 +315,9 @@ export default function HyprEditor() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [addGroup]);
 
-  // Split handle for mouse-drag resizing
-  const splitRef = useRef<HTMLDivElement>(null);
+
 
   if (diffMode) {
     return (
@@ -327,13 +330,13 @@ export default function HyprEditor() {
   return (
     <div className="hypr-panel w-full h-full flex flex-col overflow-hidden">
       {groups.length === 1 ? (
-        <EditorGroupPanel group={groups[0]} isLast />
+        <EditorGroupPanel group={groups[0]} />
       ) : (
         <div className={`flex-1 flex min-h-0 ${splitDirection === 'vertical' ? 'flex-col' : 'flex-row'}`}>
           {groups.map((group, idx) => (
             <React.Fragment key={group.id}>
               <div className="flex-1 min-w-0 overflow-hidden">
-                <EditorGroupPanel group={group} isLast={idx === groups.length - 1} />
+                <EditorGroupPanel group={group} />
               </div>
               {idx < groups.length - 1 && (
                 <SplitHandle direction={splitDirection} />
@@ -355,7 +358,7 @@ function SplitHandle({ direction }: { direction: 'horizontal' | 'vertical' }) {
     isDragging.current = true;
     startPos.current = direction === 'horizontal' ? e.clientX : e.clientY;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMouseMove = () => {
       if (!isDragging.current) return;
       // Visual feedback handled by CSS
     };

@@ -14,7 +14,12 @@ def setup_terminal_websockets(sock):
         
         target_cwd = cwd or os.getcwd()
         
-        shell_cmd = ["powershell.exe"] if sys.platform == "win32" else ["bash"]
+        if shell == "cmd":
+            shell_cmd = ["cmd.exe"]
+        elif shell == "bash":
+            shell_cmd = ["bash"] if sys.platform != "win32" else ["bash.exe"]
+        else:
+            shell_cmd = ["powershell.exe"] if sys.platform == "win32" else ["bash"]
         
         try:
             # We use subprocess.Popen with pipes

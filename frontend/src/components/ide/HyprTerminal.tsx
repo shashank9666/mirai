@@ -38,14 +38,17 @@ interface TerminalTab {
   output: string[];
   status: ConnectionStatus;
   pinned: boolean;
+  profile?: string;
 }
 
-function TerminalInstance({ tabId, tabOutput, tabStatus, onOutput, onStatusChange }: {
+function TerminalInstance({ tabId, tabOutput, tabStatus, tabProfile, onOutput, onStatusChange, onClear }: {
   tabId: string;
   tabOutput: string[];
   tabStatus: ConnectionStatus;
+  tabProfile?: string;
   onOutput: (termId: string, data: string) => void;
   onStatusChange: (termId: string, status: ConnectionStatus) => void;
+  onClear: (termId: string) => void;
 }) {
   const outputRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -56,7 +59,8 @@ function TerminalInstance({ tabId, tabOutput, tabStatus, onOutput, onStatusChang
     mountedRef.current = true;
     onStatusChange(tabId, 'connecting');
 
-    const ws = new WebSocket(WS_URL);
+    const url = tabProfile ? `${WS_URL}?shell=${tabProfile}` : WS_URL;
+    const ws = new WebSocket(url);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -136,9 +140,13 @@ function TerminalInstance({ tabId, tabOutput, tabStatus, onOutput, onStatusChang
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   const val = e.currentTarget.value;
+                  if (val.trim() === 'clear' || val.trim() === 'cls') {
+                    onClear(tabId);
+                    e.currentTarget.value = '';
+                    return;
+                  }
                   if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
                     wsRef.current.send(JSON.stringify({ event: 'terminal:write', data: val + '\n' }));
-                    // Locally echo the command since subprocess pipes don't auto-echo
                     onOutput(tabId, `\n❯ ${val}`);
                   }
                   e.currentTarget.value = '';
@@ -155,17 +163,17 @@ function TerminalInstance({ tabId, tabOutput, tabStatus, onOutput, onStatusChang
 export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize, onClose }: TerminalPanelProps) {
   const tabCounterRef = useRef(2);
 
-  const createTab = useCallback((counter: number): TerminalTab => {
+  const createTab = useCallback((counter: number, profile?: string): TerminalTab => {
     const id = `terminal-${counter}`;
-    // E.g., 'bash' or 'powershell' (using a generic name for now)
-    const label = `cmd ${counter}`;
-    return { id, label, output: [], status: 'disconnected', pinned: false };
+    const label = profile ? profile : `cmd`;
+    return { id, label: `${label} ${counter}`, output: [], status: 'disconnected', pinned: false, profile };
   }, []);
 
   const [activeBottomTab, setActiveBottomTab] = useState('terminal');
-  const [terminals, setTerminals] = useState<TerminalTab[]>([{ id: 'terminal-1', label: 'cmd 1', output: [], status: 'disconnected', pinned: false }]);
+  const [terminals, setTerminals] = useState<TerminalTab[]>([{ id: 'terminal-1', label: 'cmd 1', output: [], status: 'disconnected', pinned: false, profile: 'cmd' }]);
   const [activeTermId, setActiveTermId] = useState<string>('terminal-1');
   const [showRetryBanner, setShowRetryBanner] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   const activeTerminal = terminals.find((t) => t.id === activeTermId) ?? terminals[0];
 
@@ -191,6 +199,12 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
     );
   }, []);
 
+  const handleClear = useCallback((termId: string) => {
+    setTerminals((prev) =>
+      prev.map((t) => (t.id === termId ? { ...t, output: [] } : t)),
+    );
+  }, []);
+
   const handleStatusChange = useCallback((termId: string, status: ConnectionStatus) => {
     setTerminals((prev) =>
       prev.map((t) => (t.id === termId ? { ...t, status } : t)),
@@ -199,11 +213,12 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
     if (status === 'disconnected') setShowRetryBanner(true);
   }, []);
 
-  const addTerminal = () => {
-    const tab = createTab(tabCounterRef.current);
+  const addTerminal = (profile?: string) => {
+    const tab = createTab(tabCounterRef.current, profile);
     tabCounterRef.current += 1;
     setTerminals((prev) => [...prev, tab]);
     setActiveTermId(tab.id);
+    setShowProfileMenu(false);
   };
 
   const closeTerminal = useCallback((termId: string) => {
@@ -257,10 +272,33 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
         {/* Actions Toolbar */}
         <div className="flex items-center gap-1.5 ml-2">
           {activeBottomTab === 'terminal' && (
-            <div className="flex items-center gap-1 mr-2">
-              <button onClick={addTerminal} className="p-1 rounded text-[#CCCCCC] hover:text-white hover:bg-white/10 transition-colors" title="New Terminal">
+            <div className="flex items-center gap-1 mr-2 relative">
+              <button onClick={() => addTerminal('cmd')} className="p-1 rounded text-[#CCCCCC] hover:text-white hover:bg-white/10 transition-colors" title="New Terminal">
                 <Plus className="w-3.5 h-3.5" />
               </button>
+              <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="p-1 rounded text-[#CCCCCC] hover:text-white hover:bg-white/10 transition-colors" title="Select Terminal Profile">
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+              
+              {showProfileMenu && (
+                <div className="absolute top-full left-0 mt-1 w-48 bg-[#1e1e2e] border border-white/10 shadow-xl rounded-md py-1 z-50">
+                  <div className="px-3 py-1.5 text-[10px] text-white/40 uppercase tracking-wider font-semibold border-b border-white/5 mb-1">
+                    Select Profile
+                  </div>
+                  <button onClick={() => addTerminal('powershell')} className="w-full text-left px-3 py-1.5 text-[12px] text-[#CCCCCC] hover:bg-white/10 hover:text-white transition-colors">
+                    PowerShell
+                  </button>
+                  <button onClick={() => addTerminal('cmd')} className="w-full text-left px-3 py-1.5 text-[12px] text-[#CCCCCC] hover:bg-white/10 hover:text-white transition-colors">
+                    Command Prompt (Default)
+                  </button>
+                  <button onClick={() => addTerminal('bash')} className="w-full text-left px-3 py-1.5 text-[12px] text-[#CCCCCC] hover:bg-white/10 hover:text-white transition-colors">
+                    Git Bash
+                  </button>
+                </div>
+              )}
+              
+              <div className="w-[1px] h-4 bg-white/10 mx-1"></div>
+              
               <button className="p-1 rounded text-[#CCCCCC] hover:text-white hover:bg-white/10 transition-colors" title="Split Terminal">
                 <SplitSquareHorizontal className="w-3.5 h-3.5" />
               </button>
@@ -313,8 +351,10 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
                     tabId={activeTerminal.id}
                     tabOutput={activeTerminal.output}
                     tabStatus={activeTerminal.status}
+                    tabProfile={activeTerminal.profile}
                     onOutput={handleOutput}
                     onStatusChange={handleStatusChange}
+                    onClear={handleClear}
                   />
                 )}
               </div>
