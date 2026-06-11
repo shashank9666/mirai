@@ -196,8 +196,8 @@ export default function Waybar() {
                     }
                   }}
                   className={`flex items-center gap-1 px-2.5 py-1 rounded transition-colors text-[11px] font-sans ${isOpen
-                      ? 'bg-white/10 text-white font-semibold shadow-[0_0_8px_rgba(255,255,255,0.08)]'
-                      : 'text-white/60 hover:text-white hover:bg-white/5'
+                    ? 'bg-white/10 text-white font-semibold shadow-[0_0_8px_rgba(255,255,255,0.08)]'
+                    : 'text-white/60 hover:text-white hover:bg-white/5'
                     }`}
                 >
                   {menu.label}
