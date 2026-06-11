@@ -172,7 +172,7 @@ export default function Waybar() {
   type MenuItem = { label?: string; shortcut?: string; icon?: React.ReactNode; action?: () => void; divider?: boolean };
 
   return (
-    <div className="h-10 w-full px-4 flex items-center justify-between text-xs font-mono select-none shrink-0" style={{ background: 'var(--panel-bg, linear-gradient(90deg, rgba(124,58,237,0.08) 0%, rgba(59,130,246,0.08) 100%))', backdropFilter: 'var(--panel-backdrop, blur(16px))', borderBottom: '1px solid rgba(255,255,255,0.06)', WebkitAppRegion: 'drag' } as React.CSSProperties}>
+    <div className="relative z-50 h-10 w-full px-4 flex items-center justify-between text-xs font-mono select-none shrink-0" style={{ background: 'var(--panel-bg, linear-gradient(90deg, rgba(124,58,237,0.08) 0%, rgba(59,130,246,0.08) 100%))', backdropFilter: 'var(--panel-backdrop, blur(16px))', borderBottom: '1px solid rgba(255,255,255,0.06)', WebkitAppRegion: 'drag' } as React.CSSProperties}>
       {/* Left side */}
       <div className="flex items-center h-full gap-4 text-white/80">
         <div className="flex items-center gap-3">

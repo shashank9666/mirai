@@ -373,11 +373,13 @@ export default function Home() {
     document.documentElement.style.setProperty('--color-primary-accent', editorSettings.accentColor || '#7C3AED');
     document.documentElement.style.setProperty('--bg-image', editorSettings.backgroundImage ? `url(${editorSettings.backgroundImage})` : 'none');
     
+    const theme = editorSettings.appTheme || 'glass';
+    const blurVal = editorSettings.panelBlur ?? 16;
     let bg = `rgba(26, 26, 46, ${editorSettings.panelOpacity ?? 0.6})`;
-    if (editorSettings.appTheme === 'solid') bg = '#1a1a2e';
-    if (editorSettings.appTheme === 'dark') bg = '#050505';
+    if (theme === 'solid') bg = '#1a1a2e';
+    if (theme === 'dark') bg = '#050505';
     document.documentElement.style.setProperty('--panel-bg', bg);
-    document.documentElement.style.setProperty('--panel-backdrop', editorSettings.appTheme === 'glass' ? `blur(${editorSettings.panelBlur ?? 16}px)` : 'none');
+    document.documentElement.style.setProperty('--panel-backdrop', theme === 'glass' ? `blur(${blurVal}px)` : 'none');
     
     document.documentElement.style.setProperty('--app-zoom', zoom !== 1.0 ? `scale(${zoom})` : 'none');
     document.documentElement.style.setProperty('--app-width', zoom !== 1.0 ? `${100 / zoom}vw` : '100vw');
