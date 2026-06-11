@@ -20,7 +20,10 @@ import {
   Search,
   Hash,
   Play,
-  HelpCircle
+  HelpCircle,
+  Bell,
+  BellOff,
+  LayoutDashboard
 } from 'lucide-react';
 
 function truncatePath(path: string | null) {
@@ -37,6 +40,7 @@ export default function Waybar() {
   const activeFile = getActiveGroup()?.activeFile || null;
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -144,6 +148,15 @@ export default function Waybar() {
       ]
     },
     {
+      id: 'layout',
+      label: 'Layout',
+      items: [
+        { label: 'Split Horizontal', icon: <LayoutDashboard className="w-3.5 h-3.5" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'splitHorizontal' } })) },
+        { label: 'Split Vertical', icon: <LayoutDashboard className="w-3.5 h-3.5 rotate-90" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'splitVertical' } })) },
+        { label: 'Close Active Editor Group', icon: <X className="w-3.5 h-3.5" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'closeGroup' } })) }
+      ]
+    },
+    {
       id: 'run',
       label: 'Run',
       items: [
@@ -236,8 +249,8 @@ export default function Waybar() {
 
       {/* Right side */}
       <div className="flex items-center h-full gap-4 text-white/50">
-        <button onClick={() => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'toggleEditor' } }))} className="hover:text-white hover:bg-white/10 px-2 py-0.5 rounded transition-colors" title="Toggle Editor">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+        <button onClick={() => setNotificationsEnabled(!notificationsEnabled)} className={`px-2 py-0.5 rounded transition-colors ${notificationsEnabled ? 'hover:text-white hover:bg-white/10 text-white/80' : 'text-white/30 hover:bg-white/5'}`} title={notificationsEnabled ? 'Mute Notifications' : 'Enable Notifications'}>
+          {notificationsEnabled ? <Bell className="w-[14px] h-[14px]" /> : <BellOff className="w-[14px] h-[14px]" />}
         </button>
 
         <div className="flex items-center h-full" style={{ 'WebkitAppRegion': 'no-drag' } as React.CSSProperties}>

@@ -20,11 +20,6 @@ function createWindow() {
     minHeight: 600,
     frame: false,            // Frameless for custom titlebar
     titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#00000000',
-      symbolColor: '#ffffff',
-      height: 40
-    },
     backgroundColor: '#09090B',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
