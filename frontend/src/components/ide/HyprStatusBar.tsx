@@ -64,14 +64,7 @@ export default function HyprStatusBar() {
       </div>
 
       <div className="flex items-center h-full gap-3 text-white/70">
-        <div className="flex items-center gap-2 hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors">
-          <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_5px_#3b82f6]" />
-          Credits: 1,000
-        </div>
-        <div className="flex items-center gap-2 hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors">
-          <span className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_5px_#a855f7]" />
-          GPT-5.5
-        </div>
+
 
       </div>
     </div>

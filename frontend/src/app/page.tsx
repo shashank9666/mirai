@@ -295,7 +295,7 @@ export default function Home() {
           terminal: 'bottom'
         });
         handleViewChange('explorer');
-        setZoom(0.8);
+        setZoom(1);
         const state = useIdeStore.getState();
         if (state.zenMode) state.toggleZenMode();
         if (state.fullscreenMode) state.toggleFullscreenMode();
@@ -317,7 +317,7 @@ export default function Home() {
     };
     window.addEventListener('ide:command', handleCommand as EventListener);
     return () => window.removeEventListener('ide:command', handleCommand as EventListener);
-  }, [toggleZenMode, toggleFullscreenMode, activeView, handleViewChange, workspacePath]);
+  }, [toggleZenMode, toggleFullscreenMode, activeView, handleViewChange, workspacePath, setZoom]);
 
   useEffect(() => {
     if (fullscreenMode) {
