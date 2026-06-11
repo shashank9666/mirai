@@ -65,7 +65,9 @@ export default function HyprSearch() {
       const { content } = await api.readFile(filePath);
       const name = filePath.split(/[\\/]/).pop() || filePath;
       setActiveFile(filePath, name, content);
-      window.dispatchEvent(new CustomEvent('editor:revealLine', { detail: { line } }));
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('editor:revealLine', { detail: { line, filePath } }));
+      }, 100);
     } catch (err) {
       console.error('Failed to open file:', err);
     }

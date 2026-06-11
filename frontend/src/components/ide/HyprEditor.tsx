@@ -9,6 +9,62 @@ import PanelHeader from './PanelHeader';
 
 loader.config({ paths: { vs: '/vs' } });
 
+const isImage = (path: string) => /\.(png|jpe?g|gif|webp|svg|ico)$/i.test(path);
+const isPdf = (path: string) => /\.pdf$/i.test(path);
+const isVideo = (path: string) => /\.(mp4|webm|ogg)$/i.test(path);
+const isAudio = (path: string) => /\.(mp3|wav|ogg)$/i.test(path);
+
+function FileViewer({ filePath, content, monacoProps }: { filePath: string; content: string; monacoProps: any }) {
+  const rawUrl = `http://127.0.0.1:8000/api/fs/raw?path=${encodeURIComponent(filePath)}`;
+  
+  if (isImage(filePath)) {
+    return (
+      <div className="w-full h-full flex items-center justify-center p-4 bg-[#0a0a0a]/50" style={{ backgroundImage: 'repeating-conic-gradient(rgba(255,255,255,0.05) 0% 25%, transparent 0% 50%)', backgroundSize: '20px 20px' }}>
+        <img src={rawUrl} alt={filePath} className="max-w-full max-h-full object-contain drop-shadow-lg" />
+      </div>
+    );
+  }
+  
+  if (isPdf(filePath)) {
+    return (
+      <div className="w-full h-full bg-white">
+        <iframe src={rawUrl} className="w-full h-full border-none" />
+      </div>
+    );
+  }
+  
+  if (isVideo(filePath)) {
+    return (
+      <div className="w-full h-full flex items-center justify-center p-4 bg-[#0a0a0a]/50">
+        <video src={rawUrl} controls className="max-w-full max-h-full object-contain drop-shadow-lg" />
+      </div>
+    );
+  }
+
+  if (isAudio(filePath)) {
+    return (
+      <div className="w-full h-full flex items-center justify-center p-4 bg-[#0a0a0a]/50">
+        <audio src={rawUrl} controls className="w-1/2 drop-shadow-lg" />
+      </div>
+    );
+  }
+
+  // Fallback to Monaco editor
+  return (
+    <Editor
+      height="100%"
+      path={monacoProps.path}
+      theme={monacoProps.theme}
+      value={content}
+      language={monacoProps.language}
+      onChange={monacoProps.onChange}
+      onMount={monacoProps.onMount}
+      options={monacoProps.options}
+    />
+  );
+}
+
+
 function Breadcrumbs({ filePath }: { filePath: string }) {
   const parts = filePath.replace(/\\/g, '/').split('/').filter(Boolean);
   return (
@@ -179,6 +235,23 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isActive, editorSettings.formatOnSave, saveFile]);
 
+  // Handle revealing a specific line
+  useEffect(() => {
+    const handleRevealLine = (e: CustomEvent) => {
+      if (editorRef.current && isActive) {
+        if (e.detail.filePath && e.detail.filePath !== group.activeFile) return;
+        const line = e.detail.line;
+        if (line) {
+          editorRef.current.revealLineInCenter(line);
+          editorRef.current.setPosition({ lineNumber: line, column: 1 });
+          editorRef.current.focus();
+        }
+      }
+    };
+    window.addEventListener('editor:revealLine', handleRevealLine as EventListener);
+    return () => window.removeEventListener('editor:revealLine', handleRevealLine as EventListener);
+  }, [isActive, group.activeFile]);
+
   const opts = editorSettings;
 
   const monacoOptions = {
@@ -253,15 +326,17 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
 
       <div className="flex-1 relative min-h-0">
         {group.activeFile ? (
-          <Editor
-            height="100%"
-            theme={editorSettings.theme}
-            path={group.id + ':' + group.activeFile}
-            value={group.activeFileContent}
-            language={group.tabs.find(t => t.path === group.activeFile)?.language}
-            onChange={handleEditorChange}
-            onMount={handleEditorMount}
-            options={monacoOptions}
+          <FileViewer 
+            filePath={group.activeFile}
+            content={group.activeFileContent}
+            monacoProps={{
+              theme: editorSettings.theme,
+              path: group.id + ':' + group.activeFile,
+              language: group.tabs.find(t => t.path === group.activeFile)?.language,
+              onChange: handleEditorChange,
+              onMount: handleEditorMount,
+              options: monacoOptions
+            }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center relative">

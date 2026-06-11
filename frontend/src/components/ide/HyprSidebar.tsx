@@ -168,8 +168,16 @@ const TreeItem = ({
       }
       setIsOpen(!isOpen);
     } else {
-      const { content } = await api.readFile(node.path);
-      setActiveFile(node.path, node.name, content);
+      try {
+        const { content } = await api.readFile(node.path);
+        setActiveFile(node.path, node.name, content);
+      } catch (err: any) {
+        if (err.message && err.message.includes('binary_file_not_supported')) {
+          setActiveFile(node.path, node.name, '');
+        } else {
+          console.error('Failed to read file:', err);
+        }
+      }
     }
   };
 

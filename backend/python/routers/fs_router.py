@@ -186,9 +186,27 @@ def search_files():
             ignored_dirs = {'node_modules', '.git', 'dist', 'build', '__pycache__', '.next', 'coverage', '.mirai'}
             dirs[:] = [d for d in dirs if d not in ignored_dirs]
 
+            for d in dirs:
+                if regex.search(d):
+                    results.append({
+                        "path": os.path.relpath(os.path.join(root, d), workspace_manager.workspace_root),
+                        "matches": [{"line": 1, "text": f"Directory: {d}"}],
+                    })
+
             for file in files:
                 ext = os.path.splitext(file)[1].lower()
+                full_path = os.path.join(root, file)
+                matches = []
+                
+                if regex.search(file):
+                    matches.append({"line": 1, "text": f"File: {file}"})
+
                 if ext in binary_extensions:
+                    if matches:
+                        results.append({
+                            "path": os.path.relpath(full_path, workspace_manager.workspace_root),
+                            "matches": matches,
+                        })
                     continue
                     
                 # Check includes filter
@@ -196,23 +214,22 @@ def search_files():
                     if not any(fnmatch.fnmatch(file, p) for p in include_patterns):
                         continue
 
-                full_path = os.path.join(root, file)
                 try:
                     with open(full_path, 'r', encoding='utf-8') as f:
                         lines = f.readlines()
-                        matches = []
                         for i, line in enumerate(lines, 1):
                             if regex.search(line):
                                 matches.append({"line": i, "text": line.rstrip()[:200]}) # Limit text length to prevent giant lines
-                        if matches:
-                            results.append({
-                                "path": os.path.relpath(full_path, workspace_manager.workspace_root),
-                                "matches": matches,
-                            })
                 except UnicodeDecodeError:
                     pass # Likely a binary file we didn't catch
                 except Exception:
                     pass
+                
+                if matches:
+                    results.append({
+                        "path": os.path.relpath(full_path, workspace_manager.workspace_root),
+                        "matches": matches,
+                    })
         return jsonify({"success": True, "results": results})
     except ValueError as e:
         return jsonify({"detail": str(e)}), 400
