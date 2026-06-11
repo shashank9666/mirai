@@ -380,8 +380,8 @@ export default function Home() {
         backgroundRepeat: 'no-repeat',
         transform: zoom !== 1.0 ? `scale(${zoom})` : undefined,
         transformOrigin: 'top left',
-        width: zoom !== 1.0 ? `${100 / zoom}%` : '100vw',
-        height: zoom !== 1.0 ? `${100 / zoom}%` : '100vh',
+        width: zoom !== 1.0 ? `${100 / zoom}vw` : '100vw',
+        height: zoom !== 1.0 ? `${100 / zoom}vh` : '100vh',
       }}
     >
       {editorSettings.backgroundImage && (

@@ -614,6 +614,7 @@ export const useIdeStore = create<IdeState>()(
 
   resetFontSize: () => set((state) => ({
     editorSettings: { ...state.editorSettings, fontSize: 13 },
+    zoom: 1.0,
   })),
 
   setZoom: (z) => set(() => ({ zoom: z })),
