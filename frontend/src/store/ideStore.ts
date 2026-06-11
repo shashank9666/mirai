@@ -82,10 +82,12 @@ export interface EditorSettings {
   hideCursorInOverviewRuler: boolean;
   automaticLayout: boolean;
   theme: string;
-  backgroundImage: string;
+  backgroundImage: string | null;
   backgroundOpacity: number;
   accentColor?: string;
   explorerIndentGuides: boolean;
+  panelOpacity: number;
+  appTheme: 'dark' | 'glass' | 'solid';
 }
 
 const defaultEditorSettings: EditorSettings = {
@@ -128,10 +130,12 @@ const defaultEditorSettings: EditorSettings = {
   hideCursorInOverviewRuler: false,
   automaticLayout: true,
   theme: 'vs-dark',
-  backgroundImage: '',
-  backgroundOpacity: 0.1,
+  backgroundImage: null,
+  backgroundOpacity: 0.8,
   accentColor: '#3b82f6',
   explorerIndentGuides: true,
+  panelOpacity: 0.6,
+  appTheme: 'glass',
 };
 
 const DEFAULT_EXTENSIONS: Extension[] = [
@@ -139,10 +143,10 @@ const DEFAULT_EXTENSIONS: Extension[] = [
   { name: 'ESLint', enabled: true, desc: 'JavaScript/TypeScript linting', builtin: true },
   { name: 'Prettier', enabled: true, desc: 'Code formatting', builtin: true },
   { name: 'Error Lens', enabled: true, desc: 'Inline error display', builtin: true },
-  { name: 'GitLens', enabled: false, desc: 'Git history & blame', builtin: false },
-  { name: 'GitHub Copilot', enabled: false, desc: 'AI-powered code suggestions', builtin: false },
-  { name: 'Docker', enabled: false, desc: 'Docker container management', builtin: false },
-  { name: 'Python', enabled: false, desc: 'Python language support', builtin: false },
+  { name: 'GitLens', enabled: true, desc: 'Git history & blame', builtin: false },
+  { name: 'GitHub Copilot', enabled: true, desc: 'AI-powered code suggestions', builtin: false },
+  { name: 'Docker', enabled: true, desc: 'Docker container management', builtin: false },
+  { name: 'Python', enabled: true, desc: 'Python language support', builtin: false },
 ];
 
 const DEFAULT_AI_PROVIDERS: AIProviderConfig[] = [

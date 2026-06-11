@@ -5,6 +5,7 @@ import Editor, { type OnMount, type OnChange, loader } from '@monaco-editor/reac
 import { X, ChevronRight, Pin } from 'lucide-react';
 import { useIdeStore, type EditorGroup } from '@/store/ideStore';
 import DiffEditorPanel from './DiffEditor';
+import PanelHeader from './PanelHeader';
 
 loader.config({ paths: { vs: '/vs' } });
 
@@ -302,7 +303,17 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
   );
 }
 
-export default function HyprEditor() {
+export default function HyprEditor({
+  isMinimized,
+  onMinimize,
+  onClose,
+  onDragStart,
+}: {
+  isMinimized?: boolean;
+  onMinimize?: () => void;
+  onClose?: () => void;
+  onDragStart?: (e: React.DragEvent) => void;
+} = {}) {
   const { groups, splitDirection, addGroup, diffMode } = useIdeStore();
 
   // Register global keyboard shortcuts
@@ -349,29 +360,45 @@ export default function HyprEditor() {
 
   if (diffMode) {
     return (
-      <div className="hypr-panel w-full h-full flex flex-col overflow-hidden">
-        <DiffEditorPanel />
+      <div className="hypr-panel w-full h-full flex flex-col overflow-hidden bg-[#1a1a2e]/40 backdrop-blur-md rounded-xl">
+        <PanelHeader
+          title="Diff Editor"
+          isMinimized={isMinimized}
+          onMinimize={onMinimize}
+          onClose={onClose}
+          onDragStart={onDragStart}
+        />
+        {!isMinimized && <DiffEditorPanel />}
       </div>
     );
   }
 
   return (
-    <div className="hypr-panel w-full h-full flex flex-col overflow-hidden">
-      {groups.length === 1 ? (
-        <EditorGroupPanel group={groups[0]} />
-      ) : (
-        <div className={`flex-1 flex min-h-0 ${splitDirection === 'vertical' ? 'flex-col' : 'flex-row'}`}>
-          {groups.map((group, idx) => (
-            <React.Fragment key={group.id}>
-              <div className="flex-1 min-w-0 overflow-hidden">
-                <EditorGroupPanel group={group} />
-              </div>
-              {idx < groups.length - 1 && (
-                <SplitHandle direction={splitDirection} />
-              )}
-            </React.Fragment>
-          ))}
-        </div>
+    <div className="hypr-panel w-full h-full flex flex-col overflow-hidden bg-transparent rounded-xl">
+      <PanelHeader
+        title="Editor"
+        isMinimized={isMinimized}
+        onMinimize={onMinimize}
+        onClose={onClose}
+        onDragStart={onDragStart}
+      />
+      {!isMinimized && (
+        groups.length === 1 ? (
+          <EditorGroupPanel group={groups[0]} />
+        ) : (
+          <div className={`flex-1 flex min-h-0 ${splitDirection === 'vertical' ? 'flex-col' : 'flex-row'}`}>
+            {groups.map((group, idx) => (
+              <React.Fragment key={group.id}>
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <EditorGroupPanel group={group} />
+                </div>
+                {idx < groups.length - 1 && (
+                  <SplitHandle direction={splitDirection} />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        )
       )}
     </div>
   );

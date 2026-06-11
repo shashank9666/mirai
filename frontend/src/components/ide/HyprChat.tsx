@@ -59,9 +59,10 @@ interface ChatPanelProps {
   onPin: () => void;
   onMinimize: () => void;
   onClose: () => void;
+  onDragStart?: (e: React.DragEvent) => void;
 }
 
-export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onClose }: ChatPanelProps) {
+export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onClose, onDragStart }: ChatPanelProps) {
   const [activeMode, setActiveMode] = useState('chat');
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -225,6 +226,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
         onPin={onPin}
         onMinimize={onMinimize}
         onClose={onClose}
+        onDragStart={onDragStart}
         accentColor="#7C3AED"
       >
         <div className="flex items-center gap-2 ml-auto">

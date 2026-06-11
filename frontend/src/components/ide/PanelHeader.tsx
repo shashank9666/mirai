@@ -14,6 +14,7 @@ interface PanelHeaderProps {
   onClose?: () => void;
   children?: React.ReactNode; // Extra content in header (tabs, etc.)
   accentColor?: string;
+  onDragStart?: (e: React.DragEvent) => void;
 }
 
 export default function PanelHeader({
@@ -27,9 +28,13 @@ export default function PanelHeader({
   onClose,
   children,
   accentColor,
+  onDragStart,
 }: PanelHeaderProps) {
   return (
-    <div className="flex items-center justify-between px-3 py-2 border-b border-white/5 shrink-0 select-none cursor-grab active:cursor-grabbing"
+    <div 
+      draggable
+      onDragStart={onDragStart}
+      className="flex items-center justify-between px-3 py-2 border-b border-white/5 shrink-0 select-none cursor-grab active:cursor-grabbing"
       style={accentColor ? { borderTop: `2px solid ${accentColor}` } : undefined}
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api, FileEntry } from '@/lib/api';
 import { useIdeStore } from '@/store/ideStore';
+import PanelHeader from './PanelHeader';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, FilePlus, FolderPlus, Edit2, Monitor, FileCode2, FileJson, FileText, File, FileImage, FileTerminal, Database, Palette, Settings as SettingsIcon } from 'lucide-react';
 
 const getFileIcon = (name: string) => {
@@ -227,7 +228,7 @@ const TreeItem = ({
   );
 };
 
-export default function HyprSidebar() {
+export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragStart }: { isMinimized?: boolean; onMinimize?: () => void; onClose?: () => void; onDragStart?: (e: React.DragEvent) => void }) {
   const [rootNodes, setRootNodes] = useState<FileEntry[]>([]);
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const [renameTarget, setRenameTarget] = useState<ContextMenu | null>(null);
@@ -279,10 +280,15 @@ export default function HyprSidebar() {
   }, [refresh]);
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
-      <div className="px-4 py-3 border-b border-white/5 font-mono text-[10px] text-white/40 tracking-widest uppercase shrink-0 flex items-center justify-between">
-        <span>Explorer</span>
-        <div className="flex items-center gap-1.5">
+    <div className="w-full h-full flex flex-col overflow-hidden bg-transparent">
+      <PanelHeader
+        title="Explorer"
+        isMinimized={isMinimized}
+        onMinimize={onMinimize}
+        onClose={onClose}
+        onDragStart={onDragStart}
+      >
+        <div className="flex items-center gap-1.5 ml-auto">
           <button onClick={() => setNewItemTarget({ parentPath: rootNodes[0]?.path || workspacePath || '', type: 'file' })} className="text-white/30 hover:text-white/70 transition-colors p-0.5" title="New File">
             <FilePlus className="w-3.5 h-3.5" />
           </button>
@@ -298,18 +304,15 @@ export default function HyprSidebar() {
           <button onClick={() => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'openFolder' } }))} className="text-white/30 hover:text-white/70 transition-colors p-0.5" title="Open Workspace">
             <Monitor className="w-3.5 h-3.5" />
           </button>
-          <button onClick={refresh} className="text-white/30 hover:text-white/70 transition-colors p-0.5 ml-1" title="Refresh">
+          <button onClick={refresh} className="text-white/30 hover:text-white/70 transition-colors p-0.5" title="Refresh">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
           </button>
-          <div className="w-px h-3 bg-white/10 mx-1" />
-          <button onClick={() => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'toggleSidebar' } }))} className="text-white/30 hover:text-white/70 transition-colors p-0.5" title="Close Sidebar">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-          </button>
         </div>
-      </div>
+      </PanelHeader>
 
-      <div
-        className="flex-1 overflow-y-auto custom-scrollbar py-1"
+      {!isMinimized && (
+        <div
+          className="flex-1 overflow-y-auto custom-scrollbar py-1"
         onContextMenu={(e) => {
           e.preventDefault();
           setContextMenu({ x: e.clientX, y: e.clientY, type: 'explorer', path: rootNodes[0]?.path || '', name: '', isDir: true });
@@ -336,8 +339,8 @@ export default function HyprSidebar() {
           onClose={() => setContextMenu(null)}
         />
       )}
-
-      {renameTarget && (
+      
+      {!isMinimized && renameTarget && (
         <RenameDialog
           initialName={renameTarget.name}
           onConfirm={async (newName) => {
@@ -353,7 +356,7 @@ export default function HyprSidebar() {
         />
       )}
 
-      {newItemTarget && (
+      {!isMinimized && newItemTarget && (
         <NewItemDialog
           type={newItemTarget.type}
           onConfirm={async (name) => {

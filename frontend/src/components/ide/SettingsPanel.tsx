@@ -92,7 +92,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
         {activeTab === 'theme' && (
           <div className="space-y-6">
             <div className="space-y-4">
-              <SectionTitle>Theme Selection</SectionTitle>
+              <SectionTitle>Editor Theme</SectionTitle>
               <div className="grid grid-cols-3 gap-3">
                 {['vs-dark', 'hc-black', 'vs'].map(t => (
                   <button 
@@ -108,6 +108,25 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                       <span className="text-[10px] text-white/30">{t}</span>
                     </div>
                     <span className="text-[11px] font-mono text-white/70">{t}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <SectionTitle>App Theme (Hyprland UI)</SectionTitle>
+              <div className="grid grid-cols-3 gap-3">
+                {['dark', 'glass', 'solid'].map((t) => (
+                  <button 
+                    key={t}
+                    onClick={() => setEditorSettings({ appTheme: t as 'dark' | 'glass' | 'solid' })}
+                    className={`p-2 border rounded-lg transition-colors flex flex-col items-center gap-2 ${
+                      editorSettings.appTheme === t 
+                        ? 'border-[var(--color-primary-accent)] bg-[var(--color-primary-accent)]/10' 
+                        : 'border-white/10 hover:border-[var(--color-primary-accent)]/50 bg-white/5'
+                    }`}
+                  >
+                    <span className="text-[11px] font-mono text-white/70 capitalize">{t}</span>
                   </button>
                 ))}
               </div>
@@ -143,16 +162,29 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                     className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-[11px] font-mono text-white/70 outline-none focus:border-[var(--color-primary-accent)]/50" 
                   />
                   <span className="text-[10px] font-mono text-white/40">Leave empty to use flat background color.</span>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-[10px] font-mono text-white/40 border border-white/10 px-2 py-1 rounded bg-black/20">OR</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="text-[10px] font-mono text-white/60"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => setEditorSettings({ backgroundImage: event.target?.result as string });
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <div className="p-3 border border-white/10 rounded-lg bg-white/5 flex flex-col gap-2">
                   <span className="text-[12px] font-mono text-white/80">Background Opacity</span>
                   <div className="flex items-center gap-3">
                     <input 
-                      type="range" 
-                      min="0" 
-                      max="1" 
-                      step="0.05"
+                      type="range" min="0" max="1" step="0.05"
                       value={editorSettings.backgroundOpacity}
                       onChange={(e) => setEditorSettings({ backgroundOpacity: parseFloat(e.target.value) })}
                       className="flex-1" 
@@ -160,21 +192,46 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                     <span className="text-[11px] font-mono text-white/60 w-8">{Math.round(editorSettings.backgroundOpacity * 100)}%</span>
                   </div>
                 </div>
+
+                <div className="p-3 border border-white/10 rounded-lg bg-white/5 flex flex-col gap-2">
+                  <span className="text-[12px] font-mono text-white/80">Panel Opacity (Glass Effect)</span>
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="range" min="0" max="1" step="0.05"
+                      value={editorSettings.panelOpacity ?? 0.6}
+                      onChange={(e) => setEditorSettings({ panelOpacity: parseFloat(e.target.value) })}
+                      className="flex-1" 
+                    />
+                    <span className="text-[11px] font-mono text-white/60 w-8">{Math.round((editorSettings.panelOpacity ?? 0.6) * 100)}%</span>
+                  </div>
+                </div>
               </div>
             </div>
 
             <div className="space-y-4">
               <SectionTitle>Accent Color</SectionTitle>
-              <div className="p-3 border border-white/10 rounded-lg bg-white/5 flex items-center gap-3">
-                <input 
-                  type="color" 
-                  value={editorSettings.accentColor || '#3b82f6'}
-                  onChange={(e) => setEditorSettings({ accentColor: e.target.value })}
-                  className="w-8 h-8 rounded cursor-pointer bg-transparent border-0 p-0"
-                />
-                <div className="flex-1">
-                  <span className="text-[12px] font-mono text-white/80 block">Primary Accent</span>
-                  <span className="text-[10px] font-mono text-white/40 block">Changes the active color glow and highlights.</span>
+              <div className="p-3 border border-white/10 rounded-lg bg-white/5 flex flex-col gap-3">
+                <div className="flex gap-2">
+                  {['#3b82f6', '#ec4899', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444'].map(color => (
+                    <button
+                      key={color}
+                      onClick={() => setEditorSettings({ accentColor: color })}
+                      className={`w-6 h-6 rounded-full border-2 transition-all ${editorSettings.accentColor === color ? 'border-white scale-110 shadow-lg' : 'border-transparent hover:scale-105'}`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-3 mt-2">
+                  <input 
+                    type="color" 
+                    value={editorSettings.accentColor || '#3b82f6'}
+                    onChange={(e) => setEditorSettings({ accentColor: e.target.value })}
+                    className="w-8 h-8 rounded cursor-pointer bg-transparent border-0 p-0"
+                  />
+                  <div className="flex-1">
+                    <span className="text-[12px] font-mono text-white/80 block">Custom Primary Accent</span>
+                    <span className="text-[10px] font-mono text-white/40 block">Changes the active color glow and highlights.</span>
+                  </div>
                 </div>
               </div>
             </div>

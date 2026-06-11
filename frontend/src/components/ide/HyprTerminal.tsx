@@ -29,6 +29,7 @@ interface TerminalPanelProps {
   onPin: () => void;
   onMinimize: () => void;
   onClose: () => void;
+  onDragStart?: (e: React.DragEvent) => void;
 }
 
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
@@ -160,7 +161,7 @@ function TerminalInstance({ tabId, tabOutput, tabStatus, tabProfile, onOutput, o
   );
 }
 
-export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize, onClose }: TerminalPanelProps) {
+export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize, onClose, onDragStart }: TerminalPanelProps) {
   const tabCounterRef = useRef(2);
 
   const createTab = useCallback((counter: number, profile?: string): TerminalTab => {
@@ -250,9 +251,13 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
   };
 
   return (
-    <div className="hypr-panel w-full h-full flex flex-col overflow-hidden bg-[#1a1a2e]/40 backdrop-blur-md rounded-xl">
+    <div className="hypr-panel w-full h-full flex flex-col overflow-hidden bg-transparent rounded-xl">
       {/* VS Code Style Header */}
-      <div className="flex items-center justify-between px-3 h-9 shrink-0 select-none cursor-grab active:cursor-grabbing bg-white/5 border-b border-white/10">
+      <div 
+        draggable
+        onDragStart={onDragStart}
+        className="flex items-center justify-between px-3 h-9 shrink-0 select-none cursor-grab active:cursor-grabbing bg-white/5 border-b border-white/10"
+      >
         <div className="flex items-center gap-5 h-full">
           {MAIN_TABS.map((tab) => (
             <button
