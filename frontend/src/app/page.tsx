@@ -344,7 +344,7 @@ export default function Home() {
 
   const visibility: Record<string, boolean> = {
     sidebar: sidebarVisible,
-    editor: true,
+    editor: editorVisible,
     chat: chatVisible,
     terminal: terminalVisible
   };
@@ -369,7 +369,7 @@ export default function Home() {
     : `"${row1}"` + (bottomVisible && !zenMode ? `\n"${row2}"\n"${row3}"` : '');
 
   const getPanelStyle = (panelId: string) => {
-    let opacity = editorSettings.panelOpacity ?? 0.6;
+    const opacity = editorSettings.panelOpacity ?? 0.6;
     let bg = `rgba(26, 26, 46, ${opacity})`;
     if (editorSettings.appTheme === 'solid') bg = '#1a1a2e';
     if (editorSettings.appTheme === 'dark') bg = '#050505';
@@ -471,6 +471,7 @@ export default function Home() {
               style={getPanelStyle('editor')}
             >
               <div className={`flex-1 min-h-0 flex flex-col ${editorMinimized ? 'hidden' : 'flex'}`}>
+                {hasWorkspace && !showWelcome && <EditorToolbar />}
                 {showWelcome || !hasWorkspace ? (
                   <WelcomeScreen onWorkspaceOpened={() => setWelcomeOverride({ show: false, forWorkspace: workspacePath })} />
                 ) : (
