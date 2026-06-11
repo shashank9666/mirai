@@ -32,16 +32,12 @@ def setup_terminal_websockets(sock):
                 ws.send(json.dumps({"event": "terminal:data", "data": f"Error starting terminal: {str(e)}\r\n"}))
                 return
                 
-            import re
-            ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-            def read_from_process():
                 try:
                     while True:
                         data = process.read(1024)
                         if not data:
                             break
-                        clean_data = ansi_escape.sub('', data)
-                        ws.send(json.dumps({"event": "terminal:data", "data": clean_data}))
+                        ws.send(json.dumps({"event": "terminal:data", "data": data}))
                 except Exception:
                     pass
                 finally:
@@ -90,16 +86,13 @@ def setup_terminal_websockets(sock):
                 ws.send(json.dumps({"event": "terminal:data", "data": f"Error starting terminal: {str(e)}\r\n"}))
                 return
                 
-            import re
-            ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
             def read_from_process():
                 try:
                     while True:
                         data = process.read(1024)
                         if not data:
                             break
-                        clean_data = ansi_escape.sub('', data)
-                        ws.send(json.dumps({"event": "terminal:data", "data": clean_data}))
+                        ws.send(json.dumps({"event": "terminal:data", "data": data}))
                 except Exception:
                     pass
                 finally:

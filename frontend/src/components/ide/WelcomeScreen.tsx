@@ -24,10 +24,12 @@ export default function WelcomeScreen({ onWorkspaceOpened }: { onWorkspaceOpened
     const localRecent: string[] = stored ? JSON.parse(stored) : [];
     const storeRecent = recentWorkspaces || [];
     const merged = [...new Set([...storeRecent, ...localRecent])];
+    // eslint-disable-next-line
     setRecentList(merged);
   }, [recentWorkspaces]);
 
   const openFolderPicker = useCallback(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const electronAPI = (window as any).electronAPI;
     if (electronAPI?.selectFolder) {
       const folderPath = await electronAPI.selectFolder();
@@ -101,23 +103,23 @@ export default function WelcomeScreen({ onWorkspaceOpened }: { onWorkspaceOpened
       animate={{ opacity: 1 }}
       className="w-full h-full flex items-center justify-center bg-[#0a0a0a]/80"
     >
-      <div className="flex flex-col items-center gap-8 max-w-lg w-full px-8">
+      <div className="flex flex-col items-center gap-5 max-w-sm w-full px-6">
         {/* Logo */}
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="flex flex-col items-center gap-4"
+          className="flex flex-col items-center gap-2"
         >
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--color-primary-accent)] to-[var(--color-secondary-accent)] flex items-center justify-center shadow-[0_0_30px_rgba(124,58,237,0.3)]">
-            <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--color-primary-accent)] to-[var(--color-secondary-accent)] flex items-center justify-center shadow-[0_0_20px_rgba(124,58,237,0.3)]">
+            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
             </svg>
           </div>
-          <h1 className="text-2xl font-mono font-bold text-white/90 tracking-tight">
+          <h1 className="text-xl font-mono font-bold text-white/90 tracking-tight">
             Mirai IDE
           </h1>
-          <p className="text-[11px] font-mono text-white/30 text-center">
+          <p className="text-[10px] font-mono text-white/30 text-center">
             AI-Powered Development Environment
           </p>
         </motion.div>
@@ -126,28 +128,28 @@ export default function WelcomeScreen({ onWorkspaceOpened }: { onWorkspaceOpened
         <div className="w-full space-y-2">
           <button
             onClick={openFolderPicker}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 hover:border-[var(--color-primary-accent)]/30 transition-all group"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 hover:border-[var(--color-primary-accent)]/30 transition-all group"
           >
-            <div className="w-10 h-10 rounded-lg bg-[var(--color-primary-accent)]/10 flex items-center justify-center group-hover:bg-[var(--color-primary-accent)]/20 transition-colors">
-              <FolderOpen className="w-5 h-5 text-[var(--color-primary-accent)]" />
+            <div className="w-8 h-8 rounded-md bg-[var(--color-primary-accent)]/10 flex items-center justify-center group-hover:bg-[var(--color-primary-accent)]/20 transition-colors">
+              <FolderOpen className="w-4 h-4 text-[var(--color-primary-accent)]" />
             </div>
             <div className="flex-1 text-left">
-              <div className="text-[13px] font-mono text-white/80 group-hover:text-white transition-colors">Open Folder</div>
-              <div className="text-[10px] font-mono text-white/30">Browse for a project directory</div>
+              <div className="text-xs font-mono text-white/80 group-hover:text-white transition-colors">Open Folder</div>
+              <div className="text-[9px] font-mono text-white/30 mt-0.5">Browse for a project directory</div>
             </div>
             <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/50 transition-colors" />
           </button>
 
           <button
             onClick={openFolderPicker}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 hover:border-[var(--color-secondary-accent)]/30 transition-all group"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 hover:border-[var(--color-secondary-accent)]/30 transition-all group"
           >
-            <div className="w-10 h-10 rounded-lg bg-[var(--color-secondary-accent)]/10 flex items-center justify-center group-hover:bg-[var(--color-secondary-accent)]/20 transition-colors">
-              <Sparkles className="w-5 h-5 text-[var(--color-secondary-accent)]" />
+            <div className="w-8 h-8 rounded-md bg-[var(--color-secondary-accent)]/10 flex items-center justify-center group-hover:bg-[var(--color-secondary-accent)]/20 transition-colors">
+              <Sparkles className="w-4 h-4 text-[var(--color-secondary-accent)]" />
             </div>
             <div className="flex-1 text-left">
-              <div className="text-[13px] font-mono text-white/80 group-hover:text-white transition-colors">New Project</div>
-              <div className="text-[10px] font-mono text-white/30">Create a new project from scratch</div>
+              <div className="text-xs font-mono text-white/80 group-hover:text-white transition-colors">New Project</div>
+              <div className="text-[9px] font-mono text-white/30 mt-0.5">Create a new project from scratch</div>
             </div>
             <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/50 transition-colors" />
           </button>
