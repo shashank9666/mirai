@@ -226,7 +226,10 @@ export default function Home() {
       }
       if (mod && e.key === '0') {
         e.preventDefault();
-        setZoom(1.0);
+        setZoom(0.7);
+        setSidebarWidth(250);
+        setTerminalHeight(300);
+        setChatWidth(300);
       }
       if (mod && e.key === 'b') {
         e.preventDefault();
@@ -282,9 +285,9 @@ export default function Home() {
         setEditorVisible(true);
         setTerminalVisible(true);
         setChatVisible(true);
-        setSidebarWidth(260);
-        setTerminalHeight(200);
-        setChatWidth(320);
+        setSidebarWidth(250);
+        setTerminalHeight(300);
+        setChatWidth(300);
         setPanelSlots({
           sidebar: 'left',
           editor: 'center',
@@ -292,6 +295,7 @@ export default function Home() {
           terminal: 'bottom'
         });
         handleViewChange('explorer');
+        setZoom(0.8);
         const state = useIdeStore.getState();
         if (state.zenMode) state.toggleZenMode();
         if (state.fullscreenMode) state.toggleFullscreenMode();
@@ -317,9 +321,9 @@ export default function Home() {
 
   useEffect(() => {
     if (fullscreenMode) {
-      document.documentElement.requestFullscreen?.().catch(() => {});
+      document.documentElement.requestFullscreen?.().catch(() => { });
     } else if (document.fullscreenElement) {
-      document.exitFullscreen?.().catch(() => {});
+      document.exitFullscreen?.().catch(() => { });
     }
   }, [fullscreenMode]);
 
@@ -395,7 +399,7 @@ export default function Home() {
   useEffect(() => {
     document.documentElement.style.setProperty('--color-primary-accent', editorSettings.accentColor || '#7C3AED');
     document.documentElement.style.setProperty('--bg-image', editorSettings.backgroundImage ? `url(${editorSettings.backgroundImage})` : 'none');
-    
+
     const theme = editorSettings.appTheme || 'glass';
     const blurVal = editorSettings.panelBlur ?? 16;
     let bg = `rgba(26, 26, 46, ${editorSettings.panelOpacity ?? 0.6})`;
@@ -403,7 +407,7 @@ export default function Home() {
     if (theme === 'dark') bg = '#050505';
     document.documentElement.style.setProperty('--panel-bg', bg);
     document.documentElement.style.setProperty('--panel-backdrop', theme === 'glass' ? `blur(${blurVal}px)` : 'none');
-    
+
     document.documentElement.style.setProperty('--app-zoom', zoom !== 1.0 ? `scale(${zoom})` : 'none');
     document.documentElement.style.setProperty('--app-width', zoom !== 1.0 ? `${100 / zoom}vw` : '100vw');
     document.documentElement.style.setProperty('--app-height', zoom !== 1.0 ? `${100 / zoom}vh` : '100vh');
@@ -442,7 +446,7 @@ export default function Home() {
       {editorSettings.backgroundImage && (
         <div className="absolute inset-0 z-0 pointer-events-none" style={{ backgroundColor: `rgba(5,5,5,${1 - editorSettings.backgroundOpacity})` }} />
       )}
-      
+
       <div className="relative z-10 flex flex-col w-full flex-1 min-h-0">
         <CommandPalette />
         <QuickOpen />
@@ -452,7 +456,7 @@ export default function Home() {
         <div className={`flex-1 flex min-h-0 ${!zenMode ? 'mb-8' : ''}`}>
           {!zenMode && <ActivityBar activeView={activeView} onViewChange={handleViewChange} onShowSettings={handleShowSettings} />}
 
-          <div 
+          <div
             className={`flex-1 grid min-h-0 ${!zenMode ? 'p-2' : ''}`}
             style={{
               gridTemplateColumns: gridCols,
@@ -482,13 +486,12 @@ export default function Home() {
               onDragOver={(e) => handleDragOver(e, 'sidebar')}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, 'sidebar')}
-              className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${
-                dragOverSide === 'sidebar' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
-              }`}
+              className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${dragOverSide === 'sidebar' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
+                }`}
               style={getPanelStyle('sidebar')}
             >
-              <SidebarContent 
-                activeView={activeView} 
+              <SidebarContent
+                activeView={activeView}
                 isMinimized={sidebarMinimized}
                 onMinimize={() => setSidebarMinimized(m => !m)}
                 onClose={() => setSidebarVisible(false)}
@@ -497,13 +500,12 @@ export default function Home() {
             </div>
 
             {/* Editor */}
-            <div 
+            <div
               onDragOver={(e) => handleDragOver(e, 'editor')}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, 'editor')}
-              className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${
-                dragOverSide === 'editor' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
-              }`}
+              className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${dragOverSide === 'editor' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
+                }`}
               style={getPanelStyle('editor')}
             >
               <div className={`flex-1 min-h-0 flex flex-col ${editorMinimized ? 'hidden' : 'flex'}`}>
@@ -511,7 +513,7 @@ export default function Home() {
                 {showWelcome || !hasWorkspace ? (
                   <WelcomeScreen onWorkspaceOpened={() => setWelcomeOverride({ show: false, forWorkspace: workspacePath })} />
                 ) : (
-                  <HyprEditor 
+                  <HyprEditor
                     isMinimized={editorMinimized}
                     onMinimize={() => setEditorMinimized(m => !m)}
                     onClose={() => setEditorVisible(false)}
@@ -526,9 +528,8 @@ export default function Home() {
               onDragOver={(e) => handleDragOver(e, 'chat')}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, 'chat')}
-              className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${
-                dragOverSide === 'chat' ? 'ring-2 ring-[var(--color-secondary-accent)]/50' : ''
-              }`}
+              className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${dragOverSide === 'chat' ? 'ring-2 ring-[var(--color-secondary-accent)]/50' : ''
+                }`}
               style={getPanelStyle('chat')}
             >
               <HyprChat
@@ -546,9 +547,8 @@ export default function Home() {
               onDragOver={(e) => handleDragOver(e, 'terminal')}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, 'terminal')}
-              className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${
-                dragOverSide === 'terminal' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
-              }`}
+              className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${dragOverSide === 'terminal' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
+                }`}
               style={getPanelStyle('terminal')}
             >
               <HyprTerminal
