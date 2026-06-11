@@ -21,6 +21,9 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
         method: 'POST',
         body: formData
       });
+      if (!res.ok) {
+        throw new Error(`Upload failed with status ${res.status}`);
+      }
       const data = await res.json();
       if (data.url) {
         setEditorSettings({ backgroundImage: data.url });
