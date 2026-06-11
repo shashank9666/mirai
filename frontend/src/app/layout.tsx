@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -15,8 +16,45 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.className} bg-background text-foreground overflow-hidden`}>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        <Script
+          id="theme-hydration"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const data = localStorage.getItem('mirai-ide-storage');
+                if (data) {
+                  const parsed = JSON.parse(data);
+                  const settings = parsed?.state?.editorSettings;
+                  const zoom = parsed?.state?.zoom || 1.0;
+                  
+                  if (settings) {
+                    if (settings.accentColor) {
+                      document.documentElement.style.setProperty('--color-primary-accent', settings.accentColor);
+                    }
+                    document.documentElement.style.setProperty('--bg-image', settings.backgroundImage ? \`url(\${settings.backgroundImage})\` : 'none');
+                    
+                    let bg = \`rgba(26, 26, 46, \${settings.panelOpacity ?? 0.6})\`;
+                    if (settings.appTheme === 'solid') bg = '#1a1a2e';
+                    if (settings.appTheme === 'dark') bg = '#050505';
+                    document.documentElement.style.setProperty('--panel-bg', bg);
+                    document.documentElement.style.setProperty('--panel-backdrop', settings.appTheme === 'glass' ? 'blur(16px)' : 'none');
+                  }
+                  
+                  if (zoom) {
+                    document.documentElement.style.setProperty('--app-zoom', zoom !== 1.0 ? \`scale(\${zoom})\` : 'none');
+                    document.documentElement.style.setProperty('--app-width', zoom !== 1.0 ? \`\${100 / zoom}vw\` : '100vw');
+                    document.documentElement.style.setProperty('--app-height', zoom !== 1.0 ? \`\${100 / zoom}vh\` : '100vh');
+                  }
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
+      </head>
+      <body className={`${inter.className} bg-background text-foreground overflow-hidden`} suppressHydrationWarning>
         {children}
       </body>
     </html>

@@ -262,6 +262,7 @@ export default function Home() {
       if (cmd === 'toggleTerminal') setTerminalVisible(v => !v);
       else if (cmd === 'toggleSidebar') setSidebarVisible(v => !v);
       else if (cmd === 'toggleChat') setChatVisible(v => !v);
+      else if (cmd === 'toggleEditor') setEditorVisible(v => !v);
       else if (cmd?.startsWith('view:')) handleViewChange(cmd.slice(5));
       else if (cmd === 'toggleZenMode') toggleZenMode();
       else if (cmd === 'toggleFullscreen') toggleFullscreenMode();
@@ -368,15 +369,25 @@ export default function Home() {
     ? '"center"'
     : `"${row1}"` + (bottomVisible && !zenMode ? `\n"${row2}"\n"${row3}"` : '');
 
-  const getPanelStyle = (panelId: string) => {
-    const opacity = editorSettings.panelOpacity ?? 0.6;
-    let bg = `rgba(26, 26, 46, ${opacity})`;
+  useEffect(() => {
+    document.documentElement.style.setProperty('--color-primary-accent', editorSettings.accentColor || '#7C3AED');
+    document.documentElement.style.setProperty('--bg-image', editorSettings.backgroundImage ? `url(${editorSettings.backgroundImage})` : 'none');
+    
+    let bg = `rgba(26, 26, 46, ${editorSettings.panelOpacity ?? 0.6})`;
     if (editorSettings.appTheme === 'solid') bg = '#1a1a2e';
     if (editorSettings.appTheme === 'dark') bg = '#050505';
+    document.documentElement.style.setProperty('--panel-bg', bg);
+    document.documentElement.style.setProperty('--panel-backdrop', editorSettings.appTheme === 'glass' ? 'blur(16px)' : 'none');
+    
+    document.documentElement.style.setProperty('--app-zoom', zoom !== 1.0 ? `scale(${zoom})` : 'none');
+    document.documentElement.style.setProperty('--app-width', zoom !== 1.0 ? `${100 / zoom}vw` : '100vw');
+    document.documentElement.style.setProperty('--app-height', zoom !== 1.0 ? `${100 / zoom}vh` : '100vh');
+  }, [editorSettings, zoom]);
 
+  const getPanelStyle = (panelId: string) => {
     return {
-      backgroundColor: bg,
-      backdropFilter: editorSettings.appTheme === 'glass' ? 'blur(16px)' : 'none',
+      backgroundColor: 'var(--panel-bg, rgba(26, 26, 46, 0.6))',
+      backdropFilter: 'var(--panel-backdrop, blur(16px))',
       gridArea: panelSlots[panelId],
       display: (!zenMode && visibility[panelId]) || (zenMode && panelSlots[panelId] === 'center') ? 'flex' : 'none',
     };
@@ -393,14 +404,14 @@ export default function Home() {
   return (
     <div className="overflow-hidden flex flex-col bg-[#050505] text-white/90 selection:bg-white/20 relative"
       style={{
-        backgroundImage: editorSettings.backgroundImage ? `url(${editorSettings.backgroundImage})` : 'none',
+        backgroundImage: 'var(--bg-image, none)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        transform: zoom !== 1.0 ? `scale(${zoom})` : undefined,
+        transform: 'var(--app-zoom, none)',
         transformOrigin: 'top left',
-        width: zoom !== 1.0 ? `${100 / zoom}vw` : '100vw',
-        height: zoom !== 1.0 ? `${100 / zoom}vh` : '100vh',
+        width: 'var(--app-width, 100vw)',
+        height: 'var(--app-height, 100vh)',
       }}
     >
       {editorSettings.backgroundImage && (
