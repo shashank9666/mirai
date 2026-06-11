@@ -28,12 +28,26 @@ export default function WelcomeScreen({ onWorkspaceOpened }: { onWorkspaceOpened
   }, [recentWorkspaces]);
 
   const openFolderPicker = useCallback(async () => {
-    const d = await api.workspaceListDrives().catch(() => ({ drives: [] }));
-    setDrives(d.drives);
-    setCurrentDir(null);
-    setDirEntries([]);
-    setShowFolderPicker(true);
-  }, []);
+    const electronAPI = (window as any).electronAPI;
+    if (electronAPI?.selectFolder) {
+      const folderPath = await electronAPI.selectFolder();
+      if (folderPath) {
+        const result = await api.workspaceSet(folderPath).catch(() => null);
+        if (result) {
+          setWorkspace(result.path, result.name);
+          setShowFolderPicker(false);
+          onWorkspaceOpened?.();
+        }
+      }
+    } else {
+      // Fallback for web
+      const d = await api.workspaceListDrives().catch(() => ({ drives: [] }));
+      setDrives(d.drives);
+      setCurrentDir(null);
+      setDirEntries([]);
+      setShowFolderPicker(true);
+    }
+  }, [setWorkspace, onWorkspaceOpened]);
 
   const navigateDir = useCallback(async (path: string) => {
     const result = await api.workspaceListDirectory(path).catch(() => null);
@@ -125,6 +139,7 @@ export default function WelcomeScreen({ onWorkspaceOpened }: { onWorkspaceOpened
           </button>
 
           <button
+            onClick={openFolderPicker}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 hover:border-[var(--color-secondary-accent)]/30 transition-all group"
           >
             <div className="w-10 h-10 rounded-lg bg-[var(--color-secondary-accent)]/10 flex items-center justify-center group-hover:bg-[var(--color-secondary-accent)]/20 transition-colors">

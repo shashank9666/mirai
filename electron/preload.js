@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Platform info
   platform: process.platform,
 
+  selectFolder: () => ipcRenderer.invoke('dialog:openFolder'),
+
   // Listen for maximize state changes from main process
   onMaximizeChange: (callback) => {
     ipcRenderer.on('window:maximize-changed', (_event, maximized) => callback(maximized));

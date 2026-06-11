@@ -127,7 +127,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
     if (!recognitionRef.current) {
       const recognition = new SpeechRecognition();
-      recognition.continuous = false;
+      recognition.continuous = true;
       recognition.interimResults = true;
       
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

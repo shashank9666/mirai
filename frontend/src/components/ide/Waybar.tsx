@@ -130,9 +130,9 @@ export default function Waybar() {
         { label: 'Zen Mode', shortcut: 'Esc', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'toggleZenMode' } })) },
         { label: 'Fullscreen', shortcut: 'F11', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'toggleFullscreen' } })) },
         { divider: true },
-        { label: 'Zoom In', shortcut: 'Ctrl+=', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'increaseFontSize' } })) },
-        { label: 'Zoom Out', shortcut: 'Ctrl+-', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'decreaseFontSize' } })) },
-        { label: 'Reset Zoom', shortcut: 'Ctrl+0', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'resetFontSize' } })) }
+        { label: 'Zoom In', shortcut: 'Ctrl+=', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'zoomIn' } })) },
+        { label: 'Zoom Out', shortcut: 'Ctrl+-', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'zoomOut' } })) },
+        { label: 'Reset Zoom', shortcut: 'Ctrl+0', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'resetZoom' } })) }
       ]
     },
     {
@@ -150,8 +150,6 @@ export default function Waybar() {
         { label: 'Split Horizontal', icon: <LayoutDashboard className="w-3.5 h-3.5" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'splitHorizontal' } })) },
         { label: 'Split Vertical', icon: <LayoutDashboard className="w-3.5 h-3.5 rotate-90" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'splitVertical' } })) },
         { label: 'Close Active Editor Group', icon: <X className="w-3.5 h-3.5" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'closeGroup' } })) },
-        { divider: true },
-        { label: 'Reset Layout', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'resetLayout' } })) }
       ]
     },
     {

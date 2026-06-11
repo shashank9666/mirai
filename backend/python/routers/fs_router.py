@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 import os
 import shutil
 import urllib.parse
@@ -48,8 +48,22 @@ def read_file():
         return jsonify({"detail": str(e)}), 400
     except FileNotFoundError:
         return jsonify({"detail": "File not found"}), 404
+    except UnicodeDecodeError:
+        return jsonify({"detail": "binary_file_not_supported"}), 406
     except Exception as e:
         return jsonify({"detail": str(e)}), 500
+
+@bp.route("/raw", methods=["GET"])
+def read_raw():
+    file_path = request.args.get("path")
+    if not file_path:
+        return "path parameter is required", 400
+    try:
+        safe_path = resolve_safe_path(file_path)
+        return send_file(safe_path)
+    except Exception as e:
+        return str(e), 500
+
 
 @bp.route("/writeFile", methods=["POST"])
 def write_file():

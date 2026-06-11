@@ -275,35 +275,17 @@ export default function Home() {
       else if (cmd === 'toggleFormatOnSave') useIdeStore.getState().toggleFormatOnSave();
       else if (cmd === 'toggleBracketColorization') useIdeStore.getState().toggleBracketPairColorization();
       else if (cmd === 'toggleFolding') useIdeStore.getState().toggleFolding();
-      else if (cmd === 'increaseFontSize') useIdeStore.getState().increaseFontSize();
-      else if (cmd === 'decreaseFontSize') useIdeStore.getState().decreaseFontSize();
-      else if (cmd === 'resetFontSize') useIdeStore.getState().resetFontSize();
-      else if (cmd === 'splitHorizontal') useIdeStore.getState().addGroup('horizontal');
-      else if (cmd === 'splitVertical') useIdeStore.getState().addGroup('vertical');
-      else if (cmd === 'resetLayout') {
-        setSidebarVisible(true);
-        setEditorVisible(true);
-        setTerminalVisible(true);
-        setChatVisible(true);
+      else if (cmd === 'zoomIn') setZoom(Math.min(2.0, useIdeStore.getState().zoom + 0.1));
+      else if (cmd === 'zoomOut') setZoom(Math.max(0.1, useIdeStore.getState().zoom - 0.1));
+      else if (cmd === 'resetZoom') {
+        setZoom(0.7);
         setSidebarWidth(250);
         setTerminalHeight(300);
         setChatWidth(300);
-        setPanelSlots({
-          sidebar: 'left',
-          editor: 'center',
-          chat: 'right',
-          terminal: 'bottom'
-        });
-        handleViewChange('explorer');
-        setZoom(1);
-        const state = useIdeStore.getState();
-        if (state.zenMode) state.toggleZenMode();
-        if (state.fullscreenMode) state.toggleFullscreenMode();
-        const groupIds = state.groups.map(g => g.id);
-        for (let i = 1; i < groupIds.length; i++) {
-          state.removeGroup(groupIds[i]);
-        }
       }
+      else if (cmd === 'splitHorizontal') useIdeStore.getState().addGroup('horizontal');
+      else if (cmd === 'splitVertical') useIdeStore.getState().addGroup('vertical');
+
       else if (cmd === 'closeGroup') {
         const state = useIdeStore.getState();
         if (state.groups.length > 1) {
