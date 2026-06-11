@@ -17,7 +17,12 @@ ollama
 # Agent Frameworks
 langgraph
 langchain
-
+langchain_openai
+langchain_anthropic
+langchain_google_genai
+langchain_community
+litellm
+pydantic-ai
 
 # Model Context Protocol
 mcp

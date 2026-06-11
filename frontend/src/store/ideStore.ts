@@ -20,6 +20,15 @@ export interface Extension {
   builtin: boolean;
 }
 
+export interface AIProviderConfig {
+  id: string;
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  isCustom: boolean;
+}
+
 interface ClosedTab {
   name: string;
   path: string;
@@ -75,6 +84,7 @@ export interface EditorSettings {
   theme: string;
   backgroundImage: string;
   backgroundOpacity: number;
+  accentColor?: string;
 }
 
 const defaultEditorSettings: EditorSettings = {
@@ -119,6 +129,7 @@ const defaultEditorSettings: EditorSettings = {
   theme: 'vs-dark',
   backgroundImage: '',
   backgroundOpacity: 0.1,
+  accentColor: '#3b82f6',
 };
 
 const DEFAULT_EXTENSIONS: Extension[] = [
@@ -130,6 +141,24 @@ const DEFAULT_EXTENSIONS: Extension[] = [
   { name: 'GitHub Copilot', enabled: false, desc: 'AI-powered code suggestions', builtin: false },
   { name: 'Docker', enabled: false, desc: 'Docker container management', builtin: false },
   { name: 'Python', enabled: false, desc: 'Python language support', builtin: false },
+];
+
+const DEFAULT_AI_PROVIDERS: AIProviderConfig[] = [
+  { id: 'openai', name: 'OpenAI', baseUrl: '', apiKey: '', model: 'gpt-4o', isCustom: false },
+  { id: 'anthropic', name: 'Anthropic', baseUrl: '', apiKey: '', model: 'claude-3-opus-20240229', isCustom: false },
+  { id: 'gemini', name: 'Google Gemini', baseUrl: '', apiKey: '', model: 'gemini-1.5-pro', isCustom: false },
+  { id: 'deepseek', name: 'DeepSeek', baseUrl: '', apiKey: '', model: 'deepseek-chat', isCustom: false },
+  { id: 'xai', name: 'xAI', baseUrl: '', apiKey: '', model: 'grok-beta', isCustom: false },
+  { id: 'groq', name: 'Groq', baseUrl: '', apiKey: '', model: 'llama3-70b-8192', isCustom: false },
+  { id: 'mistral', name: 'Mistral', baseUrl: '', apiKey: '', model: 'mistral-large-latest', isCustom: false },
+  { id: 'cohere', name: 'Cohere', baseUrl: '', apiKey: '', model: 'command-r-plus', isCustom: false },
+  { id: 'openrouter', name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', apiKey: '', model: '', isCustom: true },
+  { id: 'together', name: 'Together AI', baseUrl: 'https://api.together.xyz/v1', apiKey: '', model: '', isCustom: true },
+  { id: 'fireworks', name: 'Fireworks AI', baseUrl: 'https://api.fireworks.ai/inference/v1', apiKey: '', model: '', isCustom: true },
+  { id: 'huggingface', name: 'Hugging Face', baseUrl: '', apiKey: '', model: '', isCustom: false },
+  { id: 'ollama', name: 'Ollama', baseUrl: 'http://127.0.0.1:11434', apiKey: '', model: 'llama3', isCustom: true },
+  { id: 'lmstudio', name: 'LM Studio', baseUrl: 'http://localhost:1234/v1', apiKey: '', model: '', isCustom: true },
+  { id: 'custom', name: 'Custom OpenAI Compatible', baseUrl: '', apiKey: '', model: '', isCustom: true }
 ];
 
 function getLanguageFromPath(path: string): string {
@@ -161,8 +190,13 @@ interface IdeState {
   diffModified: string;
   diffFilePath: string;
   extensions: Extension[];
+  
+  aiProviders: AIProviderConfig[];
+  activeAiProviderId: string | null;
 
   setExtensions: (exts: Extension[] | ((prev: Extension[]) => Extension[])) => void;
+  setAiProviderConfig: (id: string, config: Partial<AIProviderConfig>) => void;
+  setActiveAiProvider: (id: string) => void;
 
   getActiveGroup: () => EditorGroup | undefined;
   getGroupById: (id: string) => EditorGroup | undefined;
@@ -217,6 +251,8 @@ export const useIdeStore = create<IdeState>()(
   workspaceName: null,
   recentWorkspaces: [],
   extensions: DEFAULT_EXTENSIONS,
+  aiProviders: DEFAULT_AI_PROVIDERS,
+  activeAiProviderId: 'openai',
   activeGroupId: 'group-1',
   groups: [
     {
@@ -627,6 +663,12 @@ export const useIdeStore = create<IdeState>()(
   setExtensions: (exts) => set((state) => ({
     extensions: typeof exts === 'function' ? exts(state.extensions) : exts,
   })),
+
+  setAiProviderConfig: (id, config) => set((state) => ({
+    aiProviders: state.aiProviders.map(p => p.id === id ? { ...p, ...config } : p)
+  })),
+
+  setActiveAiProvider: (id) => set(() => ({ activeAiProviderId: id })),
     }),
     {
       name: 'mirai-ide-storage',
@@ -636,6 +678,8 @@ export const useIdeStore = create<IdeState>()(
         recentWorkspaces: state.recentWorkspaces,
         editorSettings: state.editorSettings,
         extensions: state.extensions,
+        aiProviders: state.aiProviders,
+        activeAiProviderId: state.activeAiProviderId,
       }),
     }
   )
