@@ -377,7 +377,7 @@ export default function Home() {
     if (editorSettings.appTheme === 'solid') bg = '#1a1a2e';
     if (editorSettings.appTheme === 'dark') bg = '#050505';
     document.documentElement.style.setProperty('--panel-bg', bg);
-    document.documentElement.style.setProperty('--panel-backdrop', editorSettings.appTheme === 'glass' ? 'blur(16px)' : 'none');
+    document.documentElement.style.setProperty('--panel-backdrop', editorSettings.appTheme === 'glass' ? `blur(${editorSettings.panelBlur ?? 16}px)` : 'none');
     
     document.documentElement.style.setProperty('--app-zoom', zoom !== 1.0 ? `scale(${zoom})` : 'none');
     document.documentElement.style.setProperty('--app-width', zoom !== 1.0 ? `${100 / zoom}vw` : '100vw');

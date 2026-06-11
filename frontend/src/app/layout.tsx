@@ -40,7 +40,7 @@ export default function RootLayout({
                     if (settings.appTheme === 'solid') bg = '#1a1a2e';
                     if (settings.appTheme === 'dark') bg = '#050505';
                     document.documentElement.style.setProperty('--panel-bg', bg);
-                    document.documentElement.style.setProperty('--panel-backdrop', settings.appTheme === 'glass' ? 'blur(16px)' : 'none');
+                    document.documentElement.style.setProperty('--panel-backdrop', settings.appTheme === 'glass' ? 'blur(' + (settings.panelBlur ?? 16) + 'px)' : 'none');
                   }
                   
                   if (zoom) {

@@ -87,6 +87,7 @@ export interface EditorSettings {
   accentColor?: string;
   explorerIndentGuides: boolean;
   panelOpacity: number;
+  panelBlur: number;
   appTheme: 'dark' | 'glass' | 'solid';
 }
 
@@ -135,6 +136,7 @@ const defaultEditorSettings: EditorSettings = {
   accentColor: '#3b82f6',
   explorerIndentGuides: true,
   panelOpacity: 0.6,
+  panelBlur: 16,
   appTheme: 'glass',
 };
 

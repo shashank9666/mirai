@@ -205,6 +205,19 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                     <span className="text-[11px] font-mono text-white/60 w-8">{Math.round((editorSettings.panelOpacity ?? 0.6) * 100)}%</span>
                   </div>
                 </div>
+
+                <div className="p-3 border border-white/10 rounded-lg bg-white/5 flex flex-col gap-2">
+                  <span className="text-[12px] font-mono text-white/80">Panel Blur (Glass Effect)</span>
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="range" min="0" max="64" step="1"
+                      value={editorSettings.panelBlur ?? 16}
+                      onChange={(e) => setEditorSettings({ panelBlur: parseInt(e.target.value) })}
+                      className="flex-1" 
+                    />
+                    <span className="text-[11px] font-mono text-white/60 w-8">{editorSettings.panelBlur ?? 16}px</span>
+                  </div>
+                </div>
               </div>
             </div>
 

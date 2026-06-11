@@ -23,7 +23,7 @@ export default function HyprStatusBar() {
   const ext = fileName ? '.' + fileName.split('.').pop() : '';
 
   return (
-    <div className="hypr-panel h-8 w-full px-3 flex items-center justify-between text-[11px] font-mono select-none" style={{ background: 'linear-gradient(90deg, rgba(14,165,233,0.1) 0%, rgba(99,102,241,0.1) 100%)', borderColor: 'rgba(56,189,248,0.2)' }}>
+    <div className="hypr-panel h-8 w-full px-3 flex items-center justify-between text-[11px] font-mono select-none" style={{ background: 'var(--panel-bg, linear-gradient(90deg, rgba(14,165,233,0.1) 0%, rgba(99,102,241,0.1) 100%))', backdropFilter: 'var(--panel-backdrop, blur(16px))', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
       <div className="flex items-center h-full gap-3 text-white/80">
         {gitInfo.branch && (
           <div className="flex items-center gap-1.5 hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors">
