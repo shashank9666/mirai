@@ -3,17 +3,23 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api, FileEntry } from '@/lib/api';
 import { useIdeStore } from '@/store/ideStore';
-import { ChevronRight, ChevronDown, Folder, FolderOpen, FilePlus, FolderPlus, Edit2, Monitor } from 'lucide-react';
-
-const FILE_ICONS: Record<string, string> = {
-  '.tsx': '\u269B\uFE0F', '.ts': '\uD83D\uDD37', '.js': '\uD83D\uDFE1', '.jsx': '\u269B\uFE0F',
-  '.css': '\uD83C\uDFA8', '.json': '\uD83D\uDCCB', '.md': '\uD83D\uDCDD', '.py': '\uD83D\uDC0D',
-  '.html': '\uD83C\uDF10', '.env': '\uD83D\uDD12', '.gitignore': '\uD83D\uDE48',
-};
+import { ChevronRight, ChevronDown, Folder, FolderOpen, FilePlus, FolderPlus, Edit2, Monitor, FileCode2, FileJson, FileText, File, FileImage, FileTerminal, Database, Palette, Settings as SettingsIcon } from 'lucide-react';
 
 const getFileIcon = (name: string) => {
-  const ext = '.' + name.split('.').pop();
-  return FILE_ICONS[ext] || '\uD83D\uDCC4';
+  const ext = '.' + name.split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case '.ts': case '.tsx': return <FileCode2 className="w-3.5 h-3.5 text-blue-400" />;
+    case '.js': case '.jsx': return <FileCode2 className="w-3.5 h-3.5 text-yellow-400" />;
+    case '.json': return <FileJson className="w-3.5 h-3.5 text-green-400" />;
+    case '.css': case '.scss': return <Palette className="w-3.5 h-3.5 text-pink-400" />;
+    case '.html': return <FileCode2 className="w-3.5 h-3.5 text-orange-400" />;
+    case '.md': return <FileText className="w-3.5 h-3.5 text-purple-400" />;
+    case '.py': return <FileTerminal className="w-3.5 h-3.5 text-emerald-400" />;
+    case '.png': case '.jpg': case '.jpeg': case '.svg': return <FileImage className="w-3.5 h-3.5 text-purple-300" />;
+    case '.sql': case '.db': return <Database className="w-3.5 h-3.5 text-gray-400" />;
+    case '.env': case '.gitignore': return <SettingsIcon className="w-3.5 h-3.5 text-gray-400" />;
+    default: return <File className="w-3.5 h-3.5 text-white/50" />;
+  }
 };
 
 interface ContextMenu {
@@ -141,11 +147,12 @@ function NewItemDialog({ type, onConfirm, onCancel }: {
 }
 
 const TreeItem = ({
-  node, depth = 0, onContextMenu, onRefresh,
+  node, depth = 0, onContextMenu, onRefresh, explorerIndentGuides
 }: {
   node: FileEntry; depth?: number;
   onContextMenu: (e: React.MouseEvent, path: string, name: string, isDir: boolean) => void;
   onRefresh: () => void;
+  explorerIndentGuides: boolean;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [children, setChildren] = useState<FileEntry[]>([]);
@@ -170,29 +177,36 @@ const TreeItem = ({
   return (
     <div>
       <div
-        className={`flex items-center py-[3px] cursor-pointer text-[12px] font-mono whitespace-nowrap transition-all duration-150 rounded-md mx-1 group
+        className={`flex items-center py-[3px] cursor-pointer text-[12px] font-mono whitespace-nowrap transition-all duration-150 rounded-md mx-1 group relative
           ${isSelected
             ? 'bg-[var(--color-primary-accent)]/15 text-white'
             : 'text-white/55 hover:bg-white/5 hover:text-white/85'}`}
-        style={{ paddingLeft: depth * 12 + 8 }}
         onClick={handleToggle}
         onContextMenu={(e) => {
           e.preventDefault();
           onContextMenu(e, node.path, node.name, node.isDirectory);
         }}
       >
-        <span className="mr-1 w-4 h-4 flex items-center justify-center shrink-0">
-          {node.isDirectory ? (
-            isOpen ? <ChevronDown className="w-3 h-3 text-white/40" /> : <ChevronRight className="w-3 h-3 text-white/40" />
-          ) : <span className="w-3" />}
-        </span>
-        <span className="mr-1.5 text-[11px] shrink-0">
-          {node.isDirectory
-            ? (isOpen ? <FolderOpen className="w-3.5 h-3.5 text-blue-400" /> : <Folder className="w-3.5 h-3.5 text-blue-400/70" />)
-            : <span>{getFileIcon(node.name)}</span>
-          }
-        </span>
-        <span className="truncate">{node.name}</span>
+        <div className="flex shrink-0 h-full absolute left-0 top-0 bottom-0 pointer-events-none" style={{ paddingLeft: 8 }}>
+          {Array.from({ length: depth }).map((_, i) => (
+            <div key={i} className={`w-3 h-full border-l ${explorerIndentGuides ? 'border-white/5 group-hover:border-white/20' : 'border-transparent'}`} />
+          ))}
+        </div>
+        
+        <div className="flex items-center w-full" style={{ paddingLeft: depth * 12 + 8 }}>
+          <span className="mr-1 w-4 h-4 flex items-center justify-center shrink-0 z-10">
+            {node.isDirectory ? (
+              isOpen ? <ChevronDown className="w-3 h-3 text-white/40 bg-[#050505]" /> : <ChevronRight className="w-3 h-3 text-white/40 bg-[#050505]" />
+            ) : <span className="w-3" />}
+          </span>
+          <span className="mr-1.5 text-[11px] shrink-0 flex items-center justify-center z-10">
+            {node.isDirectory
+              ? (isOpen ? <FolderOpen className="w-3.5 h-3.5 text-blue-400" /> : <Folder className="w-3.5 h-3.5 text-blue-400/70" />)
+              : getFileIcon(node.name)
+            }
+          </span>
+          <span className="truncate z-10">{node.name}</span>
+        </div>
       </div>
 
       {isOpen && children.length > 0 && (
@@ -204,6 +218,7 @@ const TreeItem = ({
               depth={depth + 1}
               onContextMenu={onContextMenu}
               onRefresh={onRefresh}
+              explorerIndentGuides={explorerIndentGuides}
             />
           ))}
         </div>
@@ -217,13 +232,29 @@ export default function HyprSidebar() {
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const [renameTarget, setRenameTarget] = useState<ContextMenu | null>(null);
   const [newItemTarget, setNewItemTarget] = useState<{ parentPath: string; type: 'file' | 'folder' } | null>(null);
-  const { renameTab, workspacePath, getActiveGroup } = useIdeStore();
+  const { renameTab, workspacePath, getActiveGroup, editorSettings } = useIdeStore();
 
   const refresh = useCallback(() => {
     api.readDir().then(({ entries }) => setRootNodes(entries)).catch(() => setRootNodes([]));
   }, []);
 
   useEffect(() => { refresh(); }, [refresh, workspacePath]);
+
+  // Real-time file system watcher WebSocket
+  useEffect(() => {
+    if (!workspacePath) return;
+    const ws = new WebSocket('ws://127.0.0.1:8000/ws/watcher');
+    ws.onopen = () => ws.send(JSON.stringify({ event: 'watch-workspace', data: { workspacePath } }));
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.event === 'workspace:change') {
+          refresh();
+        }
+      } catch {}
+    };
+    return () => ws.close();
+  }, [workspacePath, refresh]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, path: string, name: string, isDir: boolean) => {
     setContextMenu({ x: e.clientX, y: e.clientY, type: isDir ? 'directory' : 'file', path, name, isDir });
@@ -290,6 +321,7 @@ export default function HyprSidebar() {
             node={node}
             onContextMenu={handleContextMenu}
             onRefresh={refresh}
+            explorerIndentGuides={editorSettings.explorerIndentGuides}
           />
         ))}
         {rootNodes.length === 0 && (
