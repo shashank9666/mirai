@@ -85,6 +85,7 @@ export interface EditorSettings {
   backgroundImage: string;
   backgroundOpacity: number;
   accentColor?: string;
+  explorerIndentGuides: boolean;
 }
 
 const defaultEditorSettings: EditorSettings = {
@@ -130,6 +131,7 @@ const defaultEditorSettings: EditorSettings = {
   backgroundImage: '',
   backgroundOpacity: 0.1,
   accentColor: '#3b82f6',
+  explorerIndentGuides: true,
 };
 
 const DEFAULT_EXTENSIONS: Extension[] = [
@@ -190,6 +192,7 @@ interface IdeState {
   diffModified: string;
   diffFilePath: string;
   extensions: Extension[];
+  zoom: number;
   
   aiProviders: AIProviderConfig[];
   activeAiProviderId: string | null;
@@ -231,6 +234,7 @@ interface IdeState {
   increaseFontSize: () => void;
   decreaseFontSize: () => void;
   resetFontSize: () => void;
+  setZoom: (z: number) => void;
   toggleMouseWheelZoom: () => void;
   setSplitDirection: (dir: 'horizontal' | 'vertical') => void;
 
@@ -251,6 +255,7 @@ export const useIdeStore = create<IdeState>()(
   workspaceName: null,
   recentWorkspaces: [],
   extensions: DEFAULT_EXTENSIONS,
+  zoom: 1.0,
   aiProviders: DEFAULT_AI_PROVIDERS,
   activeAiProviderId: 'openai',
   activeGroupId: 'group-1',
@@ -611,6 +616,8 @@ export const useIdeStore = create<IdeState>()(
     editorSettings: { ...state.editorSettings, fontSize: 13 },
   })),
 
+  setZoom: (z) => set(() => ({ zoom: z })),
+
   toggleMouseWheelZoom: () => set((state) => ({
     editorSettings: { ...state.editorSettings, mouseWheelZoom: !state.editorSettings.mouseWheelZoom },
   })),
@@ -676,6 +683,7 @@ export const useIdeStore = create<IdeState>()(
         workspacePath: state.workspacePath,
         workspaceName: state.workspaceName,
         recentWorkspaces: state.recentWorkspaces,
+        zoom: state.zoom,
         editorSettings: state.editorSettings,
         extensions: state.extensions,
         aiProviders: state.aiProviders,

@@ -327,6 +327,7 @@ function EditorSettings() {
       <ToggleSetting label="Render Indent Guides" value={s.showIndentGuides} onChange={(v) => setEditorSettings({ showIndentGuides: v })} />
       <ToggleSetting label="Render Whitespace" value={s.renderWhitespace !== 'none'} onChange={(v) => setEditorSettings({ renderWhitespace: v ? 'boundary' : 'none' })} />
       <ToggleSetting label="Mouse Wheel Zoom" value={s.mouseWheelZoom} onChange={(v) => setEditorSettings({ mouseWheelZoom: v })} />
+      <ToggleSetting label="Explorer Indent Guides" value={s.explorerIndentGuides} onChange={(v) => setEditorSettings({ explorerIndentGuides: v })} />
 
       <SectionTitle>Behavior</SectionTitle>
       <ToggleSetting label="Auto Closing Brackets" value={s.autoClosingBrackets} onChange={(v) => setEditorSettings({ autoClosingBrackets: v })} />

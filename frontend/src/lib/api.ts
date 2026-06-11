@@ -92,8 +92,9 @@ export const api = {
   deleteItem: async (targetPath: string): Promise<{ success: boolean }> =>
     post('/fs/deleteItem', { targetPath }),
 
-  searchFiles: async (dirPath: string | null, pattern: string): Promise<{ success: boolean; results: SearchResult[] }> =>
-    post('/fs/searchFiles', { dirPath, pattern }),
+  searchFiles: async (dirPath: string | null, pattern: string, includes?: string): Promise<{ success: boolean; results: SearchResult[] }> => {
+    return post('/fs/searchFiles', { dirPath, pattern, includes });
+  },
 
   listFiles: async (dirPath?: string, maxDepth?: number): Promise<{ success: boolean; results: string[] }> =>
     post('/fs/listFiles', { dirPath: dirPath || null, maxDepth: maxDepth ?? 3 }),

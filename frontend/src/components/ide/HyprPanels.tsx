@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Puzzle, Bot, Database, Bug, Zap, Plus, ChevronDown } from 'lucide-react';
+import { Puzzle, Bot, Database, Bug, Zap, Plus, ChevronDown, Eye, EyeOff } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useIdeStore } from '@/store/ideStore';
 
@@ -142,6 +142,7 @@ export function HyprAIProviders() {
   const { aiProviders, activeAiProviderId, setAiProviderConfig, setActiveAiProvider } = useIdeStore();
   const [selectedProviderId, setSelectedProviderId] = useState<string>(activeAiProviderId || 'openai');
   const [prevActiveId, setPrevActiveId] = useState<string | null>(activeAiProviderId);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Sync selected provider if active changes externally
   if (activeAiProviderId !== prevActiveId) {
@@ -211,13 +212,21 @@ export function HyprAIProviders() {
 
           <div className="flex flex-col gap-1">
             <label className="text-[9px] font-mono text-white/40">API Key {selectedProvider.id === 'ollama' || selectedProvider.id === 'lmstudio' ? '(Optional)' : ''}</label>
-            <input
-              type="password"
-              value={selectedProvider.apiKey}
-              onChange={(e) => setAiProviderConfig(selectedProvider.id, { apiKey: e.target.value })}
-              placeholder="sk-..."
-              className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-[10px] font-mono text-white/70 outline-none focus:border-[var(--color-primary-accent)]/50"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={selectedProvider.apiKey}
+                onChange={(e) => setAiProviderConfig(selectedProvider.id, { apiKey: e.target.value })}
+                placeholder="sk-..."
+                className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-[10px] font-mono text-white/70 outline-none focus:border-[var(--color-primary-accent)]/50 pr-8"
+              />
+              <button 
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60"
+              >
+                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-col gap-1">

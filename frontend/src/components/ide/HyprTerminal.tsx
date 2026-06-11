@@ -148,7 +148,6 @@ function TerminalInstance({ tabId, tabOutput, tabStatus, tabProfile, onOutput, o
                   }
                   if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
                     wsRef.current.send(JSON.stringify({ event: 'terminal:write', data: val + '\n' }));
-                    onOutput(tabId, `\n❯ ${val}`);
                   }
                   e.currentTarget.value = '';
                 }
@@ -176,8 +175,6 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
   const [showRetryBanner, setShowRetryBanner] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [isSplitMode, setIsSplitMode] = useState(false);
-
-  const activeTerminal = terminals.find((t) => t.id === activeTermId) ?? terminals[0];
 
   const handleOutput = useCallback((termId: string, data: string) => {
     setTerminals((prev) =>

@@ -145,22 +145,43 @@ def delete_item():
 @bp.route("/searchFiles", methods=["POST"])
 def search_files():
     import re
+    import fnmatch
     data = request.get_json() or {}
     dir_path = data.get("dirPath")
     pattern = data.get("pattern")
+    includes = data.get("includes", "")
+    
     if not pattern:
         return jsonify({"detail": "pattern is required"}), 400
+        
     try:
         target_path = resolve_safe_path(dir_path)
         regex = re.compile(pattern, re.IGNORECASE)
         results = []
+        
+        # Parse includes (comma separated globs)
+        include_patterns = [p.strip() for p in includes.split(",")] if includes else []
+        
+        binary_extensions = {
+            '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.svg', '.pdf', '.zip', '.tar', '.gz',
+            '.mp3', '.mp4', '.avi', '.mkv', '.exe', '.dll', '.so', '.dylib', '.pyc', '.class', '.ttf', '.woff', '.woff2'
+        }
+
         for root, dirs, files in os.walk(target_path):
-            if 'node_modules' in dirs:
-                dirs.remove('node_modules')
-            if '.git' in dirs:
-                dirs.remove('.git')
+            # Ignore common heavy directories
+            ignored_dirs = {'node_modules', '.git', 'dist', 'build', '__pycache__', '.next', 'coverage', '.mirai'}
+            dirs[:] = [d for d in dirs if d not in ignored_dirs]
 
             for file in files:
+                ext = os.path.splitext(file)[1].lower()
+                if ext in binary_extensions:
+                    continue
+                    
+                # Check includes filter
+                if include_patterns:
+                    if not any(fnmatch.fnmatch(file, p) for p in include_patterns):
+                        continue
+
                 full_path = os.path.join(root, file)
                 try:
                     with open(full_path, 'r', encoding='utf-8') as f:
@@ -168,12 +189,14 @@ def search_files():
                         matches = []
                         for i, line in enumerate(lines, 1):
                             if regex.search(line):
-                                matches.append({"line": i, "text": line.rstrip()})
+                                matches.append({"line": i, "text": line.rstrip()[:200]}) # Limit text length to prevent giant lines
                         if matches:
                             results.append({
                                 "path": os.path.relpath(full_path, workspace_manager.workspace_root),
                                 "matches": matches,
                             })
+                except UnicodeDecodeError:
+                    pass # Likely a binary file we didn't catch
                 except Exception:
                     pass
         return jsonify({"success": True, "results": results})

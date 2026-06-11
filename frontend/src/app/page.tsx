@@ -117,7 +117,7 @@ export default function Home() {
   const [dragOverSide, setDragOverSide] = useState<string | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
-  const { zenMode, fullscreenMode, toggleZenMode, toggleFullscreenMode, workspacePath, setWorkspace, editorSettings } = useIdeStore();
+  const { zenMode, fullscreenMode, toggleZenMode, toggleFullscreenMode, workspacePath, setWorkspace, editorSettings, zoom, setZoom } = useIdeStore();
   const hasWorkspace = !!workspacePath;
   const [welcomeOverride, setWelcomeOverride] = useState<{ show: boolean; forWorkspace: string | null } | null>(null);
   const showWelcome = useMemo(() => {
@@ -196,15 +196,13 @@ export default function Home() {
       setSidebarVisible(true);
       return;
     }
-    setActiveView(prev => {
-      if (prev === view) {
-        setSidebarVisible(v => !v);
-        return prev;
-      }
+    if (activeView === view) {
+      setSidebarVisible(v => !v);
+    } else {
+      setActiveView(view);
       setSidebarVisible(true);
-      return view;
-    });
-  }, []);
+    }
+  }, [activeView]);
 
   const handleShowSettings = () => {
     setShowSettingsModal(true);
@@ -213,6 +211,18 @@ export default function Home() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
+      if (mod && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        setZoom(Math.min(2.0, useIdeStore.getState().zoom + 0.1));
+      }
+      if (mod && (e.key === '-' || e.key === '_')) {
+        e.preventDefault();
+        setZoom(Math.max(0.5, useIdeStore.getState().zoom - 0.1));
+      }
+      if (mod && e.key === '0') {
+        e.preventDefault();
+        setZoom(1.0);
+      }
       if (mod && e.key === 'b') {
         e.preventDefault();
         setSidebarVisible(v => !v);
@@ -239,7 +249,7 @@ export default function Home() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [zenMode, toggleZenMode, toggleFullscreenMode, handleViewChange]);
+  }, [zenMode, toggleZenMode, toggleFullscreenMode, handleViewChange, setZoom]);
 
   useEffect(() => {
     const handleCommand = (e: CustomEvent) => {
@@ -362,12 +372,16 @@ export default function Home() {
     : `1fr${bottomVisible && !zenMode ? ' 5px ' + (terminalMinimized ? 36 : terminalHeight) + 'px' : ''}`;
 
   return (
-    <div className="w-screen h-screen overflow-hidden flex flex-col bg-[#050505] text-white/90 selection:bg-white/20 relative"
+    <div className="overflow-hidden flex flex-col bg-[#050505] text-white/90 selection:bg-white/20 relative"
       style={{
         backgroundImage: editorSettings.backgroundImage ? `url(${editorSettings.backgroundImage})` : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
+        transform: zoom !== 1.0 ? `scale(${zoom})` : undefined,
+        transformOrigin: 'top left',
+        width: zoom !== 1.0 ? `${100 / zoom}%` : '100vw',
+        height: zoom !== 1.0 ? `${100 / zoom}%` : '100vh',
       }}
     >
       {editorSettings.backgroundImage && (
