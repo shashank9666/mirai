@@ -54,7 +54,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.className} bg-background text-foreground overflow-hidden`} suppressHydrationWarning>
+      <body className={`${inter.className} bg-background text-foreground overflow-hidden h-screen w-screen flex flex-col`} suppressHydrationWarning>
         {children}
       </body>
     </html>

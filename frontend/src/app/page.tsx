@@ -404,7 +404,7 @@ export default function Home() {
     : `1fr${bottomVisible && !zenMode ? ' 5px ' + (terminalMinimized ? 36 : terminalHeight) + 'px' : ''}`;
 
   return (
-    <div className="overflow-hidden flex flex-col bg-[#050505] text-white/90 selection:bg-white/20 relative"
+    <div className="flex-1 overflow-hidden flex flex-col bg-[#050505] text-white/90 selection:bg-white/20 relative"
       style={{
         backgroundImage: 'var(--bg-image, none)',
         backgroundSize: 'cover',
@@ -420,13 +420,13 @@ export default function Home() {
         <div className="absolute inset-0 z-0 pointer-events-none" style={{ backgroundColor: `rgba(5,5,5,${1 - editorSettings.backgroundOpacity})` }} />
       )}
       
-      <div className="relative z-10 flex flex-col w-full h-full">
+      <div className="relative z-10 flex flex-col w-full flex-1 min-h-0">
         <CommandPalette />
         <QuickOpen />
 
         {!zenMode && <Waybar />}
 
-        <div className="flex-1 flex min-h-0">
+        <div className={`flex-1 flex min-h-0 ${!zenMode ? 'mb-8' : ''}`}>
           {!zenMode && <ActivityBar activeView={activeView} onViewChange={handleViewChange} onShowSettings={handleShowSettings} />}
 
           <div 
@@ -540,7 +540,11 @@ export default function Home() {
           </div>
         </div>
 
-        {!zenMode && <HyprStatusBar />}
+        {!zenMode && (
+          <div className="absolute bottom-0 left-0 w-full z-50">
+            <HyprStatusBar />
+          </div>
+        )}
       </div>
 
       {showSettingsModal && (
