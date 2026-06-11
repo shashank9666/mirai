@@ -203,6 +203,9 @@ interface IdeState {
   aiProviders: AIProviderConfig[];
   activeAiProviderId: string | null;
 
+  notificationsEnabled: boolean;
+  toggleNotifications: () => void;
+
   setExtensions: (exts: Extension[] | ((prev: Extension[]) => Extension[])) => void;
   setAiProviderConfig: (id: string, config: Partial<AIProviderConfig>) => void;
   setActiveAiProvider: (id: string) => void;
@@ -264,6 +267,7 @@ export const useIdeStore = create<IdeState>()(
   zoom: 1.0,
   aiProviders: DEFAULT_AI_PROVIDERS,
   activeAiProviderId: 'openai',
+  notificationsEnabled: true,
   activeGroupId: 'group-1',
   groups: [
     {
@@ -582,6 +586,7 @@ export const useIdeStore = create<IdeState>()(
 
   toggleZenMode: () => set((state) => ({ zenMode: !state.zenMode })),
   toggleFullscreenMode: () => set((state) => ({ fullscreenMode: !state.fullscreenMode })),
+  toggleNotifications: () => set((state) => ({ notificationsEnabled: !state.notificationsEnabled })),
 
   toggleWordWrap: () => set((state) => ({
     editorSettings: {
@@ -695,6 +700,7 @@ export const useIdeStore = create<IdeState>()(
         extensions: state.extensions,
         aiProviders: state.aiProviders,
         activeAiProviderId: state.activeAiProviderId,
+        notificationsEnabled: state.notificationsEnabled,
       }),
     }
   )

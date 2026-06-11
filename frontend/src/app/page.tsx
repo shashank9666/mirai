@@ -277,6 +277,29 @@ export default function Home() {
       else if (cmd === 'resetFontSize') useIdeStore.getState().resetFontSize();
       else if (cmd === 'splitHorizontal') useIdeStore.getState().addGroup('horizontal');
       else if (cmd === 'splitVertical') useIdeStore.getState().addGroup('vertical');
+      else if (cmd === 'resetLayout') {
+        setSidebarVisible(true);
+        setEditorVisible(true);
+        setTerminalVisible(true);
+        setChatVisible(true);
+        setSidebarWidth(260);
+        setTerminalHeight(200);
+        setChatWidth(320);
+        setPanelSlots({
+          sidebar: 'left',
+          editor: 'center',
+          chat: 'right',
+          terminal: 'bottom'
+        });
+        handleViewChange('explorer');
+        const state = useIdeStore.getState();
+        if (state.zenMode) state.toggleZenMode();
+        if (state.fullscreenMode) state.toggleFullscreenMode();
+        const groupIds = state.groups.map(g => g.id);
+        for (let i = 1; i < groupIds.length; i++) {
+          state.removeGroup(groupIds[i]);
+        }
+      }
       else if (cmd === 'closeGroup') {
         const state = useIdeStore.getState();
         if (state.groups.length > 1) {
@@ -362,8 +385,8 @@ export default function Home() {
   if (!zenMode && rightVisible) columns.push('h-res-2', 'right');
 
   const row1 = columns.join(' ');
-  const row2 = columns.map(() => 'v-res').join(' ');
-  const row3 = columns.map(() => 'bottom').join(' ');
+  const row2 = columns.map(c => c === 'center' ? 'v-res' : c).join(' ');
+  const row3 = columns.map(c => c === 'center' ? 'bottom' : c).join(' ');
 
   const gridAreas = zenMode
     ? '"center"'
@@ -404,7 +427,7 @@ export default function Home() {
     : `1fr${bottomVisible && !zenMode ? ' 5px ' + (terminalMinimized ? 36 : terminalHeight) + 'px' : ''}`;
 
   return (
-    <div className="flex-1 overflow-hidden flex flex-col bg-[#050505] text-white/90 selection:bg-white/20 relative"
+    <div className="shrink-0 overflow-hidden flex flex-col bg-[#050505] text-white/90 selection:bg-white/20 relative"
       style={{
         backgroundImage: 'var(--bg-image, none)',
         backgroundSize: 'cover',

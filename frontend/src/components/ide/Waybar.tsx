@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -21,8 +22,6 @@ import {
   Hash,
   Play,
   HelpCircle,
-  Bell,
-  BellOff,
   LayoutDashboard
 } from 'lucide-react';
 
@@ -40,7 +39,6 @@ export default function Waybar() {
   const activeFile = getActiveGroup()?.activeFile || null;
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -72,8 +70,6 @@ export default function Waybar() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
-
-  const workspaceLabel = workspaceName || 'No Workspace';
 
   const menuConfig = [
     {
@@ -153,7 +149,9 @@ export default function Waybar() {
       items: [
         { label: 'Split Horizontal', icon: <LayoutDashboard className="w-3.5 h-3.5" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'splitHorizontal' } })) },
         { label: 'Split Vertical', icon: <LayoutDashboard className="w-3.5 h-3.5 rotate-90" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'splitVertical' } })) },
-        { label: 'Close Active Editor Group', icon: <X className="w-3.5 h-3.5" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'closeGroup' } })) }
+        { label: 'Close Active Editor Group', icon: <X className="w-3.5 h-3.5" />, action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'closeGroup' } })) },
+        { divider: true },
+        { label: 'Reset Layout', action: () => window.dispatchEvent(new CustomEvent('ide:command', { detail: { command: 'resetLayout' } })) }
       ]
     },
     {
@@ -189,10 +187,8 @@ export default function Waybar() {
       {/* Left side */}
       <div className="flex items-center h-full gap-4 text-white/80">
         <div className="flex items-center gap-3">
-          <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[var(--color-primary-accent)] to-[var(--color-secondary-accent)] flex items-center justify-center shadow-[0_0_10px_rgba(124,58,237,0.5)]">
-            <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
-          </div>
-          <span className="text-white/60 tracking-wide font-semibold">{workspaceLabel}</span>
+          <img src="/mirai_logo.png" alt="Mirai Logo" className="w-5 h-5 rounded-md shadow-[0_0_10px_rgba(124,58,237,0.5)] object-cover" />
+          <span className="text-white/80 tracking-widest font-bold uppercase text-[10px]">Mirai</span>
         </div>
 
         {/* Menu Bar */}
@@ -248,10 +244,7 @@ export default function Waybar() {
       </div>
 
       {/* Right side */}
-      <div className="flex items-center h-full gap-4 text-white/50">
-        <button onClick={() => setNotificationsEnabled(!notificationsEnabled)} className={`px-2 py-0.5 rounded transition-colors ${notificationsEnabled ? 'hover:text-white hover:bg-white/10 text-white/80' : 'text-white/30 hover:bg-white/5'}`} title={notificationsEnabled ? 'Mute Notifications' : 'Enable Notifications'}>
-          {notificationsEnabled ? <Bell className="w-[14px] h-[14px]" /> : <BellOff className="w-[14px] h-[14px]" />}
-        </button>
+      <div className="flex items-center h-full gap-4 text-white/50 pr-[140px]">
 
         <div className="flex items-center h-full" style={{ 'WebkitAppRegion': 'no-drag' } as React.CSSProperties}>
           <button onClick={handleMinimize} className="h-full px-3 flex items-center hover:bg-white/10 transition-colors text-white/40 hover:text-white" title="Minimize">

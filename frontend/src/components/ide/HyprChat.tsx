@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import PanelHeader from './PanelHeader';
-import { Send, Sparkles, Bot, Code2, Bug, Eye, Square, WifiOff } from 'lucide-react';
+import { useIdeStore } from '@/store/ideStore';
+import { Send, Sparkles, Bot, Code2, Bug, Eye, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, Paperclip, FileCode, TerminalSquare } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -63,12 +64,20 @@ interface ChatPanelProps {
 }
 
 export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onClose, onDragStart }: ChatPanelProps) {
+  const { aiProviders, activeAiProviderId, setActiveAiProvider } = useIdeStore();
   const [activeMode, setActiveMode] = useState('chat');
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
+
+  // New states for voice, models, and actions
+  const [isListening, setIsListening] = useState(false);
+  const [showModelMenu, setShowModelMenu] = useState(false);
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -101,6 +110,51 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     abortRef.current?.abort();
     setIsStreaming(false);
   };
+
+  const toggleVoiceMode = useCallback(() => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in this browser. Please use Chrome.");
+      return;
+    }
+
+    if (!recognitionRef.current) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onresult = (event: any) => {
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          }
+        }
+        if (finalTranscript) {
+          setInput(prev => prev + (prev ? ' ' : '') + finalTranscript);
+        }
+      };
+
+      recognition.onend = () => setIsListening(false);
+      recognition.onerror = () => setIsListening(false);
+      recognitionRef.current = recognition;
+    }
+
+    try {
+      recognitionRef.current.start();
+      setIsListening(true);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [isListening]);
 
   const sendMessage = async () => {
     const text = input.trim();
@@ -240,20 +294,45 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
       {!isMinimized && (
         <>
           {/* Mode Tabs */}
-          <div className="flex px-2 py-1 gap-1 border-b border-white/5 shrink-0 overflow-x-auto custom-scrollbar">
-            {MODES.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => { setActiveMode(id); inputRef.current?.focus(); }}
-                className={`px-2 py-1 rounded-md text-[10px] font-mono flex items-center gap-1 transition-all whitespace-nowrap
-                  ${activeMode === id
-                    ? 'bg-[var(--color-primary-accent)]/20 text-purple-300'
-                    : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
+          <div className="flex px-2 py-1 gap-1 border-b border-white/5 shrink-0 overflow-visible justify-between items-center relative z-20">
+            <div className="flex gap-1 overflow-x-auto custom-scrollbar flex-1">
+              {MODES.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => { setActiveMode(id); inputRef.current?.focus(); }}
+                  className={`px-2 py-1 rounded-md text-[10px] font-mono flex items-center gap-1 transition-all whitespace-nowrap
+                    ${activeMode === id
+                      ? 'bg-[var(--color-primary-accent)]/20 text-purple-300'
+                      : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
+                >
+                  <Icon className="w-3 h-3" />
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative shrink-0 ml-2">
+              <button 
+                onClick={() => setShowModelMenu(!showModelMenu)}
+                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono text-white/50 hover:text-white/80 hover:bg-white/5 transition-all"
               >
-                <Icon className="w-3 h-3" />
-                {label}
+                <span className="max-w-[80px] truncate">{aiProviders.find(p => p.id === activeAiProviderId)?.name || 'Model'}</span>
+                <ChevronDown className="w-3 h-3" />
               </button>
-            ))}
+              {showModelMenu && (
+                <div className="absolute top-full right-0 mt-1 w-40 bg-[#0f0f0f]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl py-1 z-50 max-h-[200px] overflow-y-auto custom-scrollbar">
+                  {aiProviders.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => { setActiveAiProvider(p.id); setShowModelMenu(false); }}
+                      className={`w-full text-left px-3 py-1.5 text-[10px] font-mono ${p.id === activeAiProviderId ? 'text-white bg-white/10' : 'text-white/50 hover:bg-white/5'}`}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* System Prompt */}
@@ -308,8 +387,29 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
           </div>
 
           {/* Input */}
-          <div className="p-2 border-t border-white/5 shrink-0">
-            <div className="flex items-center gap-2 bg-white/[0.03] rounded-xl px-3 py-2 border border-white/5 focus-within:border-[var(--color-primary-accent)]/40 transition-colors">
+          <div className="p-2 border-t border-white/5 shrink-0 relative">
+            {showActionMenu && (
+              <div className="absolute bottom-full left-2 mb-2 w-48 bg-[#0f0f0f]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-1 z-50">
+                <button onClick={() => setShowActionMenu(false)} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+                  <Paperclip className="w-3.5 h-3.5 text-white/40" /> Upload Media
+                </button>
+                <button onClick={() => setShowActionMenu(false)} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+                  <FileCode className="w-3.5 h-3.5 text-white/40" /> Add Context
+                </button>
+                <button onClick={() => setShowActionMenu(false)} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+                  <TerminalSquare className="w-3.5 h-3.5 text-white/40" /> Action Commands
+                </button>
+              </div>
+            )}
+            
+            <div className="flex items-center gap-2 bg-white/[0.03] rounded-xl px-2 py-2 border border-white/5 focus-within:border-[var(--color-primary-accent)]/40 transition-colors relative z-20">
+              <button 
+                onClick={() => setShowActionMenu(!showActionMenu)}
+                className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-colors ${showActionMenu ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+              
               <input
                 ref={inputRef}
                 value={input}
@@ -320,14 +420,23 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                     sendMessage();
                   }
                 }}
-                placeholder={backendAvailable === false ? 'Backend offline' : 'Ask AI...'}
+                placeholder={backendAvailable === false ? 'Backend offline' : isListening ? 'Listening...' : 'Ask AI...'}
                 disabled={isStreaming || backendAvailable === false}
                 className="flex-1 bg-transparent border-none outline-none text-[12px] text-white/90 placeholder:text-white/25 font-mono disabled:opacity-40"
               />
+              
+              <button
+                onClick={toggleVoiceMode}
+                title="Voice Dictation"
+                className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-colors ${isListening ? 'text-red-400 bg-red-400/20 animate-pulse' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
+              >
+                {isListening ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+              </button>
+
               {isStreaming ? (
                 <button
                   onClick={stopGeneration}
-                  className="w-6 h-6 rounded-lg bg-red-500/80 flex items-center justify-center hover:bg-red-500 transition-all"
+                  className="w-6 h-6 rounded-lg bg-red-500/80 flex items-center justify-center hover:bg-red-500 transition-all shrink-0"
                 >
                   <Square className="w-3 h-3 text-white" fill="white" />
                 </button>
@@ -335,7 +444,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                 <button
                   onClick={sendMessage}
                   disabled={!input.trim() || backendAvailable === false}
-                  className="w-6 h-6 rounded-lg bg-[var(--color-primary-accent)] flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-30"
+                  className="w-6 h-6 rounded-lg bg-[var(--color-primary-accent)] flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-30 shrink-0"
                 >
                   <Send className="w-3 h-3 text-white" />
                 </button>

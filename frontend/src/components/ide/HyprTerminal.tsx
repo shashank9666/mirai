@@ -66,13 +66,13 @@ function TerminalInstance({ tabId, tabOutput, tabStatus, tabProfile, onOutput, o
     wsRef.current = ws;
 
     ws.onopen = () => {
-      if (mountedRef.current) {
+      if (mountedRef.current && wsRef.current === ws) {
         onStatusChange(tabId, 'connected');
       }
     };
 
     ws.onmessage = (event) => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || wsRef.current !== ws) return;
       try {
         const msg = JSON.parse(event.data);
         if (msg.event === 'terminal:data' && typeof msg.data === 'string') {
@@ -84,13 +84,13 @@ function TerminalInstance({ tabId, tabOutput, tabStatus, tabProfile, onOutput, o
     };
 
     ws.onclose = () => {
-      if (mountedRef.current) {
+      if (mountedRef.current && wsRef.current === ws) {
         onStatusChange(tabId, 'disconnected');
       }
     };
 
     ws.onerror = () => {
-      if (mountedRef.current) {
+      if (mountedRef.current && wsRef.current === ws) {
         onStatusChange(tabId, 'disconnected');
         onOutput(tabId, '\r\n[Error: Could not connect to terminal backend. Is the server running?]\r\n');
       }
@@ -98,7 +98,12 @@ function TerminalInstance({ tabId, tabOutput, tabStatus, tabProfile, onOutput, o
 
     return () => {
       mountedRef.current = false;
-      if (wsRef.current) wsRef.current.close();
+      if (wsRef.current === ws) {
+        ws.close();
+        wsRef.current = null;
+      } else {
+        ws.close();
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabId]);

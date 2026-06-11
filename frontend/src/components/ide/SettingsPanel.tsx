@@ -8,10 +8,27 @@ import { api } from '@/lib/api';
 type SettingsTab = 'editor' | 'theme' | 'ai' | 'extensions' | 'mcp' | 'general';
 
 export default function SettingsPanel({ onClose }: { onClose: () => void }) {
-  const { editorSettings, setEditorSettings, aiProviders, activeAiProviderId, setAiProviderConfig, setActiveAiProvider, extensions, setExtensions } = useIdeStore();
+  const { editorSettings, setEditorSettings, aiProviders, activeAiProviderId, setAiProviderConfig, setActiveAiProvider, extensions, setExtensions, notificationsEnabled, toggleNotifications } = useIdeStore();
   const [activeTab, setActiveTab] = useState<SettingsTab>('editor');
   const [settingsJson, setSettingsJson] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+
+  const uploadImage = async (file: File) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/settings/upload_bg', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.url) {
+        setEditorSettings({ backgroundImage: data.url });
+      }
+    } catch (e) {
+      console.error('Failed to upload image', e);
+    }
+  };
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -144,9 +161,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                     e.currentTarget.classList.remove('border-[var(--color-primary-accent)]');
                     const file = e.dataTransfer.files[0];
                     if (file && file.type.startsWith('image/')) {
-                      const reader = new FileReader();
-                      reader.onload = (event) => setEditorSettings({ backgroundImage: event.target?.result as string });
-                      reader.readAsDataURL(file);
+                      uploadImage(file);
                     }
                   }}
                 >
@@ -171,9 +186,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (event) => setEditorSettings({ backgroundImage: event.target?.result as string });
-                          reader.readAsDataURL(file);
+                          uploadImage(file);
                         }
                       }}
                     />
@@ -361,14 +374,21 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
           </div>
         )}
         {activeTab === 'general' && (
-          <div className="space-y-3">
-            <div className="text-[11px] font-mono text-white/30 border-b border-white/5 pb-1.5 mb-2">Raw Settings JSON</div>
-            <textarea
-              value={settingsJson}
-              onChange={(e) => setSettingsJson(e.target.value)}
-              className="w-full h-64 bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2 text-[11px] font-mono text-white/60 outline-none focus:border-[var(--color-primary-accent)]/40 resize-none"
-              placeholder='{}'
-            />
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <div className="text-[11px] font-mono text-white/30 border-b border-white/5 pb-1.5 mb-2">Application</div>
+              <ToggleSetting label="Enable Global Notifications" value={notificationsEnabled} onChange={() => toggleNotifications()} />
+            </div>
+            
+            <div className="space-y-3 mt-6">
+              <div className="text-[11px] font-mono text-white/30 border-b border-white/5 pb-1.5 mb-2">Raw Settings JSON</div>
+              <textarea
+                value={settingsJson}
+                onChange={(e) => setSettingsJson(e.target.value)}
+                className="w-full h-64 bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2 text-[11px] font-mono text-white/60 outline-none focus:border-[var(--color-primary-accent)]/40 resize-none"
+                placeholder='{}'
+              />
+            </div>
           </div>
         )}
       </div>
