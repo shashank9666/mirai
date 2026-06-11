@@ -331,6 +331,7 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
           <div className="text-white/30 text-xs px-4 py-3 font-mono animate-pulse">Loading project...</div>
         )}
       </div>
+      )}
 
       {contextMenu && (
         <ContextMenuComponent
