@@ -12,6 +12,9 @@ import {
   Pin,
   Columns2
 } from 'lucide-react';
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import '@xterm/xterm/css/xterm.css';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws/terminal';
 
@@ -37,29 +40,53 @@ type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnect
 interface TerminalTab {
   id: string;
   label: string;
-  output: string[];
   status: ConnectionStatus;
   pinned: boolean;
   profile?: string;
 }
 
-function TerminalInstance({ tabId, tabOutput, tabStatus, tabProfile, onOutput, onStatusChange, onClear }: {
+function TerminalInstance({ tabId, tabStatus, tabProfile, onStatusChange }: {
   tabId: string;
-  tabOutput: string[];
   tabStatus: ConnectionStatus;
   tabProfile?: string;
-  onOutput: (termId: string, data: string) => void;
   onStatusChange: (termId: string, status: ConnectionStatus) => void;
-  onClear: (termId: string) => void;
 }) {
-  const outputRef = useRef<HTMLDivElement>(null);
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const xtermRef = useRef<Terminal | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const mountedRef = useRef(true);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     mountedRef.current = true;
     onStatusChange(tabId, 'connecting');
+
+    // Initialize xterm
+    const term = new Terminal({
+      theme: {
+        background: 'transparent',
+        foreground: '#CCCCCC',
+        cursor: '#4DAAF1'
+      },
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+      fontSize: 12,
+      cursorBlink: true,
+      allowProposedApi: true
+    });
+    
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    
+    if (terminalRef.current) {
+      term.open(terminalRef.current);
+      // Let it render before fitting
+      setTimeout(() => {
+        if (mountedRef.current) fitAddon.fit();
+      }, 50);
+    }
+    
+    xtermRef.current = term;
+    fitAddonRef.current = fitAddon;
 
     const url = tabProfile ? `${WS_URL}?shell=${tabProfile}` : WS_URL;
     const ws = new WebSocket(url);
@@ -76,10 +103,10 @@ function TerminalInstance({ tabId, tabOutput, tabStatus, tabProfile, onOutput, o
       try {
         const msg = JSON.parse(event.data);
         if (msg.event === 'terminal:data' && typeof msg.data === 'string') {
-          onOutput(tabId, msg.data);
+          term.write(msg.data);
         }
       } catch {
-        onOutput(tabId, event.data);
+        term.write(event.data);
       }
     };
 
@@ -92,76 +119,54 @@ function TerminalInstance({ tabId, tabOutput, tabStatus, tabProfile, onOutput, o
     ws.onerror = () => {
       if (mountedRef.current && wsRef.current === ws) {
         onStatusChange(tabId, 'disconnected');
-        onOutput(tabId, '\r\n[Error: Could not connect to terminal backend. Is the server running?]\r\n');
+        term.write('\r\n[Error: Could not connect to terminal backend. Is the server running?]\r\n');
       }
     };
 
+    term.onData((data) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ event: 'terminal:write', data }));
+      }
+    });
+
+    const handleResize = () => {
+      if (mountedRef.current && fitAddonRef.current) {
+        fitAddonRef.current.fit();
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
+    const observer = new ResizeObserver(() => handleResize());
+    if (terminalRef.current) {
+      observer.observe(terminalRef.current);
+    }
+
     return () => {
       mountedRef.current = false;
+      window.removeEventListener('resize', handleResize);
+      observer.disconnect();
       if (wsRef.current === ws) {
         ws.close();
         wsRef.current = null;
       } else {
         ws.close();
       }
+      term.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabId]);
 
-  useEffect(() => {
-    if (outputRef.current) {
-      outputRef.current.scrollTop = outputRef.current.scrollHeight;
-    }
-  }, [tabOutput]);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-transparent">
-      <div
-        ref={outputRef}
-        className="flex-1 p-3 font-mono text-[12px] overflow-y-auto custom-scrollbar leading-relaxed whitespace-pre-wrap break-all"
-      >
-        {tabOutput.length === 0 && tabStatus === 'connecting' && (
-          <div className="text-white/30 animate-pulse">Connecting to terminal...</div>
-        )}
-        {tabOutput.length === 0 && tabStatus === 'disconnected' && (
-          <div className="text-white/20">
-            <div className="text-red-400/60 mb-2">Terminal disconnected</div>
-            <div className="text-white/20 text-[11px]">Make sure the backend server is running on port 8000</div>
-          </div>
-        )}
-        {tabOutput.map((line, i) => (
-          <div key={i} className="text-[#CCCCCC]">{line}</div>
-        ))}
-        {tabStatus === 'connected' && (
-          <div className="flex items-center text-[#CCCCCC] mt-1">
-            <span className="mr-2 text-green-400/80">❯</span>
-            <input
-              ref={inputRef}
-              type="text"
-              className="flex-1 bg-transparent outline-none border-none text-[#CCCCCC] font-mono text-[12px]"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const val = e.currentTarget.value;
-                  if (val.trim() === 'clear' || val.trim() === 'cls') {
-                    onClear(tabId);
-                    e.currentTarget.value = '';
-                    return;
-                  }
-                  if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                    wsRef.current.send(JSON.stringify({ event: 'terminal:write', data: val + '\n' }));
-                  }
-                  e.currentTarget.value = '';
-                }
-              }}
-            />
-          </div>
-        )}
-      </div>
+    <div className="flex-1 flex flex-col overflow-hidden bg-transparent p-2">
+      {tabStatus === 'connecting' && (
+        <div className="absolute top-2 left-2 text-white/30 animate-pulse text-[12px] font-mono z-10">Connecting to terminal...</div>
+      )}
+      {tabStatus === 'disconnected' && (
+        <div className="absolute top-2 left-2 text-white/20 z-10">
+          <div className="text-red-400/60 mb-2 text-[12px]">Terminal disconnected</div>
+        </div>
+      )}
+      <div ref={terminalRef} className="flex-1 overflow-hidden w-full h-full" />
     </div>
   );
 }
@@ -172,43 +177,17 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
   const createTab = useCallback((counter: number, profile?: string): TerminalTab => {
     const id = `terminal-${counter}`;
     const label = profile ? profile : `cmd`;
-    return { id, label: `${label} ${counter}`, output: [], status: 'disconnected', pinned: false, profile };
+    return { id, label: `${label} ${counter}`, status: 'disconnected', pinned: false, profile };
   }, []);
 
   const [activeBottomTab, setActiveBottomTab] = useState('terminal');
-  const [terminals, setTerminals] = useState<TerminalTab[]>([{ id: 'terminal-1', label: 'cmd 1', output: [], status: 'disconnected', pinned: false, profile: 'cmd' }]);
+  const [terminals, setTerminals] = useState<TerminalTab[]>([{ id: 'terminal-1', label: 'cmd 1', status: 'disconnected', pinned: false, profile: 'cmd' }]);
   const [activeTermId, setActiveTermId] = useState<string>('terminal-1');
   const [showRetryBanner, setShowRetryBanner] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [isSplitMode, setIsSplitMode] = useState(false);
 
-  const handleOutput = useCallback((termId: string, data: string) => {
-    setTerminals((prev) =>
-      prev.map((t) => {
-        if (t.id !== termId) return t;
-        const lines = data.split('\n');
-        const newOutput = [...t.output];
-        if (newOutput.length > 0 && lines.length > 0) {
-          newOutput[newOutput.length - 1] += lines[0];
-          for (let i = 1; i < lines.length; i++) {
-            newOutput.push(lines[i]);
-          }
-        } else {
-          newOutput.push(...lines);
-        }
-        if (newOutput.length > 2000) {
-          newOutput.splice(0, newOutput.length - 2000);
-        }
-        return { ...t, output: newOutput };
-      }),
-    );
-  }, []);
-
-  const handleClear = useCallback((termId: string) => {
-    setTerminals((prev) =>
-      prev.map((t) => (t.id === termId ? { ...t, output: [] } : t)),
-    );
-  }, []);
+  // Removed unused handleOutput and handleClear logic since xterm.js handles its own buffer
 
   const handleStatusChange = useCallback((termId: string, status: ConnectionStatus) => {
     setTerminals((prev) =>
@@ -256,7 +235,7 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
   };
 
   return (
-    <div className="hypr-panel w-full h-full flex flex-col overflow-hidden bg-transparent rounded-xl">
+    <div className="hypr-panel w-full h-full flex flex-col overflow-hidden rounded-xl">
       {/* VS Code Style Header */}
       <div 
         draggable
@@ -366,12 +345,9 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
                   >
                     <TerminalInstance
                       tabId={t.id}
-                      tabOutput={t.output}
                       tabStatus={t.status}
                       tabProfile={t.profile}
-                      onOutput={handleOutput}
                       onStatusChange={handleStatusChange}
-                      onClear={handleClear}
                     />
                   </div>
                 ))}

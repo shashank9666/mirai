@@ -80,5 +80,15 @@
     background-color: var(--color-glass-hover);
     border-color: rgba(255, 255, 255, 0.2);
   }
-}
 
+  /* Transparent overrides for Glass Effect */
+  .monaco-editor, .monaco-editor-background, .monaco-editor .inputarea.ime-input {
+    background-color: transparent !important;
+  }
+  .monaco-editor .margin {
+    background-color: transparent !important;
+  }
+  .xterm-viewport {
+    background-color: transparent !important;
+  }
+}

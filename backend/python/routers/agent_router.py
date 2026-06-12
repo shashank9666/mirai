@@ -164,7 +164,15 @@ def agent_chat():
             try:
                 result = await agent.run(lc_messages, session_id=session_id)
                 last_msg = result["messages"][-1]
-                await event_bus.publish(session_id, {"type": "final", "content": last_msg.content})
+                
+                content = last_msg.content
+                if isinstance(content, list):
+                    text_parts = [p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"]
+                    content = "".join(text_parts) if text_parts else str(content)
+                elif not isinstance(content, str):
+                    content = str(content)
+                    
+                await event_bus.publish(session_id, {"type": "final", "content": content})
             except Exception as e:
                 await event_bus.publish(session_id, {"type": "error", "error": str(e)})
             finally:

@@ -21,7 +21,12 @@ class WorkspaceManager:
         else:
             resolved = os.path.abspath(os.path.join(self._workspace_root, path))
         
-        if not resolved.startswith(self._workspace_root):
+        try:
+            root_norm = os.path.normcase(self._workspace_root)
+            res_norm = os.path.normcase(resolved)
+            if os.path.commonpath([root_norm, res_norm]) != root_norm:
+                raise ValueError(f"Path '{path}' attempts to escape workspace root")
+        except ValueError:
             raise ValueError(f"Path '{path}' attempts to escape workspace root")
         
         return resolved
@@ -30,7 +35,9 @@ class WorkspaceManager:
         """Check if a path is within the workspace root."""
         try:
             resolved = os.path.abspath(path)
-            return resolved.startswith(self._workspace_root)
+            root_norm = os.path.normcase(self._workspace_root)
+            res_norm = os.path.normcase(resolved)
+            return os.path.commonpath([root_norm, res_norm]) == root_norm
         except Exception:
             return False
     

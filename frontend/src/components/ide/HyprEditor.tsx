@@ -179,10 +179,10 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
       setCursorColumn(e.position.column);
     });
 
-    // Register editor actions
+    // Register custom keybindings that trigger built-in actions safely
     editor.addAction({
-      id: 'editor.action.formatDocument',
-      label: 'Format Document',
+      id: 'mirai.action.formatDocument',
+      label: 'Format Document (Mirai)',
       keybindings: [monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF],
       run: (ed) => {
         ed.getAction('editor.action.formatDocument')?.run();
@@ -190,8 +190,8 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
     });
 
     editor.addAction({
-      id: 'editor.action.foldAll',
-      label: 'Fold All',
+      id: 'mirai.action.foldAll',
+      label: 'Fold All (Mirai)',
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyO],
       run: (ed) => {
         ed.getAction('editor.foldAll')?.run();
@@ -199,8 +199,8 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
     });
 
     editor.addAction({
-      id: 'editor.action.unfoldAll',
-      label: 'Unfold All',
+      id: 'mirai.action.unfoldAll',
+      label: 'Unfold All (Mirai)',
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyJ],
       run: (ed) => {
         ed.getAction('editor.unfoldAll')?.run();
@@ -449,7 +449,7 @@ export default function HyprEditor({
   }
 
   return (
-    <div className="hypr-panel w-full h-full flex flex-col overflow-hidden bg-transparent rounded-xl">
+    <div className="hypr-panel w-full h-full flex flex-col overflow-hidden rounded-xl">
       <PanelHeader
         title="Editor"
         isMinimized={isMinimized}

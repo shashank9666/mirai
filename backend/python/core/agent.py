@@ -53,18 +53,25 @@ class MiraiAgent:
         
         from core.event_bus import event_bus
         
-        # Use LangGraph's astream_events to catch tool calls and streaming thoughts
+        final_messages = []
         async for event in self.graph.astream_events(state, version="v2"):
             kind = event["event"]
             if kind == "on_chat_model_stream":
                 chunk = event["data"]["chunk"]
-                if chunk.content:
-                    await event_bus.publish(session_id, {"type": "token", "content": chunk.content})
+                if hasattr(chunk, 'content') and chunk.content:
+                    # chunk.content could be string or list
+                    text = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
+                    await event_bus.publish(session_id, {"type": "token", "content": text})
             elif kind == "on_tool_start":
                 await event_bus.publish(session_id, {"type": "tool_start", "name": event["name"], "input": event["data"].get("input")})
             elif kind == "on_tool_end":
                 await event_bus.publish(session_id, {"type": "tool_end", "name": event["name"], "output": event["data"].get("output")})
+            elif kind == "on_chain_end" and event["name"] == "LangGraph":
+                # The final output of the graph
+                final_messages = event["data"].get("output", {}).get("messages", [])
                 
-        # Get final state to return updated messages
-        result = await self.graph.ainvoke(state)
-        return {"messages": result['messages']}
+        if not final_messages:
+            # Fallback if we didn't catch the chain end
+            final_messages = state["messages"]
+            
+        return {"messages": final_messages}

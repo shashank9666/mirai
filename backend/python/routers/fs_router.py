@@ -48,9 +48,11 @@ def read_file():
         return jsonify({"detail": str(e)}), 400
     except FileNotFoundError:
         return jsonify({"detail": "File not found"}), 404
-    except UnicodeDecodeError:
+    except UnicodeError:
         return jsonify({"detail": "binary_file_not_supported"}), 406
     except Exception as e:
+        if "codec can't decode" in str(e):
+            return jsonify({"detail": "binary_file_not_supported"}), 406
         return jsonify({"detail": str(e)}), 500
 
 @bp.route("/raw", methods=["GET"])

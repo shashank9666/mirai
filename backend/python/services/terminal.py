@@ -32,6 +32,7 @@ def setup_terminal_websockets(sock):
                 ws.send(json.dumps({"event": "terminal:data", "data": f"Error starting terminal: {str(e)}\r\n"}))
                 return
                 
+            def read_from_process():
                 try:
                     while True:
                         data = process.read(1024)

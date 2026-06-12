@@ -246,10 +246,20 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const [renameTarget, setRenameTarget] = useState<ContextMenu | null>(null);
   const [newItemTarget, setNewItemTarget] = useState<{ parentPath: string; type: 'file' | 'folder' } | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(true);
   const { renameTab, workspacePath, getActiveGroup, editorSettings } = useIdeStore();
 
   const refresh = useCallback(() => {
-    api.readDir().then(({ entries }) => setRootNodes(entries)).catch(() => setRootNodes([]));
+    setIsRefreshing(true);
+    api.readDir()
+      .then(({ entries }) => {
+        setRootNodes(entries);
+        setTimeout(() => setIsRefreshing(false), 400); // 400ms for smooth visual transition
+      })
+      .catch(() => {
+        setRootNodes([]);
+        setIsRefreshing(false);
+      });
   }, []);
 
   useEffect(() => { refresh(); }, [refresh, workspacePath]);
@@ -325,25 +335,48 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
 
       {!isMinimized && (
         <div
-          className="flex-1 overflow-y-auto custom-scrollbar py-1"
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setContextMenu({ x: e.clientX, y: e.clientY, type: 'explorer', path: rootNodes[0]?.path || '', name: '', isDir: true });
-        }}
-      >
-        {rootNodes.map(node => (
-          <TreeItem
-            key={node.path}
-            node={node}
-            onContextMenu={handleContextMenu}
-            onRefresh={refresh}
-            explorerIndentGuides={editorSettings.explorerIndentGuides}
-          />
-        ))}
-        {rootNodes.length === 0 && (
-          <div className="text-white/30 text-xs px-4 py-3 font-mono animate-pulse">Loading project...</div>
-        )}
-      </div>
+          className="flex-1 overflow-y-auto custom-scrollbar py-1 relative"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setContextMenu({ x: e.clientX, y: e.clientY, type: 'explorer', path: rootNodes[0]?.path || '', name: '', isDir: true });
+          }}
+        >
+          <AnimatePresence mode="wait">
+            {isRefreshing ? (
+              <motion.div
+                key="splash"
+                initial={{ opacity: 0, filter: 'blur(4px)' }}
+                animate={{ opacity: 1, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, filter: 'blur(4px)' }}
+                transition={{ duration: 0.2 }}
+                className="absolute inset-0 flex flex-col items-center justify-center bg-[#050505]/80 backdrop-blur-sm z-10"
+              >
+                <div className="w-6 h-6 border-2 border-[var(--color-primary-accent)] border-t-transparent rounded-full animate-spin mb-3"></div>
+                <div className="text-white/40 text-[10px] font-mono tracking-widest uppercase">Refreshing Workspace</div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="tree"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+              >
+                {rootNodes.map((node) => (
+                  <TreeItem
+                    key={node.path}
+                    node={node}
+                    onContextMenu={handleContextMenu}
+                    onRefresh={refresh}
+                    explorerIndentGuides={editorSettings.explorerIndentGuides}
+                  />
+                ))}
+                {rootNodes.length === 0 && (
+                  <div className="text-white/30 text-xs px-4 py-3 font-mono">Empty workspace</div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       )}
 
       <AnimatePresence>
