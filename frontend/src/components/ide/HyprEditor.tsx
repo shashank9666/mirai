@@ -14,9 +14,9 @@ const isPdf = (path: string) => /\.pdf$/i.test(path);
 const isVideo = (path: string) => /\.(mp4|webm|ogg)$/i.test(path);
 const isAudio = (path: string) => /\.(mp3|wav|ogg)$/i.test(path);
 
-function FileViewer({ filePath, content, monacoProps }: { filePath: string; content: string; monacoProps: Record<string, unknown> }) {
+function FileViewer({ filePath, content, monacoProps }: { filePath: string; content: string; monacoProps: { path?: string; theme?: string; language?: string; onChange?: OnChange; onMount?: OnMount; options?: Record<string, unknown> } }) {
   const rawUrl = `http://127.0.0.1:8000/api/fs/raw?path=${encodeURIComponent(filePath)}`;
-  
+
   if (isImage(filePath)) {
     return (
       <div className="w-full h-full flex items-center justify-center p-4 bg-[#0a0a0a]/50" style={{ backgroundImage: 'repeating-conic-gradient(rgba(255,255,255,0.05) 0% 25%, transparent 0% 50%)', backgroundSize: '20px 20px' }}>
@@ -25,7 +25,7 @@ function FileViewer({ filePath, content, monacoProps }: { filePath: string; cont
       </div>
     );
   }
-  
+
   if (isPdf(filePath)) {
     return (
       <div className="w-full h-full bg-white">
@@ -33,7 +33,7 @@ function FileViewer({ filePath, content, monacoProps }: { filePath: string; cont
       </div>
     );
   }
-  
+
   if (isVideo(filePath)) {
     return (
       <div className="w-full h-full flex items-center justify-center p-4 bg-[#0a0a0a]/50">
@@ -103,7 +103,7 @@ function EditorTabs({ group }: { group: EditorGroup }) {
     e.preventDefault();
     const draggedPath = e.dataTransfer.getData('tabPath');
     const sourceGroupId = e.dataTransfer.getData('groupId');
-    
+
     // We only support reordering within the same group for now, or we can move tab to this group if it's different.
     if (sourceGroupId === group.id && draggedPath) {
       reorderTabs(group.id, draggedPath, targetTabPath);
@@ -127,11 +127,10 @@ function EditorTabs({ group }: { group: EditorGroup }) {
             onDragStart={(e) => handleDragStart(e, tab.path)}
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, tab.path)}
-            className={`flex items-center gap-2 px-3 py-[6px] border-r border-white/5 text-[11px] font-mono cursor-pointer transition-all duration-150 group ${
-              group.activeFile === tab.path && isActive
+            className={`flex items-center gap-2 px-3 py-[6px] border-r border-white/5 text-[11px] font-mono cursor-pointer transition-all duration-150 group ${group.activeFile === tab.path && isActive
                 ? 'bg-white/5 text-white border-t-2 border-t-[var(--color-primary-accent)]'
                 : 'text-white/40 hover:text-white/70 hover:bg-white/[0.03]'
-            }`}
+              }`}
             onClick={() => handleTabClick(tab.path, tab.name, tab.savedContent)}
             onDoubleClick={() => toggleTabPin(group.id, tab.path)}
             onMouseDown={(e) => {
@@ -327,7 +326,7 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
 
       <div className="flex-1 relative min-h-0">
         {group.activeFile ? (
-          <FileViewer 
+          <FileViewer
             filePath={group.activeFile}
             content={group.activeFileContent}
             monacoProps={{
@@ -352,7 +351,7 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
             )}
             <div className="flex flex-col items-center gap-4 text-white/15">
               <svg className="w-20 h-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.5">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
               </svg>
               <span className="font-mono text-sm">Mirai Workspace</span>
               <span className="text-[11px] font-mono text-white/10">Press Ctrl+K for Command Palette</span>

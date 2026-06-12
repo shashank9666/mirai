@@ -71,7 +71,8 @@ function TerminalInstance({ tabId, tabStatus, tabProfile, onStatusChange }: {
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
       fontSize: 12,
       cursorBlink: true,
-      allowProposedApi: true
+      allowProposedApi: true,
+      allowTransparency: true
     });
     
     const fitAddon = new FitAddon();

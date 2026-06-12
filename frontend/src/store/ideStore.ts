@@ -29,6 +29,16 @@ export interface AIProviderConfig {
   isCustom: boolean;
 }
 
+export interface AutoApproveSettings {
+  readProjectFiles: boolean;
+  readAllFiles: boolean;
+  editProjectFiles: boolean;
+  executeSafeCommands: boolean;
+  executeAllCommands: boolean;
+  useBrowser: boolean;
+  useMcpServers: boolean;
+}
+
 interface ClosedTab {
   name: string;
   path: string;
@@ -203,6 +213,9 @@ interface IdeState {
   aiProviders: AIProviderConfig[];
   activeAiProviderId: string | null;
 
+  autoApproveSettings: AutoApproveSettings;
+  setAutoApproveSettings: (settings: Partial<AutoApproveSettings>) => void;
+
   notificationsEnabled: boolean;
   toggleNotifications: () => void;
 
@@ -267,6 +280,15 @@ export const useIdeStore = create<IdeState>()(
       zoom: 0.1,
       aiProviders: DEFAULT_AI_PROVIDERS,
       activeAiProviderId: 'openai',
+      autoApproveSettings: {
+        readProjectFiles: true,
+        readAllFiles: false,
+        editProjectFiles: false,
+        executeSafeCommands: true,
+        executeAllCommands: false,
+        useBrowser: false,
+        useMcpServers: false,
+      },
       notificationsEnabled: true,
       activeGroupId: 'group-1',
       groups: [
@@ -688,6 +710,10 @@ export const useIdeStore = create<IdeState>()(
       })),
 
       setActiveAiProvider: (id) => set(() => ({ activeAiProviderId: id })),
+
+      setAutoApproveSettings: (settings) => set((state) => ({
+        autoApproveSettings: { ...state.autoApproveSettings, ...settings }
+      })),
     }),
     {
       name: 'mirai-ide-storage',
@@ -700,6 +726,7 @@ export const useIdeStore = create<IdeState>()(
         extensions: state.extensions,
         aiProviders: state.aiProviders,
         activeAiProviderId: state.activeAiProviderId,
+        autoApproveSettings: state.autoApproveSettings,
         notificationsEnabled: state.notificationsEnabled,
       }),
     }
