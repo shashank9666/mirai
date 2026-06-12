@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Puzzle, Bot, Database, Bug, Zap, Plus, ChevronDown, Eye, EyeOff } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useIdeStore } from '@/store/ideStore';
+import { motion } from 'framer-motion';
 
 export function HyprExtensions() {
   const { extensions, setExtensions } = useIdeStore();
@@ -17,7 +18,7 @@ export function HyprExtensions() {
   const enabledCount = extensions.filter((e) => e.enabled).length;
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
+    <motion.div layout className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
       <div className="px-4 py-3 border-b border-white/5 font-mono text-[10px] text-white/40 tracking-widest uppercase shrink-0 flex items-center justify-between">
         <span>Extensions ({enabledCount}/{extensions.length})</span>
         <span title="Browse Extensions"><Plus className="w-3 h-3 text-white/30 hover:text-white/60 cursor-pointer" /></span>
@@ -45,7 +46,7 @@ export function HyprExtensions() {
           <div className="text-center py-8 text-[11px] font-mono text-white/20">No extensions installed</div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -59,7 +60,7 @@ export function HyprAgent() {
   }, []);
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
+    <motion.div layout className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
       <div className="px-4 py-3 border-b border-white/5 font-mono text-[10px] text-white/40 tracking-widest uppercase shrink-0 flex items-center justify-between">
         <span>Agent Tasks</span>
         <Bot className="w-3 h-3 text-white/30" />
@@ -82,13 +83,13 @@ export function HyprAgent() {
           <div className="text-[10px] font-mono text-white/30">Agent tools: file read, file write, terminal, web search</div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 export function HyprDatabase() {
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
+    <motion.div layout className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
       <div className="px-4 py-3 border-b border-white/5 font-mono text-[10px] text-white/40 tracking-widest uppercase shrink-0 flex items-center justify-between">
         <span>Database</span>
         <Database className="w-3 h-3 text-white/30" />
@@ -109,13 +110,13 @@ export function HyprDatabase() {
         </div>
         <div className="mt-4 text-[10px] font-mono text-white/20">Add MCP servers in settings.json</div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 export function HyprDebug() {
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
+    <motion.div layout className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
       <div className="px-4 py-3 border-b border-white/5 font-mono text-[10px] text-white/40 tracking-widest uppercase shrink-0 flex items-center justify-between">
         <span>Debug</span>
         <Bug className="w-3 h-3 text-white/30" />
@@ -134,7 +135,7 @@ export function HyprDebug() {
         </div>
         <div className="mt-4 text-[10px] font-mono text-white/20">Configure in .vscode/launch.json</div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -155,7 +156,7 @@ export function HyprAIProviders() {
   const selectedProvider = aiProviders.find(p => p.id === selectedProviderId) || aiProviders[0];
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
+    <motion.div layout className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
       <div className="px-4 py-3 border-b border-white/5 font-mono text-[10px] text-white/40 tracking-widest uppercase shrink-0 flex items-center justify-between">
         <span>AI Providers</span>
         <Zap className="w-3 h-3 text-[var(--color-primary-accent)]" />
@@ -242,6 +243,6 @@ export function HyprAIProviders() {
         </div>
 
       </div>
-    </div>
+    </motion.div>
   );
 }

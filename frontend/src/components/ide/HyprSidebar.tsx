@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api, FileEntry } from '@/lib/api';
 import { useIdeStore } from '@/store/ideStore';
 import PanelHeader from './PanelHeader';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, FilePlus, FolderPlus, Edit2, Monitor, FileCode2, FileJson, FileText, File, FileImage, FileTerminal, Database, Palette, Settings as SettingsIcon } from 'lucide-react';
 
 const getFileIcon = (name: string) => {
@@ -57,8 +58,12 @@ function ContextMenuComponent({ menu, onAction, onClose }: {
   ];
 
   return (
-    <div
+    <motion.div
       ref={ref}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.1 }}
       className="fixed z-[100] bg-[#1a1a2e]/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl py-1 min-w-[180px]"
       style={{ left: menu.x, top: menu.y }}
     >
@@ -76,7 +81,7 @@ function ContextMenuComponent({ menu, onAction, onClose }: {
           <span className="text-white/20 text-[10px]">{item.key}</span>
         </button>
       ))}
-    </div>
+    </motion.div>
   );
 }
 
@@ -91,8 +96,8 @@ function RenameDialog({ initialName, onConfirm, onCancel }: {
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   return (
-    <div className="fixed inset-0 z-[110] bg-black/50 flex items-center justify-center" onClick={onCancel}>
-      <div className="bg-[#1a1a2e]/95 backdrop-blur-xl border border-white/10 rounded-xl p-4 w-80" onClick={(e) => e.stopPropagation()}>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[110] bg-black/50 flex items-center justify-center" onClick={onCancel}>
+      <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="bg-[#1a1a2e]/95 backdrop-blur-xl border border-white/10 rounded-xl p-4 w-80" onClick={(e) => e.stopPropagation()}>
         <div className="text-[11px] font-mono text-white/50 mb-3">Rename to:</div>
         <input
           ref={inputRef}
@@ -108,8 +113,8 @@ function RenameDialog({ initialName, onConfirm, onCancel }: {
           <button onClick={onCancel} className="px-3 py-1 text-[11px] font-mono text-white/40 hover:text-white/70 transition-colors">Cancel</button>
           <button onClick={() => value.trim() && onConfirm(value.trim())} className="px-3 py-1 text-[11px] font-mono bg-[var(--color-primary-accent)]/20 text-[var(--color-primary-accent)] rounded-lg hover:bg-[var(--color-primary-accent)]/30 transition-colors">Rename</button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -124,8 +129,8 @@ function NewItemDialog({ type, onConfirm, onCancel }: {
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   return (
-    <div className="fixed inset-0 z-[110] bg-black/50 flex items-center justify-center" onClick={onCancel}>
-      <div className="bg-[#1a1a2e]/95 backdrop-blur-xl border border-white/10 rounded-xl p-4 w-80" onClick={(e) => e.stopPropagation()}>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[110] bg-black/50 flex items-center justify-center" onClick={onCancel}>
+      <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="bg-[#1a1a2e]/95 backdrop-blur-xl border border-white/10 rounded-xl p-4 w-80" onClick={(e) => e.stopPropagation()}>
         <div className="text-[11px] font-mono text-white/50 mb-3">New {type === 'file' ? 'file' : 'folder'} name:</div>
         <input
           ref={inputRef}
@@ -142,8 +147,8 @@ function NewItemDialog({ type, onConfirm, onCancel }: {
           <button onClick={onCancel} className="px-3 py-1 text-[11px] font-mono text-white/40 hover:text-white/70 transition-colors">Cancel</button>
           <button onClick={() => value.trim() && onConfirm(value.trim())} className="px-3 py-1 text-[11px] font-mono bg-[var(--color-primary-accent)]/20 text-[var(--color-primary-accent)] rounded-lg hover:bg-[var(--color-primary-accent)]/30 transition-colors">Create</button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -171,8 +176,8 @@ const TreeItem = ({
       try {
         const { content } = await api.readFile(node.path);
         setActiveFile(node.path, node.name, content);
-      } catch (err: any) {
-        if (err.message && err.message.includes('binary_file_not_supported')) {
+      } catch (err) {
+        if (err instanceof Error && err.message.includes('binary_file_not_supported')) {
           setActiveFile(node.path, node.name, '');
         } else {
           console.error('Failed to read file:', err);
@@ -341,47 +346,53 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
       </div>
       )}
 
-      {contextMenu && (
-        <ContextMenuComponent
-          menu={contextMenu}
-          onAction={handleAction}
-          onClose={() => setContextMenu(null)}
-        />
-      )}
+      <AnimatePresence>
+        {contextMenu && (
+          <ContextMenuComponent
+            menu={contextMenu}
+            onAction={handleAction}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
+      </AnimatePresence>
       
-      {!isMinimized && renameTarget && (
-        <RenameDialog
-          initialName={renameTarget.name}
-          onConfirm={async (newName) => {
-            const sep = renameTarget.path.includes('/') ? '/' : '\\';
-            const parentDir = renameTarget.path.replace(/[\\/][^\\/]+$/, '');
-            const newPath = parentDir + sep + newName;
-            await api.renameItem(renameTarget.path, newPath);
-            renameTab(renameTarget.path, newPath);
-            setRenameTarget(null);
-            refresh();
-          }}
-          onCancel={() => setRenameTarget(null)}
-        />
-      )}
+      <AnimatePresence>
+        {!isMinimized && renameTarget && (
+          <RenameDialog
+            initialName={renameTarget.name}
+            onConfirm={async (newName) => {
+              const sep = renameTarget.path.includes('/') ? '/' : '\\';
+              const parentDir = renameTarget.path.replace(/[\\/][^\\/]+$/, '');
+              const newPath = parentDir + sep + newName;
+              await api.renameItem(renameTarget.path, newPath);
+              renameTab(renameTarget.path, newPath);
+              setRenameTarget(null);
+              refresh();
+            }}
+            onCancel={() => setRenameTarget(null)}
+          />
+        )}
+      </AnimatePresence>
 
-      {!isMinimized && newItemTarget && (
-        <NewItemDialog
-          type={newItemTarget.type}
-          onConfirm={async (name) => {
-            const sep = newItemTarget.parentPath.includes('/') ? '/' : '\\';
-            const fullPath = newItemTarget.parentPath + sep + name;
-            if (newItemTarget.type === 'file') {
-              await api.createFile(fullPath);
-            } else {
-              await api.createDir(fullPath);
-            }
-            setNewItemTarget(null);
-            refresh();
-          }}
-          onCancel={() => setNewItemTarget(null)}
-        />
-      )}
+      <AnimatePresence>
+        {!isMinimized && newItemTarget && (
+          <NewItemDialog
+            type={newItemTarget.type}
+            onConfirm={async (name) => {
+              const sep = newItemTarget.parentPath.includes('/') ? '/' : '\\';
+              const fullPath = newItemTarget.parentPath + sep + name;
+              if (newItemTarget.type === 'file') {
+                await api.createFile(fullPath);
+              } else {
+                await api.createDir(fullPath);
+              }
+              setNewItemTarget(null);
+              refresh();
+            }}
+            onCancel={() => setNewItemTarget(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

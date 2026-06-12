@@ -3,7 +3,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import PanelHeader from './PanelHeader';
 import { useIdeStore } from '@/store/ideStore';
-import { Send, Sparkles, Bot, Code2, Bug, Eye, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, Paperclip, FileCode, TerminalSquare } from 'lucide-react';
+import { Send, Sparkles, Bot, Code2, Bug, Eye, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, Paperclip, FileCode, TerminalSquare, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -52,6 +53,12 @@ const MODES: Mode[] = [
     systemPrompt:
       'You are a code reviewer. Review code for quality, security, performance, and best practices. Point out issues and suggest improvements with concrete examples.',
   },
+  {
+    id: 'convo',
+    label: 'Convo Mode',
+    icon: Mic,
+    systemPrompt: 'You are a conversational AI. Use short, spoken language responses. Keep it natural and engaging.',
+  }
 ];
 
 interface ChatPanelProps {
@@ -76,12 +83,16 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const [isListening, setIsListening] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeModeObj = MODES.find((m) => m.id === activeMode)!;
 
@@ -156,9 +167,48 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     }
   }, [isListening]);
 
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setAttachedFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)]);
+    }
+  }, []);
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setAttachedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+    }
+    e.target.value = '';
+  };
+
+  const handleUploadMedia = () => {
+    setShowActionMenu(false);
+    if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handleAddContext = () => {
+    setShowActionMenu(false);
+    if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const removeFile = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const sendMessage = async () => {
     const text = input.trim();
-    if (!text || isStreaming) return;
+    if (!text && attachedFiles.length === 0 || isStreaming) return;
 
     if (backendAvailable === false) {
       setError('Cannot connect to AI backend. Make sure the server is running on port 8000.');
@@ -166,10 +216,15 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     }
 
     setError(null);
-    const userMessage: Message = { role: 'user', content: text };
+    let contentStr = text;
+    if (attachedFiles.length > 0) {
+      contentStr += `\n[Attached Files: ${attachedFiles.map(f => f.name).join(', ')}]`;
+    }
+    const userMessage: Message = { role: 'user', content: contentStr };
     const newMessages: Message[] = [...messages, userMessage];
     setMessages(newMessages);
     setInput('');
+    setAttachedFiles([]);
 
     const assistantMessage: Message = { role: 'assistant', content: '' };
     setMessages([...newMessages, assistantMessage]);
@@ -179,6 +234,8 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     abortRef.current = controller;
 
     try {
+      const activeModelName = aiProviders.find(p => p.id === activeAiProviderId)?.name || 'gpt-4o';
+      
       const res = await fetch('http://127.0.0.1:8000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -187,8 +244,8 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
             { role: 'system', content: activeModeObj.systemPrompt },
             ...newMessages.map((m) => ({ role: m.role, content: m.content })),
           ],
-          provider: 'openai',
-          model: 'gpt-4o',
+          provider: activeAiProviderId,
+          model: activeModelName,
           apiKey: '',
           baseUrl: '',
         }),
@@ -272,7 +329,29 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     : 'bg-red-500';
 
   return (
-    <div className="hypr-panel w-full h-full flex flex-col overflow-hidden">
+    <div 
+      className={`hypr-panel w-full h-full flex flex-col overflow-hidden relative transition-colors ${isDraggingOver ? 'bg-white/5' : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDraggingOver && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm border-2 border-dashed border-[var(--color-primary-accent)] rounded-xl m-1">
+          <div className="flex flex-col items-center text-white/80">
+            <Paperclip className="w-8 h-8 mb-2" />
+            <span className="font-mono text-sm">Drop files to attach</span>
+          </div>
+        </div>
+      )}
+
+      <input 
+        type="file" 
+        multiple 
+        ref={fileInputRef} 
+        onChange={handleFileInputChange} 
+        className="hidden" 
+      />
+
       <PanelHeader
         title="AI Assistant"
         isPinned={isPinned}
@@ -319,19 +398,27 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                 <span className="max-w-[80px] truncate">{aiProviders.find(p => p.id === activeAiProviderId)?.name || 'Model'}</span>
                 <ChevronDown className="w-3 h-3" />
               </button>
-              {showModelMenu && (
-                <div className="absolute top-full right-0 mt-1 w-40 bg-[#0f0f0f]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl py-1 z-50 max-h-[200px] overflow-y-auto custom-scrollbar">
-                  {aiProviders.map(p => (
-                    <button
-                      key={p.id}
-                      onClick={() => { setActiveAiProvider(p.id); setShowModelMenu(false); }}
-                      className={`w-full text-left px-3 py-1.5 text-[10px] font-mono ${p.id === activeAiProviderId ? 'text-white bg-white/10' : 'text-white/50 hover:bg-white/5'}`}
-                    >
-                      {p.name}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <AnimatePresence>
+                {showModelMenu && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95, y: -5 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -5 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute top-full right-0 mt-1 w-40 bg-[#0f0f0f]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl py-1 z-50 max-h-[200px] overflow-y-auto custom-scrollbar"
+                  >
+                    {aiProviders.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => { setActiveAiProvider(p.id); setShowModelMenu(false); }}
+                        className={`w-full text-left px-3 py-1.5 text-[10px] font-mono ${p.id === activeAiProviderId ? 'text-white bg-white/10' : 'text-white/50 hover:bg-white/5'}`}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
@@ -348,109 +435,160 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
             </div>
           )}
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex flex-col gap-3">
-            {messages.length === 0 && !error && (
-              <div className="flex-1 flex items-center justify-center">
-                <p className="text-[11px] text-white/20 font-mono">
-                  {backendAvailable === false
-                    ? 'Backend offline. Start the server to chat.'
-                    : `Start a conversation in ${activeModeObj.label} mode...`}
-                </p>
+          {/* Content Area */}
+          {activeMode === 'convo' ? (
+            <div className="flex-1 flex flex-col items-center justify-center relative bg-gradient-to-b from-transparent to-black/40">
+              <motion.button
+                onClick={toggleVoiceMode}
+                animate={{ scale: isListening || isStreaming ? [1, 1.2, 1] : 1 }}
+                transition={{ repeat: Infinity, duration: 1.5 }}
+                className={`w-32 h-32 rounded-full flex items-center justify-center transition-colors ${
+                  isListening ? 'bg-red-500/20 shadow-[0_0_50px_rgba(239,68,68,0.3)]' : 
+                  isStreaming ? 'bg-purple-500/20 shadow-[0_0_50px_rgba(168,85,247,0.3)]' : 
+                  'bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                {isListening ? (
+                  <Mic className="w-12 h-12 text-red-400" />
+                ) : isStreaming ? (
+                  <Sparkles className="w-12 h-12 text-purple-400" />
+                ) : (
+                  <MicOff className="w-12 h-12 text-white/20" />
+                )}
+              </motion.button>
+              <div className="mt-8 text-white/50 font-mono text-sm tracking-wide">
+                {isListening ? 'Listening...' : isStreaming ? 'Speaking...' : 'Tap to start conversation'}
               </div>
-            )}
-
-            {error && (
-              <div className="px-3 py-2 rounded-xl text-[11px] font-mono bg-red-500/10 text-red-400 border border-red-500/20">
-                {error}
-              </div>
-            )}
-
-            {messages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-[90%] px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono whitespace-pre-wrap ${
-                    msg.role === 'user'
-                      ? 'bg-[var(--color-primary-accent)]/20 text-white/90 rounded-br-sm'
-                      : 'bg-white/5 text-white/80 rounded-bl-sm border border-white/5'
-                  }`}
-                >
-                  {msg.content}
-                  {isStreaming && msg.role === 'assistant' && i === messages.length - 1 && (
-                    <span className="inline-block w-1.5 h-3 bg-purple-400/70 rounded-sm ml-0.5 animate-pulse align-text-bottom" />
-                  )}
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex flex-col gap-3">
+              {messages.length === 0 && !error && (
+                <div className="flex-1 flex items-center justify-center">
+                  <p className="text-[11px] text-white/20 font-mono">
+                    {backendAvailable === false
+                      ? 'Backend offline. Start the server to chat.'
+                      : `Start a conversation in ${activeModeObj.label} mode...`}
+                  </p>
                 </div>
-              </div>
-            ))}
+              )}
 
-            <div ref={messagesEndRef} />
-          </div>
+              {error && (
+                <div className="px-3 py-2 rounded-xl text-[11px] font-mono bg-red-500/10 text-red-400 border border-red-500/20">
+                  {error}
+                </div>
+              )}
+
+              {messages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div
+                    className={`max-w-[90%] px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono whitespace-pre-wrap ${
+                      msg.role === 'user'
+                        ? 'bg-[var(--color-primary-accent)]/20 text-white/90 rounded-br-sm'
+                        : 'bg-white/5 text-white/80 rounded-bl-sm border border-white/5'
+                    }`}
+                  >
+                    {msg.content}
+                    {isStreaming && msg.role === 'assistant' && i === messages.length - 1 && (
+                      <span className="inline-block w-1.5 h-3 bg-purple-400/70 rounded-sm ml-0.5 animate-pulse align-text-bottom" />
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+
+          {/* Attached Files display */}
+          {attachedFiles.length > 0 && activeMode !== 'convo' && (
+            <div className="px-2 py-1 flex gap-2 overflow-x-auto custom-scrollbar border-t border-white/5">
+              {attachedFiles.map((file, idx) => (
+                <div key={idx} className="flex items-center gap-1 bg-white/10 rounded-md px-2 py-1 shrink-0 group">
+                  <FileCode className="w-3 h-3 text-white/60" />
+                  <span className="text-[10px] font-mono text-white/80 max-w-[100px] truncate">{file.name}</span>
+                  <button onClick={() => removeFile(idx)} className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 ml-1">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Input */}
-          <div className="p-2 border-t border-white/5 shrink-0 relative">
-            {showActionMenu && (
-              <div className="absolute bottom-full left-2 mb-2 w-48 bg-[#0f0f0f]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-1 z-50">
-                <button onClick={() => setShowActionMenu(false)} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
-                  <Paperclip className="w-3.5 h-3.5 text-white/40" /> Upload Media
-                </button>
-                <button onClick={() => setShowActionMenu(false)} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
-                  <FileCode className="w-3.5 h-3.5 text-white/40" /> Add Context
-                </button>
-                <button onClick={() => setShowActionMenu(false)} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
-                  <TerminalSquare className="w-3.5 h-3.5 text-white/40" /> Action Commands
-                </button>
-              </div>
-            )}
-            
-            <div className="flex items-center gap-2 bg-white/[0.03] rounded-xl px-2 py-2 border border-white/5 focus-within:border-[var(--color-primary-accent)]/40 transition-colors relative z-20">
-              <button 
-                onClick={() => setShowActionMenu(!showActionMenu)}
-                className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-colors ${showActionMenu ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
-              >
-                <Plus className="w-4 h-4" />
-              </button>
+          {activeMode !== 'convo' && (
+            <div className="p-2 border-t border-white/5 shrink-0 relative">
+              <AnimatePresence>
+                {showActionMenu && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute bottom-full left-2 mb-2 w-48 bg-[#0f0f0f]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-1 z-50"
+                  >
+                    <button onClick={handleUploadMedia} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+                      <Paperclip className="w-3.5 h-3.5 text-white/40" /> Upload Media
+                    </button>
+                    <button onClick={handleAddContext} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+                      <FileCode className="w-3.5 h-3.5 text-white/40" /> Add Context
+                    </button>
+                    <button onClick={() => setShowActionMenu(false)} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+                      <TerminalSquare className="w-3.5 h-3.5 text-white/40" /> Action Commands
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                  }
-                }}
-                placeholder={backendAvailable === false ? 'Backend offline' : isListening ? 'Listening...' : 'Ask AI...'}
-                disabled={isStreaming || backendAvailable === false}
-                className="flex-1 bg-transparent border-none outline-none text-[12px] text-white/90 placeholder:text-white/25 font-mono disabled:opacity-40"
-              />
-              
-              <button
-                onClick={toggleVoiceMode}
-                title="Voice Dictation"
-                className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-colors ${isListening ? 'text-red-400 bg-red-400/20 animate-pulse' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
-              >
-                {isListening ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
-              </button>
+              <div className="flex items-center gap-2 bg-white/[0.03] rounded-xl px-2 py-2 border border-white/5 focus-within:border-[var(--color-primary-accent)]/40 transition-colors relative z-20">
+                <button 
+                  onClick={() => setShowActionMenu(!showActionMenu)}
+                  className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-colors ${showActionMenu ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+                
+                <input
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                    }
+                  }}
+                  placeholder={backendAvailable === false ? 'Backend offline' : isListening ? 'Listening...' : 'Ask AI...'}
+                  disabled={isStreaming || backendAvailable === false}
+                  className="flex-1 bg-transparent border-none outline-none text-[12px] text-white/90 placeholder:text-white/25 font-mono disabled:opacity-40"
+                />
+                
+                <button
+                  onClick={toggleVoiceMode}
+                  title="Voice Dictation"
+                  className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-colors ${isListening ? 'text-red-400 bg-red-400/20 animate-pulse' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
+                >
+                  {isListening ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+                </button>
 
-              {isStreaming ? (
-                <button
-                  onClick={stopGeneration}
-                  className="w-6 h-6 rounded-lg bg-red-500/80 flex items-center justify-center hover:bg-red-500 transition-all shrink-0"
-                >
-                  <Square className="w-3 h-3 text-white" fill="white" />
-                </button>
-              ) : (
-                <button
-                  onClick={sendMessage}
-                  disabled={!input.trim() || backendAvailable === false}
-                  className="w-6 h-6 rounded-lg bg-[var(--color-primary-accent)] flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-30 shrink-0"
-                >
-                  <Send className="w-3 h-3 text-white" />
-                </button>
-              )}
+                {isStreaming ? (
+                  <button
+                    onClick={stopGeneration}
+                    className="w-6 h-6 rounded-lg bg-red-500/80 flex items-center justify-center hover:bg-red-500 transition-all shrink-0"
+                  >
+                    <Square className="w-3 h-3 text-white" fill="white" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={sendMessage}
+                    disabled={(!input.trim() && attachedFiles.length === 0) || backendAvailable === false}
+                    className="w-6 h-6 rounded-lg bg-[var(--color-primary-accent)] flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-30 shrink-0"
+                  >
+                    <Send className="w-3 h-3 text-white" />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </div>
