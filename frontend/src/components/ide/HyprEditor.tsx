@@ -14,12 +14,13 @@ const isPdf = (path: string) => /\.pdf$/i.test(path);
 const isVideo = (path: string) => /\.(mp4|webm|ogg)$/i.test(path);
 const isAudio = (path: string) => /\.(mp3|wav|ogg)$/i.test(path);
 
-function FileViewer({ filePath, content, monacoProps }: { filePath: string; content: string; monacoProps: any }) {
+function FileViewer({ filePath, content, monacoProps }: { filePath: string; content: string; monacoProps: Record<string, unknown> }) {
   const rawUrl = `http://127.0.0.1:8000/api/fs/raw?path=${encodeURIComponent(filePath)}`;
   
   if (isImage(filePath)) {
     return (
       <div className="w-full h-full flex items-center justify-center p-4 bg-[#0a0a0a]/50" style={{ backgroundImage: 'repeating-conic-gradient(rgba(255,255,255,0.05) 0% 25%, transparent 0% 50%)', backgroundSize: '20px 20px' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={rawUrl} alt={filePath} className="max-w-full max-h-full object-contain drop-shadow-lg" />
       </div>
     );
