@@ -7,7 +7,7 @@ import { useAiStore } from '@/store/aiStore';
 import { useChatStore } from '@/store/chatStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useEditorStore } from '@/store/editorStore';
-import { api } from '@/lib/api';
+import { getBackendBase } from '@/lib/api';
 import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, ChevronRight, Paperclip, FileCode, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, Headphones, Activity, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
@@ -16,6 +16,8 @@ import SimpleBar from 'simplebar-react';
 import { formatTokens } from '@/lib/agent/policies';
 import AgentPreferencesPanel from './AgentPreferencesPanel';
 import { DEFAULT_AGENT_PREFERENCES } from '@/lib/agent/policies';
+import VoiceOrb from './VoiceOrb';
+import { useVoiceStore } from '@/store/voiceStore';
 
 const DEFAULT_SYSTEM_PROMPT = `You are Mirai, an autonomous software engineering agent inside Mirai IDE.
 
@@ -95,8 +97,7 @@ interface ChatPanelProps {
 
 function PendingChangesWidget({ changeIds }: { changeIds: string[] }) {
   const { pendingChanges, openDiffForReview, acceptChange, rejectChange } = useEditorStore();
-  const changes = changeIds
-    .map((id) => pendingChanges.find((c) => c.id === id))
+  const changes = changeIds.map((id) => pendingChanges.find((c) => c.id === id))
     .filter(Boolean) as typeof pendingChanges;
 
   if (changes.length === 0) return null;
@@ -152,15 +153,14 @@ function PendingChangesWidget({ changeIds }: { changeIds: string[] }) {
   );
 }
 
-// Token count badge for messages
-function TokenBadge({ tokenCount, role }: { tokenCount?: number; role: string }) {
-  if (tokenCount === undefined) return null;
-  return (
-    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${role === 'user' ? 'bg-white/5 text-white/30' : 'bg-white/5 text-white/30'
-      }`}>
-      ~{formatTokens(tokenCount)}
-    </span>
-  );
+// Token count badge for messagesfunction TokenBadge({ tokenCount, role }: { tokenCount?: number; role: string }) {
+if (tokenCount === undefined) return null;
+return (
+  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${role === 'user' ? 'bg-white/5 text-white/30' : 'bg-white/5 text-white/30'
+    }`}>
+    ~{formatTokens(tokenCount)}
+  </span>
+);
 }
 
 function CodeBlockRenderer({ children, className, handleReviewChange, ...rest }: { children?: React.ReactNode; className?: string; handleReviewChange: (filepath: string, code: string) => void;[key: string]: unknown }) {
@@ -169,63 +169,22 @@ function CodeBlockRenderer({ children, className, handleReviewChange, ...rest }:
   const lang = match ? match[1] : '';
   const filepath = match && match[2] ? match[2] : '';
 
-  const [isExpanded, setIsExpanded] = useState(!filepath); // Auto-minimize if it's a file edit
-
-  if (match) {
-    if (filepath && !isExpanded) {
-      const addedLines = codeString.split('\n').filter(l => l.trim()).length;
-      return (
-        <div className="my-2 border border-white/10 rounded-md bg-black/40 px-3 py-2 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setIsExpanded(true)}>
-          <div className="flex items-center gap-2">
-            <ChevronRight className="w-4 h-4 text-white/50" />
-            <FileCode className="w-3 h-3 text-blue-400" />
-            <span className="text-[11px] font-mono text-white/80">Edited {lang.toUpperCase()} <span className="text-white font-semibold">{filepath}</span></span>
-            <span className="text-[10px] font-mono text-emerald-400 ml-2">+{addedLines}</span>
-          </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); handleReviewChange(filepath, codeString); }}
-            className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 text-[10px] font-mono transition-colors border border-emerald-500/30"
-          >
-            <GitCompareArrows className="w-3 h-3" />
-            Review
-          </button>
-        </div>
-      );
-    }
-
-    return (
-      <div className="my-2 border border-white/10 rounded-md overflow-hidden relative group">
-        <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-white/10 cursor-pointer" onClick={() => filepath && setIsExpanded(false)}>
-          <div className="flex items-center gap-1.5">
-            {filepath && <ChevronDown className="w-3 h-3 text-white/50" />}
-            <FileCode className="w-3 h-3 text-blue-400" />
-            <span className="text-[10px] font-mono text-white/60">{filepath || `${lang} snippet`}</span>
-          </div>
-          {filepath ? (
-            <button
-              onClick={(e) => { e.stopPropagation(); handleReviewChange(filepath, codeString); }}
-              className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 text-[10px] font-mono transition-colors border border-emerald-500/30"
-            >
-              <GitCompareArrows className="w-3 h-3" />
-              Review Changes
-            </button>
-          ) : (
-            <button
-              onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(codeString); }}
-              className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/70 text-[10px] font-mono transition-colors opacity-0 group-hover:opacity-100"
-            >
-              Copy
-            </button>
-          )}
-        </div>
-        <ShikiHighlighter code={codeString} language={lang} />
-      </div>
-    );
-  }
   return (
-    <code {...rest} className="bg-black/30 px-1 py-0.5 rounded text-[var(--color-primary-accent)]">
-      {children}
-    </code>
+    <div className="my-2 border border-white/10 rounded-md bg-black/40 px-3 py-2 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors">
+      <div className="flex items-center gap-2">
+        <ChevronRight className="w-4 h-4 text-white/50" />
+        <FileCode className="w-3 h-3 text-blue-400" />
+        <span className="text-[11px] font-mono text-white/80">Edited {lang.toUpperCase()} <span className="text-white font-semibold">{filepath}</span></span>
+        <span className="text-[10px] font-mono text-emerald-400 ml-2">+{codeString.split('\n').filter(l => l.trim()).length}</span>
+      </div>
+      <button
+        onClick={(e) => { e.stopPropagation(); handleReviewChange(filepath, codeString); }}
+        className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 text-[10px] font-mono transition-colors border border-emerald-500/30"
+      >
+        <GitCompareArrows className="w-3 h-3" />
+        Review
+      </button>
+    </div>
   );
 }
 
@@ -238,7 +197,6 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     clearMessages,
   } = useChatStore();
   const hasPendingChanges = useEditorStore(state => state.pendingChanges.some(c => c.status === 'pending'));
-
 
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -254,8 +212,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [attachedPaths, setAttachedPaths] = useState<string[]>([]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any  const recognitionRef = useRef<any>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -480,8 +437,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
       const activeProvider = aiProviders.find(p => p.id === activeAiProviderId);
       const activeModelName = activeProvider?.model || 'gpt-4o';
 
-      // Build messages from chat store
-      const storeMessages = useChatStore.getState().messages;
+      // Build messages from chat store      const storeMessages = useChatStore.getState().messages;
       const autoApproveSettings = useAiStore.getState().autoApproveSettings;
       const workspacePath = useWorkspaceStore.getState().workspacePath || 'No workspace open';
       const openFiles = useEditorStore.getState().groups.flatMap(g => g.tabs.map(t => t.path));
@@ -594,8 +550,7 @@ Use this information before asking the user for files.`;
     } finally {
       setIsStreaming(false);
       abortRef.current = null;
-      // Remove empty assistant messages
-      const currentContent = useChatStore.getState().messages.find(m => m.id === assistantMsg.id)?.content;
+      // Remove empty assistant messages      const currentContent = useChatStore.getState().messages.find(m => m.id === assistantMsg.id)?.content;
       if (!currentContent || !currentContent.trim()) {
         useChatStore.getState().removeMessage(assistantMsg.id);
       }
@@ -785,8 +740,7 @@ Use this information before asking the user for files.`;
                 title="Clear Chat"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                Clear
-              </button>
+                Clear              </button>
 
               <button
                 onClick={handleNewChat}
@@ -794,8 +748,7 @@ Use this information before asking the user for files.`;
                 title="New Chat"
               >
                 <MessageSquarePlus className="w-3.5 h-3.5" />
-                New Chat
-              </button>
+                New Chat              </button>
             </div>
 
           </div>
@@ -825,8 +778,7 @@ Use this information before asking the user for files.`;
                         transition={{ rotate: { duration: 8, repeat: Infinity, ease: "linear" }, scale: { duration: 2, repeat: Infinity, ease: "easeInOut" } }}
                         className="absolute inset-2 border-[2px] border-purple-500/30 rounded-full border-t-purple-400"
                       />
-                      <motion.div
-                        animate={{ rotate: -360, scale: [1, 1.2, 1] }}
+                      <motion.div animate={{ rotate: -360, scale: [1, 1.2, 1] }}
                         transition={{ rotate: { duration: 12, repeat: Infinity, ease: "linear" }, scale: { duration: 3, repeat: Infinity, ease: "easeInOut" } }}
                         className="absolute inset-4 border-[1px] border-blue-500/20 rounded-full border-b-blue-400"
                       />
@@ -856,7 +808,7 @@ Use this information before asking the user for files.`;
                     </>
                   )}
                   {/* Core orb */}
-                  <div className={`w-24 h-24 rounded-full shadow-[0_0_40px_rgba(124,58,237,0.4)] border border-white/10 flex items-center justify-center transition-colors duration-500 ${isStreaming ? 'bg-gradient-to-tr from-purple-500/30 to-blue-500/30' : isListening ? 'bg-gradient-to-tr from-emerald-500/30 to-teal-500/30' : 'bg-white/5'}`}>
+                  <div className={`w-24 h-24 rounded-full shadow-[0_0_40px_rgba(124,58,237,0.4)] border border-white/10 flex items-center justify-center transition-colors duration-500 ${isStreaming ? 'bg-gradient-to-tr from-purple-500/30 to-blue-500/30' : isListening ? 'bg-gradient-to-tr from-emerald-500/30 to-teal-500/30' : 'bg-white/5'`}>
                     <Activity className={`w-8 h-8 ${isStreaming ? 'text-purple-400' : isListening ? 'text-emerald-400' : 'text-white/30'}`} />
                   </div>
                 </motion.div>
@@ -865,7 +817,7 @@ Use this information before asking the user for files.`;
                 </div>
                 <div className="mt-8 px-8 text-center text-[11px] font-mono text-white/30 max-w-sm">
                   {chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'user' ? (
-                    <span className="text-white/60">&quot;{chatMessages[chatMessages.length - 1].content}&quot;</span>
+                    <span className="text-white/60">"{chatMessages[chatMessages.length - 1].content}"</span>
                   ) : chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'assistant' ? (
                     <span className="text-white/40 line-clamp-3">Mirai: {chatMessages[chatMessages.length - 1].content}</span>
                   ) : 'Speak to interact with Mirai.'}
@@ -879,171 +831,176 @@ Use this information before asking the user for files.`;
                       {backendAvailable === false
                         ? 'Backend offline. Start the server to chat.'
                         : `Start a conversation...`}
-                    </p>
-                  </div>
-                )}
+            </p>
+          </div>
+        )}
 
-                {error && (
-                  <div className="px-3 py-2 rounded-xl text-[11px] font-mono bg-red-500/10 text-red-400 border border-red-500/20">
-                    {error}
-                  </div>
-                )}
+        {error && (
+          <div className="px-3 py-2 rounded-xl text-[11px] font-mono bg-red-500/10 text-red-400 border border-red-500/20">
+            {error}
+          </div>
+        )}
 
-                {chatMessages.map((msg, i) => (
-                  <div key={msg.id} className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                    {/* Message Header */}
-                    <div className="flex items-center gap-2 px-1 opacity-60">
-                      <span className="text-[10px] font-bold uppercase tracking-wider">{msg.role === 'user' ? 'You' : 'Mirai'}</span>
-                      <TokenBadge tokenCount={msg.tokenCount} role={msg.role} />
-                    </div>
-                    {msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0 && (
-                      <div className="flex flex-col gap-1 mb-1 mt-1 max-w-[90%]">
-                        {msg.toolCalls.map(tc => (
-                          <div key={tc.id} className="flex items-center gap-2 px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] font-mono text-white/50 w-fit">
-                            {tc.status === 'running' ? (
-                              <div className="w-2.5 h-2.5 rounded-full border border-blue-400 border-t-transparent animate-spin shrink-0" />
-                            ) : (
-                              <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                            )}
-                            <span className="truncate max-w-[200px]">{tc.status === 'running' ? 'Running' : 'Completed'} <span className="text-white/70">{tc.name}</span></span>
-                          </div>
-                        ))}
-                      </div>
+        {chatMessages.map((msg, i) => (
+          <div key={msg.id} className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+            {/* Message Header */}
+            <div className="flex items-center gap-2 px-1 opacity-60">
+              <span className="text-[10px] font-bold uppercase tracking-wider">{msg.role === 'user' ? 'You' : 'Mirai'}</span>
+              <TokenBadge tokenCount={msg.tokenCount} role={msg.role} />
+            </div>
+            {msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0 && (
+              <div className="flex flex-col gap-1 mb-1 mt-1 max-w-[90%]">
+                {msg.toolCalls.map(tc => (
+                  <div key={tc.id} className="flex items-center gap-2 px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] font-mono text-white/50 w-fit">
+                    {tc.status === 'running' ? (
+                      <div className="w-2.5 h-2.5 rounded-full border border-blue-400 border-t-transparent animate-spin shrink-0" />
+                    ) : (
+                      <Check className="w-3 h-3 text-emerald-400 shrink-0" />
                     )}
-                    <div
-                      className={`max-w-[90%] overflow-x-auto px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono ${msg.role === 'user'
-                        ? 'bg-[var(--color-primary-accent)]/20 text-[var(--text-active)] rounded-br-sm'
-                        : 'bg-[var(--color-glass-bg)] text-[var(--text-normal)] rounded-bl-sm border border-[var(--color-glass-border)]'
-                        }`}
-                    >
-                      <div className="whitespace-pre-wrap break-words">
-                        <ReactMarkdown
-                          components={{
-                            code(props) {
-                              return <CodeBlockRenderer {...props} handleReviewChange={handleReviewChange} />;
-                            }
-                          }}
-                        >
-                          {msg.content}
-                        </ReactMarkdown>
-                      </div>
-                      {isStreaming && msg.role === 'assistant' && i === chatMessages.length - 1 && (
-                        <span className="inline-block w-1.5 h-3 bg-purple-400/70 rounded-sm ml-0.5 animate-pulse align-text-bottom" />
-                      )}
-                    </div>
-
-                    {msg.pendingChangeIds && msg.pendingChangeIds.length > 0 && (
-                      <PendingChangesWidget changeIds={msg.pendingChangeIds} />
-                    )}
+                    <span className="truncate max-w-[200px]">{tc.status === 'running' ? 'Running' : 'Completed'} <span className="text-white/70">{tc.name}</span></span>
                   </div>
                 ))}
-
-                <div ref={messagesEndRef} className="h-4 w-full shrink-0" />
-              </>
+              </div>
             )}
-          </SimpleBar>
-
-          {/* Attached Files display */}
-          {(attachedFiles.length > 0 || attachedPaths.length > 0) && (
-            <div className="px-2 py-1 flex gap-2 overflow-x-auto custom-scrollbar border-t border-white/5">
-              {attachedPaths.map((path, idx) => (
-                <div key={`path-${idx}`} className="flex items-center gap-1 bg-white/10 rounded-md px-2 py-1 shrink-0 group">
-                  <FileCode className="w-3 h-3 text-blue-400" />
-                  <span className="text-[10px] font-mono text-white/80 max-w-[150px] truncate" title={path}>{path.split('/').pop() || path.split('\\').pop()}</span>
-                  <button onClick={() => removePath(idx)} className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 ml-1">
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-              {attachedFiles.map((file, idx) => (
-                <div key={`file-${idx}`} className="flex items-center gap-1 bg-white/10 rounded-md px-2 py-1 shrink-0 group">
-                  <FileCode className="w-3 h-3 text-white/60" />
-                  <span className="text-[10px] font-mono text-white/80 max-w-[100px] truncate">{file.name}</span>
-                  <button onClick={() => removeFile(idx)} className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 ml-1">
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-
-
-          {/* Token Optimization Tips */}
-          <TokenOptimizationTips />
-
-          {/* Input */}
-          <div className="p-2 border-t border-white/5 shrink-0 relative">
-            <AnimatePresence>
-              {showActionMenu && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: 5 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute bottom-full left-2 mb-2 w-48 bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-1 z-50"
+            <div
+              className={`max-w-[90%] overflow-x-auto px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono ${msg.role === 'user'
+                ? 'bg-[var(--color-primary-accent)]/20 text-[var(--text-active)] rounded-br-sm'
+                : 'bg-[var(--color-glass-bg)] text-[var(--text-normal)] rounded-bl-sm border border-[var(--color-glass-border)]'
+                }`}
+            >
+              <div className="whitespace-pre-wrap break-words">
+                <ReactMarkdown
+                  components={{
+                    code(props) {
+                      return <CodeBlockRenderer {...props} handleReviewChange={handleReviewChange} />;
+                    }
+                  }}
                 >
-                  <button onClick={handleAddActiveFile} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
-                    <FilePlus2 className="w-3.5 h-3.5 text-blue-400/70" /> Add Active File
-                  </button>
-                  <button onClick={handleUploadMedia} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
-                    <Paperclip className="w-3.5 h-3.5 text-white/40" /> Upload Media
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="flex items-center gap-2 bg-white/[0.03] rounded-xl px-2 py-2 border border-white/5 focus-within:border-[var(--color-primary-accent)]/40 transition-colors relative z-20">
-              <button
-                onClick={() => setShowActionMenu(!showActionMenu)}
-                className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-colors ${showActionMenu ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                  }
-                }}
-                placeholder={hasPendingChanges ? 'Waiting for approval...' : backendAvailable === false ? 'Backend offline' : isListening ? 'Listening...' : 'Ask AI...'}
-                disabled={isStreaming || backendAvailable === false || hasPendingChanges}
-                className="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--text-active)] placeholder:text-[var(--text-muted)] font-mono disabled:opacity-40"
-              />
-
-              <button
-                onClick={toggleVoiceMode}
-                title="Voice Dictation"
-                className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-colors ${isListening ? 'text-red-400 bg-red-400/20 animate-pulse' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
-              >
-                {isListening ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
-              </button>
-
-              {isStreaming ? (
-                <button
-                  onClick={stopGeneration}
-                  className="w-6 h-6 rounded-lg bg-red-500/80 flex items-center justify-center hover:bg-red-500 transition-all shrink-0"
-                >
-                  <Square className="w-3 h-3 text-white" fill="white" />
-                </button>
-              ) : (
-                <button
-                  onClick={sendMessage}
-                  disabled={(!input.trim() && attachedFiles.length === 0) || backendAvailable === false}
-                  className="w-6 h-6 rounded-lg bg-[var(--color-primary-accent)] flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-30 shrink-0"
-                >
-                  <Send className="w-3 h-3 text-white" />
-                </button>
+                  {msg.content}
+                </ReactMarkdown>
+              </div>
+              {isStreaming && msg.role === 'assistant' && i === chatMessages.length - 1 && (
+                <span className="inline-block w-1.5 h-3 bg-purple-400/70 rounded-sm ml-0.5 animate-pulse align-text-bottom" />
               )}
             </div>
+
+            {msg.pendingChangeIds && msg.pendingChangeIds.length > 0 && (
+              <PendingChangesWidget changeIds={msg.pendingChangeIds} />
+            )}
           </div>
-        </>
+        ))}
+
+        <div ref={messagesEndRef} className="h-4 w-full shrink-0" />
+      </>
+            )}
+    </SimpleBar>
+
+          {/* Attached Files display */ }
+  {
+    (attachedFiles.length > 0 || attachedPaths.length > 0) && (
+      <div className="px-2 py-1 flex gap-2 overflow-x-auto custom-scrollbar border-t border-white/5">
+        {attachedPaths.map((path, idx) => (
+          <div key={`path-${idx}`} className="flex items-center gap-1 bg-white/10 rounded-md px-2 py-1 shrink-0 group">
+            <FileCode className="w-3 h-3 text-blue-400" />
+            <span className="text-[10px] font-mono text-white/80 max-w-[150px] truncate" title={path}>{path.split('/').pop() || path.split('\\').pop()}</span>
+            <button onClick={() => removePath(idx)} className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 ml-1">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        ))}
+        {attachedFiles.map((file, idx) => (
+          <div key={`file-${idx}`} className="flex items-center gap-1 bg-white/10 rounded-md px-2 py-1 shrink-0 group">
+            <FileCode className="w-3 h-3 text-white/60" />
+            <span className="text-[10px] font-mono text-white/80 max-w-[100px] truncate">{file.name}</span>
+            <button onClick={() => removeFile(idx)} className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 ml-1">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  {/* Token Optimization Tips */ }
+  <TokenOptimizationTips />
+
+  {/* Input */ }
+  <div className="p-2 border-t border-white/5 shrink-0 relative">
+    <AnimatePresence>
+      {showActionMenu && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 5 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 5 }}
+          transition={{ duration: 0.15 }}
+          className="absolute bottom-full left-2 mb-2 w-48 bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-1 z-50"
+        >
+          <button onClick={handleAddActiveFile} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+            <FilePlus2 className="w-3.5 h-3.5 text-blue-400/70" /> Add Active File                  </button>
+          <button onClick={handleUploadMedia} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+            <Paperclip className="w-3.5 h-3.5 text-white/40" /> Upload Media
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+
+    <div className="flex items-center gap-2 bg-white/[0.03] rounded-xl px-2 py-2 border border-white/5 focus-within:border-[var(--color-primary-accent)]/40 transition-colors relative z-20">
+      <button
+        onClick={() => setShowActionMenu(!showActionMenu)}
+        className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-colors ${showActionMenu ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
+      >
+        <Plus className="w-4 h-4" />
+      </button>
+
+      <input
+        ref={inputRef}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+          }
+        }}
+        placeholder={hasPendingChanges ? 'Waiting for approval...' : backendAvailable === false ? 'Backend offline' : isListening ? 'Listening...' : 'Ask AI...'}
+        disabled={isStreaming || backendAvailable === false || hasPendingChanges}
+        className="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--text-active)] placeholder:text-[var(--text-muted)] font-mono disabled:opacity-40"
+      />
+
+      {/* Voice Orb - Replaces the simple mic button */}
+      <div className="flex items-center gap-2">
+        <VoiceOrb
+          size={40}
+          showControls={false}
+          showLabel={false}
+          onVoiceMessage={(text) => {
+            setInput(prev => prev + (prev ? ' ' : '') + text);
+            sendMessage();
+          }}
+        />
+      </div>
+
+      {isStreaming ? (
+        <button
+          onClick={stopGeneration}
+          className="w-6 h-6 rounded-lg bg-red-500/80 flex items-center justify-center hover:bg-red-500 transition-all shrink-0"
+        >
+          <Square className="w-3 h-3 text-white" fill="white" />
+        </button>
+      ) : (
+        <button
+          onClick={sendMessage}
+          disabled={(!input.trim() && attachedFiles.length === 0) || backendAvailable === false}
+          className="w-6 h-6 rounded-lg bg-[var(--color-primary-accent)] flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-30 shrink-0"
+        >
+          <Send className="w-3 h-3 text-white" />
+        </button>
       )}
     </div>
+  </div>
+        </>
+      )
+}
+    </div >
   );
 }

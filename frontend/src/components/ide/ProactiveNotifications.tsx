@@ -6,7 +6,7 @@ import { AlertTriangle, GitBranch, Bug, FileCode, X, Bell, Check } from 'lucide-
 import { getBackendBase } from '@/lib/api';
 import { playSound } from '@/lib/soundEffects';
 
-interface ProactiveEvent {
+export interface ProactiveEvent {
     id: string;
     type: string;
     description: string;
