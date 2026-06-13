@@ -152,7 +152,7 @@ function NewItemDialog({ type, onConfirm, onCancel }: {
   );
 }
 
-const TreeItem = ({
+const TreeItem = React.memo(({
   node, depth = 0, onContextMenu, onRefresh, explorerIndentGuides
 }: {
   node: FileEntry; depth?: number;
@@ -239,7 +239,8 @@ const TreeItem = ({
       )}
     </div>
   );
-};
+});
+TreeItem.displayName = 'TreeItem';
 
 export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragStart }: { isMinimized?: boolean; onMinimize?: () => void; onClose?: () => void; onDragStart?: (e: React.DragEvent) => void }) {
   const [rootNodes, setRootNodes] = useState<FileEntry[]>([]);
@@ -345,14 +346,21 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
             {isRefreshing ? (
               <motion.div
                 key="splash"
-                initial={{ opacity: 0, filter: 'blur(4px)' }}
-                animate={{ opacity: 1, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, filter: 'blur(4px)' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="absolute inset-0 flex flex-col items-center justify-center bg-[#050505]/80 backdrop-blur-sm z-10"
+                className="absolute inset-0 flex flex-col gap-2 px-3 py-2 bg-[#050505]/80 backdrop-blur-sm z-10"
               >
-                <div className="w-6 h-6 border-2 border-[var(--color-primary-accent)] border-t-transparent rounded-full animate-spin mb-3"></div>
-                <div className="text-white/40 text-[10px] font-mono tracking-widest uppercase">Refreshing Workspace</div>
+                {Array.from({ length: 15 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2.5 opacity-50" style={{ animationDelay: `${i * 0.05}s` }}>
+                    <div className="w-3.5 h-3.5 rounded-sm bg-white/10 animate-pulse" />
+                    <div 
+                      className="h-2.5 rounded-sm bg-white/10 animate-pulse" 
+                      style={{ width: `${Math.max(30, 85 - (i * 3))}%` }}
+                    />
+                  </div>
+                ))}
               </motion.div>
             ) : (
               <motion.div
