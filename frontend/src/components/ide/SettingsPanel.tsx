@@ -11,11 +11,10 @@ import { api } from '@/lib/api';
 
 const WALLPAPER_PRESETS = [
   { id: 'none', name: 'None', url: '' },
-  { id: 'sakura-night', name: 'Sakura Night', url: '/wallpapers/sakura-night.svg' },
-  { id: 'cyber-city', name: 'Cyber City', url: '/wallpapers/cyber-city.svg' },
-  { id: 'moon-rain', name: 'Moon Rain', url: '/wallpapers/moon-rain.svg' },
-  { id: 'spirited-away', name: 'Spirited Away', url: '/wallpapers/spirited-away.svg' },
-  { id: 'neon-genesis', name: 'Neon Genesis', url: '/wallpapers/neon-genesis.svg' },
+  { id: 'anime-cityscape', name: 'Sunset Cityscape', url: '/wallpapers/anime-cityscape.png' },
+  { id: 'anime-nature', name: 'Ghibli Nature', url: '/wallpapers/anime-nature.png' },
+  { id: 'anime-space', name: 'Sci-Fi Space', url: '/wallpapers/anime-space.png' },
+  { id: 'anime-cyberpunk', name: 'Neon Cyberpunk', url: '/wallpapers/anime-cyberpunk.png' },
 ];
 
 type SettingsTab = 'editor' | 'theme' | 'ai' | 'extensions' | 'mcp' | 'general';

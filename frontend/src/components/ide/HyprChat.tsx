@@ -17,9 +17,51 @@ import { formatTokens } from '@/lib/agent/policies';
 import AgentPreferencesPanel from './AgentPreferencesPanel';
 import { DEFAULT_AGENT_PREFERENCES } from '@/lib/agent/policies';
 
-const DEFAULT_SYSTEM_PROMPT = `You are a coding agent integrated into the Mirai IDE.
-You can read, write, and modify files.
-When asked to change code, you MUST use the following format exactly for your code blocks to allow the user to apply them:
+const DEFAULT_SYSTEM_PROMPT = `You are Mirai, an autonomous software engineering agent inside Mirai IDE.
+
+ENVIRONMENT
+
+You have direct access to:
+- Entire workspace file system
+- Open editors
+- Terminal
+- Browser
+- Search tools
+- Project structure
+- Git repository
+
+You can inspect, read, create, modify, rename, and delete files.
+You MUST assume workspace access already exists.
+
+DO NOT ask the user:
+- to upload files
+- to paste code
+- to provide project structure
+- to provide folder names
+- to provide file contents
+unless you have already searched the workspace and cannot find what is needed.
+
+WORKFLOW
+
+Before asking any question:
+1. Search the workspace.
+2. Read relevant files.
+3. Analyze project structure.
+4. Identify likely files.
+5. Attempt the task.
+
+Only ask questions if a genuine ambiguity remains.
+
+FILE DISCOVERY
+
+Never ask where files are located before searching. 
+Use your directory listing and file reading tools to explore the workspace.
+
+CODE CHANGES
+
+CRITICAL: Do NOT use file-writing tools OR terminal commands (like echo, cat, sed) to edit code files directly. You MUST ONLY output code blocks in the chat using the following format. The IDE frontend will handle the actual file modification after the user approves the diff.
+
+When asked to change code, you MUST use the following format exactly:
 
 \`\`\`<language>:<filepath>
 <file contents>
@@ -32,7 +74,15 @@ Example:
 \`\`\`
 
 Always provide the FULL file contents. Do not truncate. Explain your changes briefly before or after the code block.
-You also have full access to a terminal, file system, web browser, and semantic search. You CAN run terminal commands on behalf of the user when requested. DO NOT say you cannot run commands.`;
+
+AUTONOMY
+
+Default behavior:
+* Investigate first
+* Act second
+* Ask last
+
+You are expected to behave like a senior autonomous agent. The user should not need to manually guide file discovery. If information exists in the workspace, retrieve it yourself.`;
 
 interface ChatPanelProps {
   isPinned: boolean;
@@ -56,21 +106,19 @@ function PendingChangesWidget({ changeIds }: { changeIds: string[] }) {
       {changes.map((change) => (
         <div
           key={change.id}
-          className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-[11px] font-mono border transition-all ${
-            change.status === 'accepted'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-              : change.status === 'rejected'
+          className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-[11px] font-mono border transition-all ${change.status === 'accepted'
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+            : change.status === 'rejected'
               ? 'bg-red-500/10 border-red-500/30 text-red-400'
               : 'bg-white/5 border-white/10 text-white/70'
-          }`}
+            }`}
         >
           <div className="flex items-center gap-2 overflow-hidden">
             <FileCode className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">{change.fileName}</span>
             {change.status !== 'pending' && (
-              <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ${
-                change.status === 'accepted' ? 'bg-emerald-500/20' : 'bg-red-500/20'
-              }`}>
+              <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ${change.status === 'accepted' ? 'bg-emerald-500/20' : 'bg-red-500/20'
+                }`}>
                 {change.status}
               </span>
             )}
@@ -108,20 +156,19 @@ function PendingChangesWidget({ changeIds }: { changeIds: string[] }) {
 function TokenBadge({ tokenCount, role }: { tokenCount?: number; role: string }) {
   if (tokenCount === undefined) return null;
   return (
-    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${
-      role === 'user' ? 'bg-white/5 text-white/30' : 'bg-white/5 text-white/30'
-    }`}>
+    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${role === 'user' ? 'bg-white/5 text-white/30' : 'bg-white/5 text-white/30'
+      }`}>
       ~{formatTokens(tokenCount)}
     </span>
   );
 }
 
-function CodeBlockRenderer({ children, className, handleReviewChange, ...rest }: { children?: React.ReactNode; className?: string; handleReviewChange: (filepath: string, code: string) => void; [key: string]: unknown }) {
+function CodeBlockRenderer({ children, className, handleReviewChange, ...rest }: { children?: React.ReactNode; className?: string; handleReviewChange: (filepath: string, code: string) => void;[key: string]: unknown }) {
   const codeString = String(children).replace(/\n$/, '');
   const match = /language-([a-zA-Z0-9_-]+)(?::(.+))?/.exec(className || '');
   const lang = match ? match[1] : '';
   const filepath = match && match[2] ? match[2] : '';
-  
+
   const [isExpanded, setIsExpanded] = useState(!filepath); // Auto-minimize if it's a file edit
 
   if (match) {
@@ -190,6 +237,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     updateMessage,
     clearMessages,
   } = useChatStore();
+  const hasPendingChanges = useEditorStore(state => state.pendingChanges.some(c => c.status === 'pending'));
 
 
   const [input, setInput] = useState('');
@@ -242,7 +290,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
   const isListeningRef = useRef(false);
 
-  const sendMessageRef = useRef<() => void>(() => {});
+  const sendMessageRef = useRef<() => void>(() => { });
 
   const toggleVoiceMode = useCallback(() => {
     if (isListeningRef.current) {
@@ -376,9 +424,15 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
         originalContent = '';
       }
 
-      const { proposePendingChange, openDiffForReview } = useEditorStore.getState();
+      const { proposePendingChange, setActiveFile, acceptChange } = useEditorStore.getState();
       const changeId = proposePendingChange(absPath, codeString, originalContent);
-      openDiffForReview(changeId);
+
+      if (useAiStore.getState().autoApproveSettings.editProjectFiles) {
+        acceptChange(changeId);
+      } else {
+        const fileName = absPath.split(/[/\\]/).pop() || absPath;
+        setActiveFile(absPath, fileName, originalContent);
+      }
     } catch (err) {
       console.error('Failed to open review:', err);
     }
@@ -429,13 +483,23 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
       // Build messages from chat store
       const storeMessages = useChatStore.getState().messages;
       const autoApproveSettings = useAiStore.getState().autoApproveSettings;
+      const workspacePath = useWorkspaceStore.getState().workspacePath || 'No workspace open';
+      const openFiles = useEditorStore.getState().groups.flatMap(g => g.tabs.map(t => t.path));
+
+      const dynamicContext = `
+CURRENT WORKSPACE
+Workspace Root: ${workspacePath}
+Open Files:
+${openFiles.map(f => `- ${f}`).join('\n') || '- None'}
+
+Use this information before asking the user for files.`;
 
       const res = await fetch('http://127.0.0.1:8000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [
-            { role: 'system', content: DEFAULT_SYSTEM_PROMPT + (!autoApproveSettings.editProjectFiles ? '\n\nIMPORTANT: You do NOT have permission to edit files automatically. You MUST ask the user for permission and receive approval BEFORE providing any code edits in the ```language:filepath format.' : '') },
+            { role: 'system', content: DEFAULT_SYSTEM_PROMPT + '\n\n' + dynamicContext + (!autoApproveSettings.editProjectFiles ? '\n\nIMPORTANT: You do NOT have permission to edit files automatically. You MUST ask the user for permission and receive approval BEFORE providing any code edits in the ```language:filepath format.' : '') },
             ...storeMessages.map((m) => ({ role: m.role, content: m.content })),
           ],
           provider: activeProvider?.id || 'openai',
@@ -481,6 +545,15 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
               if (typeof event.content === 'string' && event.content.trim()) {
                 accumulatedContent = event.content;
                 updateMessage(assistantMsg.id, { content: accumulatedContent });
+
+                // Auto-parse file edits and create pending changes
+                const fileRegex = /```[a-zA-Z0-9_-]+:([^\n]+)\n([\s\S]*?)```/g;
+                let match;
+                while ((match = fileRegex.exec(accumulatedContent)) !== null) {
+                  const filepath = match[1].trim();
+                  const codeString = match[2].trim();
+                  handleReviewChange(filepath, codeString);
+                }
               }
             } else if (event.type === 'tool_start') {
               const currentMsg = useChatStore.getState().messages.find(m => m.id === assistantMsg.id);
@@ -526,7 +599,11 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
       if (!currentContent || !currentContent.trim()) {
         useChatStore.getState().removeMessage(assistantMsg.id);
       }
-      inputRef.current?.focus();
+
+      const hasPending = useEditorStore.getState().pendingChanges.some(c => c.status === 'pending');
+      if (!hasPending) {
+        inputRef.current?.focus();
+      }
     }
   };
 
@@ -538,11 +615,19 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     if (chatMessages.length === 0) return;
     if (confirm('Clear all chat messages? This cannot be undone.')) {
       clearMessages();
+      const { pendingChanges, rejectChange } = useEditorStore.getState();
+      pendingChanges.forEach(c => {
+        if (c.status === 'pending') rejectChange(c.id);
+      });
     }
   };
 
   const handleNewChat = () => {
     clearMessages();
+    const { pendingChanges, rejectChange } = useEditorStore.getState();
+    pendingChanges.forEach(c => {
+      if (c.status === 'pending') rejectChange(c.id);
+    });
     setInput('');
     inputRef.current?.focus();
   };
@@ -727,133 +812,133 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
           <SimpleBar className="flex-1 p-3 flex flex-col gap-3 relative min-h-0">
             {isConvoMode ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--panel-bg)] z-30">
-                  <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="relative w-48 h-48 flex items-center justify-center mb-8"
-                  >
-                    {/* High-tech rotating rings */}
-                    {isStreaming && (
-                      <>
-                        <motion.div
-                          animate={{ rotate: 360, scale: [1, 1.1, 1] }}
-                          transition={{ rotate: { duration: 8, repeat: Infinity, ease: "linear" }, scale: { duration: 2, repeat: Infinity, ease: "easeInOut" } }}
-                          className="absolute inset-2 border-[2px] border-purple-500/30 rounded-full border-t-purple-400"
-                        />
-                        <motion.div
-                          animate={{ rotate: -360, scale: [1, 1.2, 1] }}
-                          transition={{ rotate: { duration: 12, repeat: Infinity, ease: "linear" }, scale: { duration: 3, repeat: Infinity, ease: "easeInOut" } }}
-                          className="absolute inset-4 border-[1px] border-blue-500/20 rounded-full border-b-blue-400"
-                        />
-                      </>
-                    )}
-                    {/* Outer pulsing ring when AI is speaking */}
-                    {isStreaming && (
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="relative w-48 h-48 flex items-center justify-center mb-8"
+                >
+                  {/* High-tech rotating rings */}
+                  {isStreaming && (
+                    <>
                       <motion.div
-                        animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.7, 0.3] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                        className="absolute inset-0 rounded-full bg-purple-500/20 blur-2xl"
+                        animate={{ rotate: 360, scale: [1, 1.1, 1] }}
+                        transition={{ rotate: { duration: 8, repeat: Infinity, ease: "linear" }, scale: { duration: 2, repeat: Infinity, ease: "easeInOut" } }}
+                        className="absolute inset-2 border-[2px] border-purple-500/30 rounded-full border-t-purple-400"
                       />
-                    )}
-                    {/* Inner active ring when User is speaking */}
-                    {isListening && !isStreaming && (
-                      <>
-                        <motion.div
-                          animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.8, 0.4] }}
-                          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                          className="absolute inset-4 rounded-full bg-emerald-500/20 blur-xl"
-                        />
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                          className="absolute inset-6 border-[2px] border-emerald-500/30 rounded-full border-l-emerald-400 border-r-emerald-400 border-t-transparent border-b-transparent"
-                        />
-                      </>
-                    )}
-                    {/* Core orb */}
-                    <div className={`w-24 h-24 rounded-full shadow-[0_0_40px_rgba(124,58,237,0.4)] border border-white/10 flex items-center justify-center transition-colors duration-500 ${isStreaming ? 'bg-gradient-to-tr from-purple-500/30 to-blue-500/30' : isListening ? 'bg-gradient-to-tr from-emerald-500/30 to-teal-500/30' : 'bg-white/5'}`}>
-                      <Activity className={`w-8 h-8 ${isStreaming ? 'text-purple-400' : isListening ? 'text-emerald-400' : 'text-white/30'}`} />
-                    </div>
-                  </motion.div>
-                  <div className="font-mono text-[12px] text-white/50 tracking-widest uppercase text-center drop-shadow-md">
-                    {isStreaming ? 'Mirai-chan is speaking...' : isListening ? 'Listening...' : 'Convo Mode Paused'}
+                      <motion.div
+                        animate={{ rotate: -360, scale: [1, 1.2, 1] }}
+                        transition={{ rotate: { duration: 12, repeat: Infinity, ease: "linear" }, scale: { duration: 3, repeat: Infinity, ease: "easeInOut" } }}
+                        className="absolute inset-4 border-[1px] border-blue-500/20 rounded-full border-b-blue-400"
+                      />
+                    </>
+                  )}
+                  {/* Outer pulsing ring when AI is speaking */}
+                  {isStreaming && (
+                    <motion.div
+                      animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.7, 0.3] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                      className="absolute inset-0 rounded-full bg-purple-500/20 blur-2xl"
+                    />
+                  )}
+                  {/* Inner active ring when User is speaking */}
+                  {isListening && !isStreaming && (
+                    <>
+                      <motion.div
+                        animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.8, 0.4] }}
+                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                        className="absolute inset-4 rounded-full bg-emerald-500/20 blur-xl"
+                      />
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                        className="absolute inset-6 border-[2px] border-emerald-500/30 rounded-full border-l-emerald-400 border-r-emerald-400 border-t-transparent border-b-transparent"
+                      />
+                    </>
+                  )}
+                  {/* Core orb */}
+                  <div className={`w-24 h-24 rounded-full shadow-[0_0_40px_rgba(124,58,237,0.4)] border border-white/10 flex items-center justify-center transition-colors duration-500 ${isStreaming ? 'bg-gradient-to-tr from-purple-500/30 to-blue-500/30' : isListening ? 'bg-gradient-to-tr from-emerald-500/30 to-teal-500/30' : 'bg-white/5'}`}>
+                    <Activity className={`w-8 h-8 ${isStreaming ? 'text-purple-400' : isListening ? 'text-emerald-400' : 'text-white/30'}`} />
                   </div>
-                  <div className="mt-8 px-8 text-center text-[11px] font-mono text-white/30 max-w-sm">
-                    {chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'user' ? (
-                       <span className="text-white/60">&quot;{chatMessages[chatMessages.length - 1].content}&quot;</span>
-                    ) : chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'assistant' ? (
-                       <span className="text-white/40 line-clamp-3">Mirai-chan: {chatMessages[chatMessages.length - 1].content}</span>
-                    ) : 'Speak to interact with Mirai-chan.'}
-                  </div>
+                </motion.div>
+                <div className="font-mono text-[12px] text-white/50 tracking-widest uppercase text-center drop-shadow-md">
+                  {isStreaming ? 'Mirai-chan is speaking...' : isListening ? 'Listening...' : 'Convo Mode Paused'}
+                </div>
+                <div className="mt-8 px-8 text-center text-[11px] font-mono text-white/30 max-w-sm">
+                  {chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'user' ? (
+                    <span className="text-white/60">&quot;{chatMessages[chatMessages.length - 1].content}&quot;</span>
+                  ) : chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'assistant' ? (
+                    <span className="text-white/40 line-clamp-3">Mirai-chan: {chatMessages[chatMessages.length - 1].content}</span>
+                  ) : 'Speak to interact with Mirai-chan.'}
+                </div>
               </div>
             ) : (
               <>
                 {chatMessages.length === 0 && !error && (
                   <div className="flex-1 flex items-center justify-center flex-col gap-2">
-                <p className="text-[11px] text-[var(--text-muted)] font-mono">
-                  {backendAvailable === false
-                    ? 'Backend offline. Start the server to chat.'
-                    : `Start a conversation...`}
-                </p>
-              </div>
-            )}
+                    <p className="text-[11px] text-[var(--text-muted)] font-mono">
+                      {backendAvailable === false
+                        ? 'Backend offline. Start the server to chat.'
+                        : `Start a conversation...`}
+                    </p>
+                  </div>
+                )}
 
-            {error && (
-              <div className="px-3 py-2 rounded-xl text-[11px] font-mono bg-red-500/10 text-red-400 border border-red-500/20">
-                {error}
-              </div>
-            )}
+                {error && (
+                  <div className="px-3 py-2 rounded-xl text-[11px] font-mono bg-red-500/10 text-red-400 border border-red-500/20">
+                    {error}
+                  </div>
+                )}
 
-            {chatMessages.map((msg, i) => (
-              <div key={msg.id} className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                {/* Message Header */}
-                <div className="flex items-center gap-2 px-1 opacity-60">
-                  <span className="text-[10px] font-bold uppercase tracking-wider">{msg.role === 'user' ? 'You' : 'Mirai-chan'}</span>
-                  <TokenBadge tokenCount={msg.tokenCount} role={msg.role} />
-                </div>
-                {msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0 && (
-                  <div className="flex flex-col gap-1 mb-1 mt-1 max-w-[90%]">
-                    {msg.toolCalls.map(tc => (
-                      <div key={tc.id} className="flex items-center gap-2 px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] font-mono text-white/50 w-fit">
-                        {tc.status === 'running' ? (
-                          <div className="w-2.5 h-2.5 rounded-full border border-blue-400 border-t-transparent animate-spin shrink-0" />
-                        ) : (
-                          <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                        )}
-                        <span className="truncate max-w-[200px]">{tc.status === 'running' ? 'Running' : 'Completed'} <span className="text-white/70">{tc.name}</span></span>
+                {chatMessages.map((msg, i) => (
+                  <div key={msg.id} className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                    {/* Message Header */}
+                    <div className="flex items-center gap-2 px-1 opacity-60">
+                      <span className="text-[10px] font-bold uppercase tracking-wider">{msg.role === 'user' ? 'You' : 'Mirai-chan'}</span>
+                      <TokenBadge tokenCount={msg.tokenCount} role={msg.role} />
+                    </div>
+                    {msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0 && (
+                      <div className="flex flex-col gap-1 mb-1 mt-1 max-w-[90%]">
+                        {msg.toolCalls.map(tc => (
+                          <div key={tc.id} className="flex items-center gap-2 px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] font-mono text-white/50 w-fit">
+                            {tc.status === 'running' ? (
+                              <div className="w-2.5 h-2.5 rounded-full border border-blue-400 border-t-transparent animate-spin shrink-0" />
+                            ) : (
+                              <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                            )}
+                            <span className="truncate max-w-[200px]">{tc.status === 'running' ? 'Running' : 'Completed'} <span className="text-white/70">{tc.name}</span></span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
-                <div
-                  className={`max-w-[90%] overflow-x-auto px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono ${msg.role === 'user'
-                      ? 'bg-[var(--color-primary-accent)]/20 text-[var(--text-active)] rounded-br-sm'
-                      : 'bg-[var(--color-glass-bg)] text-[var(--text-normal)] rounded-bl-sm border border-[var(--color-glass-border)]'
-                    }`}
-                >
-                  <div className="whitespace-pre-wrap break-words">
-                    <ReactMarkdown
-                      components={{
-                        code(props) {
-                          return <CodeBlockRenderer {...props} handleReviewChange={handleReviewChange} />;
-                        }
-                      }}
+                    )}
+                    <div
+                      className={`max-w-[90%] overflow-x-auto px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono ${msg.role === 'user'
+                        ? 'bg-[var(--color-primary-accent)]/20 text-[var(--text-active)] rounded-br-sm'
+                        : 'bg-[var(--color-glass-bg)] text-[var(--text-normal)] rounded-bl-sm border border-[var(--color-glass-border)]'
+                        }`}
                     >
-                      {msg.content}
-                    </ReactMarkdown>
+                      <div className="whitespace-pre-wrap break-words">
+                        <ReactMarkdown
+                          components={{
+                            code(props) {
+                              return <CodeBlockRenderer {...props} handleReviewChange={handleReviewChange} />;
+                            }
+                          }}
+                        >
+                          {msg.content}
+                        </ReactMarkdown>
+                      </div>
+                      {isStreaming && msg.role === 'assistant' && i === chatMessages.length - 1 && (
+                        <span className="inline-block w-1.5 h-3 bg-purple-400/70 rounded-sm ml-0.5 animate-pulse align-text-bottom" />
+                      )}
+                    </div>
+
+                    {msg.pendingChangeIds && msg.pendingChangeIds.length > 0 && (
+                      <PendingChangesWidget changeIds={msg.pendingChangeIds} />
+                    )}
                   </div>
-                  {isStreaming && msg.role === 'assistant' && i === chatMessages.length - 1 && (
-                    <span className="inline-block w-1.5 h-3 bg-purple-400/70 rounded-sm ml-0.5 animate-pulse align-text-bottom" />
-                  )}
-                </div>
+                ))}
 
-                {msg.pendingChangeIds && msg.pendingChangeIds.length > 0 && (
-                  <PendingChangesWidget changeIds={msg.pendingChangeIds} />
-                )}
-              </div>
-            ))}
-
-            <div ref={messagesEndRef} className="h-4 w-full shrink-0" />
+                <div ref={messagesEndRef} className="h-4 w-full shrink-0" />
               </>
             )}
           </SimpleBar>
@@ -926,8 +1011,8 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                     sendMessage();
                   }
                 }}
-                placeholder={backendAvailable === false ? 'Backend offline' : isListening ? 'Listening...' : 'Ask AI...'}
-                disabled={isStreaming || backendAvailable === false}
+                placeholder={hasPendingChanges ? 'Waiting for approval...' : backendAvailable === false ? 'Backend offline' : isListening ? 'Listening...' : 'Ask AI...'}
+                disabled={isStreaming || backendAvailable === false || hasPendingChanges}
                 className="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--text-active)] placeholder:text-[var(--text-muted)] font-mono disabled:opacity-40"
               />
 

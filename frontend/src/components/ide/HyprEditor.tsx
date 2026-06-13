@@ -3,7 +3,7 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Editor, { type OnMount, type OnChange, loader, DiffEditor as MonacoDiffEditor } from '@monaco-editor/react';
-import { X, ChevronRight, Pin } from 'lucide-react';
+import { X, ChevronRight, Pin, Check } from 'lucide-react';
 import { type EditorGroup } from '@/store/ideStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useEditorStore } from '@/store/editorStore';
@@ -188,7 +188,7 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
   const { activeGroupId, setActiveGroup, removeGroup, groups, updateFileContent, saveFile, pendingChanges, acceptChange, rejectChange } = useEditorStore();
   const { editorSettings } = useSettingsStore();
   const isActive = group.id === activeGroupId;
-  const activePendingChange = group.activeFile ? pendingChanges.find(c => c.fileName === group.activeFile && c.status === 'pending') : undefined;
+  const activePendingChange = group.activeFile ? pendingChanges.find(c => c.filePath === group.activeFile && c.status === 'pending') : undefined;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const editorRef = useRef<any>(null);
   const [cursorLine, setCursorLine] = useState(1);
@@ -290,6 +290,7 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
         domNode.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
         domNode.style.backgroundColor = 'rgba(0,0,0,0.95)';
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         editor.changeViewZones((accessor: any) => {
           zoneIdRef.current = accessor.addZone({
             afterLineNumber: 1, // Render at top of file
@@ -301,14 +302,22 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
       }
     } else {
       if (zoneNode) {
-        editor.changeViewZones((accessor: any) => {
-          if (zoneIdRef.current) accessor.removeZone(zoneIdRef.current);
-        });
+        const idToRemove = zoneIdRef.current;
+        // Delay DOM removal to allow React to unmount MonacoDiffEditor cleanly
+        setTimeout(() => {
+          if (editorRef.current) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            editorRef.current.changeViewZones((accessor: any) => {
+              if (idToRemove) accessor.removeZone(idToRemove);
+            });
+          }
+        }, 100);
         setZoneNode(null);
         zoneIdRef.current = null;
       }
     }
-  }, [activePendingChange, editorRef.current]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePendingChange]);
 
   // Save with format on save
   useEffect(() => {
