@@ -17,6 +17,9 @@
   --color-text-muted: var(--text-muted, #888888);
   --color-text-normal: var(--text-normal, #cccccc);
   --color-text-active: var(--text-active, #ffffff);
+
+  --color-white: var(--text-active);
+  --color-black: var(--bg-color);
 }
 
 @layer base {
