@@ -225,13 +225,31 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
 
   // Removed unused handleOutput and handleClear logic since xterm.js handles its own buffer
 
+  const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasConnectedOnce = useRef(false);
+
+  const retryConnection = useCallback(() => {
+    setShowRetryBanner(false);
+    const tab = createTab(tabCounterRef.current);
+    tabCounterRef.current += 1;
+    setTerminals((prev) => [...prev, tab]);
+    setActiveTermId(tab.id);
+  }, [createTab]);
+
   const handleStatusChange = useCallback((termId: string, status: ConnectionStatus) => {
     setTerminals((prev) =>
       prev.map((t) => (t.id === termId ? { ...t, status } : t)),
     );
-    if (status === 'connected') setShowRetryBanner(false);
-    if (status === 'disconnected') setShowRetryBanner(true);
-  }, []);
+    if (status === 'connected') {
+      setShowRetryBanner(false);
+      hasConnectedOnce.current = true;
+      if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
+    }
+    // Only auto-retry and show banner if user has connected at least once before (not on initial boot when server is off)
+    if (status === 'disconnected' && hasConnectedOnce.current && !retryTimerRef.current) {
+      retryTimerRef.current = setTimeout(() => { retryConnection(); }, 3000);
+    }
+  }, [retryConnection]);
 
   const addTerminal = (profile?: string) => {
     const tab = createTab(tabCounterRef.current, profile);
@@ -261,14 +279,6 @@ export default function HyprTerminal({ isPinned, isMinimized, onPin, onMinimize,
       return prev;
     });
   }, [terminals, createTab]);
-
-  const retryConnection = () => {
-    setShowRetryBanner(false);
-    const tab = createTab(tabCounterRef.current);
-    tabCounterRef.current += 1;
-    setTerminals((prev) => [...prev, tab]);
-    setActiveTermId(tab.id);
-  };
 
   return (
     <div className="hypr-panel w-full h-full flex flex-col overflow-hidden rounded-xl">
