@@ -32,6 +32,10 @@ terminal.setup_terminal_websockets(sock)
 watcher.setup_watcher_websockets(sock)
 notifications.setup_notifications_websockets(sock)
 
+# Register FS tools for agent
+from core.fs_tools import register_fs_tools
+register_fs_tools()
+
 if __name__ == "__main__":
     # In a real production setup you might use waitress or gunicorn,
     # but for local IDE backend, the built-in server is usually fine.

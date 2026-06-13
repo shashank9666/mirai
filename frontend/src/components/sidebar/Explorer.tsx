@@ -223,6 +223,12 @@ const FileTreeNode = ({
         )}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
         onClick={handleClick}
+        draggable={!entry.isDirectory}
+        onDragStart={(e) => {
+          if (!entry.isDirectory) {
+            e.dataTransfer.setData('application/mirai-file-path', entry.path);
+          }
+        }}
         onContextMenu={(e) => {
           e.preventDefault();
           onContextMenu(e, entry, {

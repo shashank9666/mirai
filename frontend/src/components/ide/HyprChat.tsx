@@ -41,6 +41,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [attachedPaths, setAttachedPaths] = useState<string[]>([]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
@@ -97,7 +98,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
-      
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onresult = (event: any) => {
         let finalTranscript = '';
@@ -113,24 +114,32 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
       recognition.onend = () => {
         if (isListeningRef.current) {
-          try {
-            recognitionRef.current.start();
-          } catch {
-            isListeningRef.current = false;
-            setIsListening(false);
-          }
+          // Add a small delay to prevent rapid failing loops
+          setTimeout(() => {
+            if (isListeningRef.current) {
+              try {
+                recognitionRef.current.start();
+              } catch {
+                isListeningRef.current = false;
+                setIsListening(false);
+              }
+            }
+          }, 500);
         } else {
           setIsListening(false);
         }
       };
-      
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onerror = (e: any) => {
+        // If no speech, it will trigger onend next, which will restart it after 500ms
         if (e.error === 'no-speech' && isListeningRef.current) return;
+        // For other errors like network or not-allowed, we should stop
+        console.warn('Speech recognition error:', e.error);
         isListeningRef.current = false;
         setIsListening(false);
       };
-      
+
       recognitionRef.current = recognition;
     }
 
@@ -156,6 +165,17 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggingOver(false);
+    
+    // Check for custom mirai file path drop first
+    const path = e.dataTransfer.getData('application/mirai-file-path');
+    if (path) {
+      setAttachedPaths(prev => {
+        if (!prev.includes(path)) return [...prev, path];
+        return prev;
+      });
+      return;
+    }
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       setAttachedFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)]);
     }
@@ -181,10 +201,14 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const removeFile = (index: number) => {
     setAttachedFiles(prev => prev.filter((_, i) => i !== index));
   };
+  
+  const removePath = (index: number) => {
+    setAttachedPaths(prev => prev.filter((_, i) => i !== index));
+  };
 
   const sendMessage = async () => {
     const text = input.trim();
-    if (!text && attachedFiles.length === 0 || isStreaming) return;
+    if (!text && attachedFiles.length === 0 && attachedPaths.length === 0 || isStreaming) return;
 
     if (backendAvailable === false) {
       setError('Cannot connect to AI backend. Make sure the server is running on port 8000.');
@@ -194,13 +218,18 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     setError(null);
     let contentStr = text;
     if (attachedFiles.length > 0) {
-      contentStr += `\n[Attached Files: ${attachedFiles.map(f => f.name).join(', ')}]`;
+      contentStr += `\n[Attached Media: ${attachedFiles.map(f => f.name).join(', ')}]`;
     }
+    if (attachedPaths.length > 0) {
+      contentStr += `\n[Attached Project Files: ${attachedPaths.join(', ')}]`;
+    }
+    
     const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content: contentStr };
     const newMessages: Message[] = [...messages, userMessage];
     setMessages(newMessages);
     setInput('');
     setAttachedFiles([]);
+    setAttachedPaths([]);
 
     const assistantId = crypto.randomUUID();
     const assistantMessage: Message = { id: assistantId, role: 'assistant', content: '' };
@@ -213,7 +242,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     try {
       const activeProvider = aiProviders.find(p => p.id === activeAiProviderId);
       const activeModelName = activeProvider?.model || 'gpt-4o';
-      
+
       const res = await fetch('http://127.0.0.1:8000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -299,11 +328,11 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const backendIndicator = backendAvailable === null
     ? 'bg-yellow-500 animate-pulse'
     : backendAvailable
-    ? 'bg-green-500'
-    : 'bg-red-500';
+      ? 'bg-green-500'
+      : 'bg-red-500';
 
   return (
-    <div 
+    <div
       className={`hypr-panel w-full h-full flex flex-col overflow-hidden relative transition-colors ${isDraggingOver ? 'bg-white/5' : ''}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -318,12 +347,12 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
         </div>
       )}
 
-      <input 
-        type="file" 
-        multiple 
-        ref={fileInputRef} 
-        onChange={handleFileInputChange} 
-        className="hidden" 
+      <input
+        type="file"
+        multiple
+        ref={fileInputRef}
+        onChange={handleFileInputChange}
+        className="hidden"
       />
 
       <PanelHeader
@@ -350,16 +379,16 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
           <div className="flex px-2 py-1.5 gap-1 border-b border-white/5 shrink-0 overflow-visible justify-between items-center relative z-20">
             <div className="flex items-center gap-1">
               <div className="relative">
-                <button 
+                <button
                   onClick={() => setShowSettingsMenu(!showSettingsMenu)}
                   className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono transition-all ${showSettingsMenu ? 'bg-[var(--color-primary-accent)]/20 text-purple-300' : 'text-white/40 hover:text-white/80 hover:bg-white/5'}`}
                 >
                   <Settings2 className="w-3.5 h-3.5" />
-                  Auto-Approve
+                  Agent Settings
                 </button>
                 <AnimatePresence>
                   {showSettingsMenu && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, scale: 0.95, y: -5 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95, y: -5 }}
@@ -379,8 +408,8 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                         { id: 'useMcpServers', label: 'Use MCP servers' }
                       ].map((setting) => (
                         <label key={setting.id} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-white/5 group">
-                          <input 
-                            type="checkbox" 
+                          <input
+                            type="checkbox"
                             className="w-3.5 h-3.5 rounded bg-white/10 border-white/20 checked:bg-[var(--color-primary-accent)] checked:border-transparent focus:ring-0 focus:ring-offset-0 cursor-pointer"
                             checked={autoApproveSettings[setting.id as keyof typeof autoApproveSettings]}
                             onChange={(e) => setAutoApproveSettings({ [setting.id]: e.target.checked })}
@@ -395,7 +424,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                 </AnimatePresence>
               </div>
 
-              <button 
+              <button
                 onClick={() => setMessages([])}
                 className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all"
                 title="Clear Chat"
@@ -403,8 +432,8 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                 <Trash2 className="w-3.5 h-3.5" />
                 Clear
               </button>
-              
-              <button 
+
+              <button
                 onClick={() => { setMessages([]); setInput(''); inputRef.current?.focus(); }}
                 className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono text-white/40 hover:text-green-400 hover:bg-green-500/10 transition-all"
                 title="New Chat"
@@ -415,7 +444,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
             </div>
 
             <div className="relative shrink-0 ml-2">
-              <button 
+              <button
                 onClick={() => setShowModelMenu(!showModelMenu)}
                 className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono text-white/50 hover:text-white/80 hover:bg-white/5 transition-all"
               >
@@ -424,7 +453,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
               </button>
               <AnimatePresence>
                 {showModelMenu && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: -5 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: -5 }}
@@ -457,79 +486,88 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
           {/* Content Area */}
           <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex flex-col gap-3">
-              {messages.length === 0 && !error && (
-                <div className="flex-1 flex items-center justify-center">
-                  <p className="text-[11px] text-[var(--text-muted)] font-mono">
-                    {backendAvailable === false
-                      ? 'Backend offline. Start the server to chat.'
-                      : `Start a conversation...`}
-                  </p>
-                </div>
-              )}
+            {messages.length === 0 && !error && (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-[11px] text-[var(--text-muted)] font-mono">
+                  {backendAvailable === false
+                    ? 'Backend offline. Start the server to chat.'
+                    : `Start a conversation...`}
+                </p>
+              </div>
+            )}
 
-              {error && (
-                <div className="px-3 py-2 rounded-xl text-[11px] font-mono bg-red-500/10 text-red-400 border border-red-500/20">
-                  {error}
-                </div>
-              )}
+            {error && (
+              <div className="px-3 py-2 rounded-xl text-[11px] font-mono bg-red-500/10 text-red-400 border border-red-500/20">
+                {error}
+              </div>
+            )}
 
-              {messages.map((msg, i) => (
-                <div key={i} className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                  {/* Message Header */}
-                  <div className="flex items-center gap-2 px-1 opacity-60">
-                    <span className="text-[10px] font-bold uppercase tracking-wider">{msg.role === 'user' ? 'You' : 'Mirai'}</span>
-                  </div>
-                  <div
-                    className={`max-w-[90%] px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono ${
-                      msg.role === 'user'
-                        ? 'bg-[var(--color-primary-accent)]/20 text-[var(--text-active)] rounded-br-sm'
-                        : 'bg-[var(--color-glass-bg)] text-[var(--text-normal)] rounded-bl-sm border border-[var(--color-glass-border)]'
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                {/* Message Header */}
+                <div className="flex items-center gap-2 px-1 opacity-60">
+                  <span className="text-[10px] font-bold uppercase tracking-wider">{msg.role === 'user' ? 'You' : 'Mirai'}</span>
+                </div>
+                <div
+                  className={`max-w-[90%] px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono ${msg.role === 'user'
+                      ? 'bg-[var(--color-primary-accent)]/20 text-[var(--text-active)] rounded-br-sm'
+                      : 'bg-[var(--color-glass-bg)] text-[var(--text-normal)] rounded-bl-sm border border-[var(--color-glass-border)]'
                     }`}
-                  >
-                    <div className="whitespace-pre-wrap break-words">
-                      <ReactMarkdown
-                        components={{
-                          code(props) {
-                            const { children, className, node, ref, ...rest } = props as any;
-                            const match = /language-(\w+)/.exec(className || '');
-                            return match ? (
-                              <SyntaxHighlighter
-                                {...rest}
-                                PreTag="div"
-                                language={match[1]}
+                >
+                  <div className="whitespace-pre-wrap break-words">
+                    <ReactMarkdown
+                      components={{
+                        code(props) {
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+                          const { children, className, node: _node, ref: _ref, ...rest } = props as any;
+                          const match = /language-(\w+)/.exec(className || '');
+                          return match ? (
+                            <SyntaxHighlighter
+                              {...rest}
+                              PreTag="div"
+                              language={match[1]}
 
-                                style={vscDarkPlus}
-                                className="rounded-md my-2 text-[11px]"
-                              >
-                                {String(children).replace(/\n$/, '')}
-                              </SyntaxHighlighter>
-                            ) : (
-                              <code {...rest} className="bg-black/30 px-1 py-0.5 rounded text-[var(--color-primary-accent)]">
-                                {children}
-                              </code>
-                            );
-                          }
-                        }}
-                      >
-                        {msg.content}
-                      </ReactMarkdown>
-                    </div>
-                    {isStreaming && msg.role === 'assistant' && i === messages.length - 1 && (
-                      <span className="inline-block w-1.5 h-3 bg-purple-400/70 rounded-sm ml-0.5 animate-pulse align-text-bottom" />
-                    )}
+                              style={vscDarkPlus}
+                              className="rounded-md my-2 text-[11px]"
+                            >
+                              {String(children).replace(/\n$/, '')}
+                            </SyntaxHighlighter>
+                          ) : (
+                            <code {...rest} className="bg-black/30 px-1 py-0.5 rounded text-[var(--color-primary-accent)]">
+                              {children}
+                            </code>
+                          );
+                        }
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
                   </div>
+                  {isStreaming && msg.role === 'assistant' && i === messages.length - 1 && (
+                    <span className="inline-block w-1.5 h-3 bg-purple-400/70 rounded-sm ml-0.5 animate-pulse align-text-bottom" />
+                  )}
                 </div>
-              ))}
+              </div>
+            ))}
 
-              <div ref={messagesEndRef} />
-            </div>
+            <div ref={messagesEndRef} />
+          </div>
 
 
           {/* Attached Files display */}
-          {attachedFiles.length > 0 && (
+          {(attachedFiles.length > 0 || attachedPaths.length > 0) && (
             <div className="px-2 py-1 flex gap-2 overflow-x-auto custom-scrollbar border-t border-white/5">
+              {attachedPaths.map((path, idx) => (
+                <div key={`path-${idx}`} className="flex items-center gap-1 bg-white/10 rounded-md px-2 py-1 shrink-0 group">
+                  <FileCode className="w-3 h-3 text-blue-400" />
+                  <span className="text-[10px] font-mono text-white/80 max-w-[150px] truncate" title={path}>{path.split('/').pop() || path.split('\\').pop()}</span>
+                  <button onClick={() => removePath(idx)} className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 ml-1">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
               {attachedFiles.map((file, idx) => (
-                <div key={idx} className="flex items-center gap-1 bg-white/10 rounded-md px-2 py-1 shrink-0 group">
+                <div key={`file-${idx}`} className="flex items-center gap-1 bg-white/10 rounded-md px-2 py-1 shrink-0 group">
                   <FileCode className="w-3 h-3 text-white/60" />
                   <span className="text-[10px] font-mono text-white/80 max-w-[100px] truncate">{file.name}</span>
                   <button onClick={() => removeFile(idx)} className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 ml-1">
@@ -542,77 +580,77 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
           {/* Input */}
           <div className="p-2 border-t border-white/5 shrink-0 relative">
-              <AnimatePresence>
-                {showActionMenu && (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute bottom-full left-2 mb-2 w-48 bg-[#0f0f0f]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-1 z-50"
-                  >
-                    <button onClick={handleUploadMedia} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
-                      <Paperclip className="w-3.5 h-3.5 text-white/40" /> Upload Media
-                    </button>
-                    <button onClick={handleAddContext} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
-                      <FileCode className="w-3.5 h-3.5 text-white/40" /> Add Context
-                    </button>
-                    <button onClick={() => setShowActionMenu(false)} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
-                      <TerminalSquare className="w-3.5 h-3.5 text-white/40" /> Action Commands
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              
-              <div className="flex items-center gap-2 bg-white/[0.03] rounded-xl px-2 py-2 border border-white/5 focus-within:border-[var(--color-primary-accent)]/40 transition-colors relative z-20">
-                <button 
-                  onClick={() => setShowActionMenu(!showActionMenu)}
-                  className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-colors ${showActionMenu ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
+            <AnimatePresence>
+              {showActionMenu && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute bottom-full left-2 mb-2 w-48 bg-[#0f0f0f]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-1 z-50"
                 >
-                  <Plus className="w-4 h-4" />
-                </button>
-                
-                <input
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage();
-                    }
-                  }}
-                  placeholder={backendAvailable === false ? 'Backend offline' : isListening ? 'Listening...' : 'Ask AI...'}
-                  disabled={isStreaming || backendAvailable === false}
-                  className="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--text-active)] placeholder:text-[var(--text-muted)] font-mono disabled:opacity-40"
-                />
-                
-                <button
-                  onClick={toggleVoiceMode}
-                  title="Voice Dictation"
-                  className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-colors ${isListening ? 'text-red-400 bg-red-400/20 animate-pulse' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
-                >
-                  {isListening ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
-                </button>
+                  <button onClick={handleUploadMedia} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+                    <Paperclip className="w-3.5 h-3.5 text-white/40" /> Upload Media
+                  </button>
+                  <button onClick={handleAddContext} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+                    <FileCode className="w-3.5 h-3.5 text-white/40" /> Add Context
+                  </button>
+                  <button onClick={() => setShowActionMenu(false)} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+                    <TerminalSquare className="w-3.5 h-3.5 text-white/40" /> Action Commands
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-                {isStreaming ? (
-                  <button
-                    onClick={stopGeneration}
-                    className="w-6 h-6 rounded-lg bg-red-500/80 flex items-center justify-center hover:bg-red-500 transition-all shrink-0"
-                  >
-                    <Square className="w-3 h-3 text-white" fill="white" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={sendMessage}
-                    disabled={(!input.trim() && attachedFiles.length === 0) || backendAvailable === false}
-                    className="w-6 h-6 rounded-lg bg-[var(--color-primary-accent)] flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-30 shrink-0"
-                  >
-                    <Send className="w-3 h-3 text-white" />
-                  </button>
-                )}
-              </div>
+            <div className="flex items-center gap-2 bg-white/[0.03] rounded-xl px-2 py-2 border border-white/5 focus-within:border-[var(--color-primary-accent)]/40 transition-colors relative z-20">
+              <button
+                onClick={() => setShowActionMenu(!showActionMenu)}
+                className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-colors ${showActionMenu ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                  }
+                }}
+                placeholder={backendAvailable === false ? 'Backend offline' : isListening ? 'Listening...' : 'Ask AI...'}
+                disabled={isStreaming || backendAvailable === false}
+                className="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--text-active)] placeholder:text-[var(--text-muted)] font-mono disabled:opacity-40"
+              />
+
+              <button
+                onClick={toggleVoiceMode}
+                title="Voice Dictation"
+                className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-colors ${isListening ? 'text-red-400 bg-red-400/20 animate-pulse' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
+              >
+                {isListening ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+              </button>
+
+              {isStreaming ? (
+                <button
+                  onClick={stopGeneration}
+                  className="w-6 h-6 rounded-lg bg-red-500/80 flex items-center justify-center hover:bg-red-500 transition-all shrink-0"
+                >
+                  <Square className="w-3 h-3 text-white" fill="white" />
+                </button>
+              ) : (
+                <button
+                  onClick={sendMessage}
+                  disabled={(!input.trim() && attachedFiles.length === 0) || backendAvailable === false}
+                  className="w-6 h-6 rounded-lg bg-[var(--color-primary-accent)] flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-30 shrink-0"
+                >
+                  <Send className="w-3 h-3 text-white" />
+                </button>
+              )}
             </div>
+          </div>
         </>
       )}
     </div>
