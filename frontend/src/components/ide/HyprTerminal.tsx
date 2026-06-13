@@ -64,7 +64,7 @@ function TerminalInstance({ tabId, tabStatus, tabProfile, onStatusChange }: {
     // Initialize xterm
     const term = new Terminal({
       theme: {
-        background: 'transparent',
+        background: '#00000000',
         foreground: '#CCCCCC',
         cursor: '#4DAAF1'
       },

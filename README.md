@@ -1,7 +1,5 @@
 <div align="center">
 
-![Mirai Banner](./docs/banner.png)
-
 # 🌌 Mirai IDE
 **An AI-powered IDE that combines a modern, responsive web interface with a robust local backend.**
 
@@ -13,8 +11,6 @@
 </div>
 
 <br />
-
-![Mirai Interface](./docs/interface.png)
 
 ## ✨ Features
 - 📂 **Full local filesystem workspace explorer**

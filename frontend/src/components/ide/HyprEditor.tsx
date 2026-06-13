@@ -8,7 +8,26 @@ import DiffEditorPanel from './DiffEditor';
 import PanelHeader from './PanelHeader';
 
 loader.config({ paths: { vs: '/vs' } });
-
+loader.init().then(monaco => {
+  monaco.editor.defineTheme('mirai-glass-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [],
+    colors: {
+      'editor.background': '#00000000',
+      'minimap.background': '#00000000',
+    }
+  });
+  monaco.editor.defineTheme('mirai-glass-light', {
+    base: 'vs',
+    inherit: true,
+    rules: [],
+    colors: {
+      'editor.background': '#00000000',
+      'minimap.background': '#00000000',
+    }
+  });
+});
 const isImage = (path: string) => /\.(png|jpe?g|gif|webp|svg|ico)$/i.test(path);
 const isPdf = (path: string) => /\.pdf$/i.test(path);
 const isVideo = (path: string) => /\.(mp4|webm|ogg)$/i.test(path);
@@ -330,7 +349,7 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
             filePath={group.activeFile}
             content={group.activeFileContent}
             monacoProps={{
-              theme: editorSettings.theme,
+              theme: editorSettings.appTheme === 'light' ? 'mirai-glass-light' : 'mirai-glass-dark',
               path: group.id + ':' + group.activeFile,
               language: group.tabs.find(t => t.path === group.activeFile)?.language,
               onChange: handleEditorChange,
