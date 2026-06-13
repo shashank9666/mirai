@@ -24,8 +24,8 @@ import { NotificationManager } from '@/components/ide/NotificationManager';
 
 import { useThemeStore } from '@/store/themeStore';
 import { builtinThemes } from '@/lib/themes';
-// @ts-expect-error - react-resizable-panels types missing in some language servers
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 
 
 function SidebarContent({ activeView, isMinimized, onMinimize, onClose, onDragStart }: { activeView: string; isMinimized?: boolean; onMinimize?: () => void; onClose?: () => void; onDragStart?: (e: React.DragEvent) => void }) {
@@ -311,7 +311,7 @@ export default function Home() {
           {!zenMode && <ActivityBar activeView={activeView} onViewChange={handleViewChange} onShowSettings={handleShowSettings} />}
 
           <div className={`flex-1 flex min-h-0 ${!zenMode ? 'p-2' : ''}`}>
-            <PanelGroup direction="horizontal">
+            <PanelGroup orientation="horizontal">
               {/* Sidebar */}
               {(!zenMode && sidebarVisible) && (
                 <>
@@ -338,7 +338,7 @@ export default function Home() {
               {/* Center (Editor + Terminal) */}
               {editorVisible && (
                 <Panel className="flex flex-col min-h-0">
-                  <PanelGroup direction="vertical">
+                  <PanelGroup orientation="vertical">
                     <Panel className={`overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''}`} style={{ backgroundColor: 'var(--panel-bg, rgba(26, 26, 46, 0.6))', backdropFilter: 'var(--panel-backdrop, blur(16px))' }}>
                       <div className={`flex-1 min-h-0 flex flex-col ${editorMinimized ? 'hidden' : 'flex'}`}>
                         {hasWorkspace && !showWelcome && <EditorToolbar />}

@@ -126,6 +126,10 @@ def load_session():
 def agent_chat():
     data = request.get_json() or {}
     messages = data.get("messages", [])
+    
+    while messages and messages[-1].get("role") == "assistant":
+        messages.pop()
+        
     provider = data.get("provider", "openai")
     model = data.get("model", "gpt-4o")
     api_key = data.get("apiKey", "")
