@@ -5,19 +5,19 @@ import PanelHeader from './PanelHeader';
 import ContextWindowBar from './ContextWindowBar';
 import TokenOptimizationTips from './TokenOptimizationTips';
 import { useAiStore } from '@/store/aiStore';
-import { useChatStore, ChatMessage } from '@/store/chatStore';
+import { useChatStore } from '@/store/chatStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useEditorStore } from '@/store/editorStore';
 import { api } from '@/lib/api';
-import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, Paperclip, FileCode, TerminalSquare, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, History, Compass } from 'lucide-react';
+import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, ChevronRight, Paperclip, FileCode, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, Headphones, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useSettingsStore } from '@/store/settingsStore';
-import { formatTokens, formatCost, estimateCost, getModelPricing } from '@/lib/agent/policies';
+import { formatTokens } from '@/lib/agent/policies';
 import AgentPreferencesPanel from './AgentPreferencesPanel';
-import { DEFAULT_AGENT_PREFERENCES, AgentPreferences } from '@/lib/agent/policies';
+import { DEFAULT_AGENT_PREFERENCES } from '@/lib/agent/policies';
 
 const DEFAULT_SYSTEM_PROMPT = `You are a coding agent integrated into the Mirai IDE.
 You can read, write, and modify files.
@@ -117,6 +117,80 @@ function TokenBadge({ tokenCount, role }: { tokenCount?: number; role: string })
   );
 }
 
+function CodeBlockRenderer({ children, className, handleReviewChange, ...rest }: { children?: React.ReactNode; className?: string; handleReviewChange: (filepath: string, code: string) => void; [key: string]: unknown }) {
+  const codeString = String(children).replace(/\n$/, '');
+  const match = /language-([a-zA-Z0-9_-]+)(?::(.+))?/.exec(className || '');
+  const lang = match ? match[1] : '';
+  const filepath = match && match[2] ? match[2] : '';
+  
+  const [isExpanded, setIsExpanded] = useState(!filepath); // Auto-minimize if it's a file edit
+
+  if (match) {
+    if (filepath && !isExpanded) {
+      const addedLines = codeString.split('\n').filter(l => l.trim()).length;
+      return (
+        <div className="my-2 border border-white/10 rounded-md bg-black/40 px-3 py-2 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setIsExpanded(true)}>
+          <div className="flex items-center gap-2">
+            <ChevronRight className="w-4 h-4 text-white/50" />
+            <FileCode className="w-3 h-3 text-blue-400" />
+            <span className="text-[11px] font-mono text-white/80">Edited {lang.toUpperCase()} <span className="text-white font-semibold">{filepath}</span></span>
+            <span className="text-[10px] font-mono text-emerald-400 ml-2">+{addedLines}</span>
+          </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); handleReviewChange(filepath, codeString); }}
+            className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 text-[10px] font-mono transition-colors border border-emerald-500/30"
+          >
+            <GitCompareArrows className="w-3 h-3" />
+            Review
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="my-2 border border-white/10 rounded-md overflow-hidden relative group">
+        <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-white/10 cursor-pointer" onClick={() => filepath && setIsExpanded(false)}>
+          <div className="flex items-center gap-1.5">
+            {filepath && <ChevronDown className="w-3 h-3 text-white/50" />}
+            <FileCode className="w-3 h-3 text-blue-400" />
+            <span className="text-[10px] font-mono text-white/60">{filepath || `${lang} snippet`}</span>
+          </div>
+          {filepath ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleReviewChange(filepath, codeString); }}
+              className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 text-[10px] font-mono transition-colors border border-emerald-500/30"
+            >
+              <GitCompareArrows className="w-3 h-3" />
+              Review Changes
+            </button>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(codeString); }}
+              className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/70 text-[10px] font-mono transition-colors opacity-0 group-hover:opacity-100"
+            >
+              Copy
+            </button>
+          )}
+        </div>
+        <SyntaxHighlighter
+          {...rest}
+          PreTag="div"
+          language={lang}
+          style={vscDarkPlus}
+          className="!m-0 !bg-transparent text-[11px]"
+        >
+          {codeString}
+        </SyntaxHighlighter>
+      </div>
+    );
+  }
+  return (
+    <code {...rest} className="bg-black/30 px-1 py-0.5 rounded text-[var(--color-primary-accent)]">
+      {children}
+    </code>
+  );
+}
+
 export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onClose, onDragStart }: ChatPanelProps) {
   const { aiProviders, activeAiProviderId, setActiveAiProvider, autoApproveSettings, setAutoApproveSettings } = useAiStore();
   const {
@@ -125,9 +199,8 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     updateMessage,
     clearMessages,
     getTokenBreakdown,
-    setSessionId,
   } = useChatStore();
-  const { editorSettings } = useSettingsStore();
+
 
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -139,6 +212,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
+  const [isConvoMode, setIsConvoMode] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [attachedPaths, setAttachedPaths] = useState<string[]>([]);
@@ -361,7 +435,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     }
 
     // Store user message in persistent store
-    const userMsg = addMessage({ role: 'user', content: contentStr });
+    addMessage({ role: 'user', content: contentStr });
     const assistantMsg = addMessage({ role: 'assistant', content: '' });
 
     setInput('');
@@ -480,7 +554,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
       : 'bg-red-500';
 
   const activeProvider = aiProviders.find(p => p.id === activeAiProviderId);
-  const breakdown = getTokenBreakdown();
+
 
   return (
     <div
@@ -552,6 +626,17 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
           {/* Top Bar */}
           <div className="flex px-2 py-1.5 gap-1 border-b border-white/5 shrink-0 overflow-visible justify-between items-center relative z-20">
             <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  const newState = !isConvoMode;
+                  setIsConvoMode(newState);
+                  if (newState && !isListeningRef.current) toggleVoiceMode();
+                }}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono transition-all ${isConvoMode ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/40 hover:text-white/80 hover:bg-white/5'}`}
+              >
+                <Headphones className="w-3.5 h-3.5" />
+                Convo Mode
+              </button>
               <div className="relative">
                 <button
                   onClick={() => setShowSettingsMenu(!showSettingsMenu)}
@@ -669,9 +754,50 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
           )}
 
           {/* Content Area */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex flex-col gap-3">
-            {chatMessages.length === 0 && !error && (
-              <div className="flex-1 flex items-center justify-center flex-col gap-2">
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex flex-col gap-3 relative">
+            {isConvoMode ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--panel-bg)] z-30">
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="relative w-48 h-48 flex items-center justify-center mb-8"
+                >
+                  {/* Outer pulsing ring when AI is speaking */}
+                  {isStreaming && (
+                    <motion.div
+                      animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.7, 0.3] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                      className="absolute inset-0 rounded-full bg-purple-500/30 blur-2xl"
+                    />
+                  )}
+                  {/* Inner active ring when User is speaking */}
+                  {isListening && !isStreaming && (
+                    <motion.div
+                      animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.8, 0.4] }}
+                      transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                      className="absolute inset-4 rounded-full bg-emerald-500/20 blur-xl"
+                    />
+                  )}
+                  {/* Core orb */}
+                  <div className={`w-24 h-24 rounded-full shadow-[0_0_40px_rgba(124,58,237,0.4)] border border-white/10 flex items-center justify-center transition-colors duration-500 ${isStreaming ? 'bg-purple-500/20' : isListening ? 'bg-emerald-500/20' : 'bg-white/5'}`}>
+                    <Activity className={`w-8 h-8 ${isStreaming ? 'text-purple-400' : isListening ? 'text-emerald-400' : 'text-white/30'}`} />
+                  </div>
+                </motion.div>
+                <div className="font-mono text-[12px] text-white/50 tracking-widest uppercase">
+                  {isStreaming ? 'Mirai is speaking...' : isListening ? 'Listening...' : 'Convo Mode Paused'}
+                </div>
+                <div className="mt-8 px-8 text-center text-[11px] font-mono text-white/30 max-w-sm">
+                  {chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'user' ? (
+                     <span className="text-white/60">&quot;{chatMessages[chatMessages.length - 1].content}&quot;</span>
+                  ) : chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'assistant' ? (
+                     <span className="text-white/40 line-clamp-3">Mirai: {chatMessages[chatMessages.length - 1].content}</span>
+                  ) : 'Speak to interact with the Mirai AI.'}
+                </div>
+              </div>
+            ) : (
+              <>
+                {chatMessages.length === 0 && !error && (
+                  <div className="flex-1 flex items-center justify-center flex-col gap-2">
                 <p className="text-[11px] text-[var(--text-muted)] font-mono">
                   {backendAvailable === false
                     ? 'Backend offline. Start the server to chat.'
@@ -703,55 +829,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                     <ReactMarkdown
                       components={{
                         code(props) {
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-                          const { children, className, node: _node, ref: _ref, ...rest } = props as any;
-                          const codeString = String(children).replace(/\n$/, '');
-                          const match = /language-([a-zA-Z0-9_-]+)(?::(.+))?/.exec(className || '');
-                          const lang = match ? match[1] : '';
-                          const filepath = match && match[2] ? match[2] : '';
-
-                          if (match) {
-                            return (
-                              <div className="my-2 border border-white/10 rounded-md overflow-hidden relative group">
-                                <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-white/10">
-                                  <div className="flex items-center gap-1.5">
-                                    <FileCode className="w-3 h-3 text-blue-400" />
-                                    <span className="text-[10px] font-mono text-white/60">{filepath || `${lang} snippet`}</span>
-                                  </div>
-                                  {filepath ? (
-                                    <button
-                                      onClick={() => handleReviewChange(filepath, codeString)}
-                                      className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 text-[10px] font-mono transition-colors border border-emerald-500/30"
-                                    >
-                                      <GitCompareArrows className="w-3 h-3" />
-                                      Review Changes
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={() => { navigator.clipboard.writeText(codeString); }}
-                                      className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/70 text-[10px] font-mono transition-colors opacity-0 group-hover:opacity-100"
-                                    >
-                                      Copy
-                                    </button>
-                                  )}
-                                </div>
-                                <SyntaxHighlighter
-                                  {...rest}
-                                  PreTag="div"
-                                  language={lang}
-                                  style={vscDarkPlus}
-                                  className="!m-0 !bg-transparent text-[11px]"
-                                >
-                                  {codeString}
-                                </SyntaxHighlighter>
-                              </div>
-                            );
-                          }
-                          return (
-                            <code {...rest} className="bg-black/30 px-1 py-0.5 rounded text-[var(--color-primary-accent)]">
-                              {children}
-                            </code>
-                          );
+                          return <CodeBlockRenderer {...props} handleReviewChange={handleReviewChange} />;
                         }
                       }}
                     >
@@ -770,6 +848,8 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
             ))}
 
             <div ref={messagesEndRef} />
+              </>
+            )}
           </div>
 
           {/* Attached Files display */}

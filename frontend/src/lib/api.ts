@@ -4,11 +4,22 @@ export interface FileEntry {
   path: string;
 }
 
-const API_BASE = 'http://127.0.0.1:8000/api';
-const BACKEND_BASE = 'http://127.0.0.1:8000';
+export const getBackendBase = () => {
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+  return 'http://127.0.0.1:8000';
+};
 
-const getApiBase = () => API_BASE;
-export const getWsBase = () => 'ws://127.0.0.1:8000';
+const getApiBase = () => `${getBackendBase()}/api`;
+
+export const getWsBase = () => {
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.hostname}:8000`;
+  }
+  return 'ws://127.0.0.1:8000';
+};
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -17,7 +28,7 @@ const post = async <T>(endpoint: string, body: Record<string, unknown>, retries 
 
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
+      const res = await fetch(`${getApiBase()}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -63,7 +74,7 @@ export interface GitBranchInfo {
 export const api = {
   healthCheck: async (): Promise<boolean> => {
     try {
-      const res = await fetch(`${BACKEND_BASE}/health`);
+      const res = await fetch(`${getBackendBase()}/health`);
       return res.ok;
     } catch {
       return false;

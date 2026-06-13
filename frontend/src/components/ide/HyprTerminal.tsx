@@ -16,8 +16,9 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { useIdeStore } from '@/store/ideStore';
 import '@xterm/xterm/css/xterm.css';
+import { getWsBase } from '@/lib/api';
 
-const WS_URL = 'ws://127.0.0.1:8000/ws/terminal';
+const getWsUrl = () => `${getWsBase()}/ws/terminal`;
 
 const MAIN_TABS = [
   { id: 'problems', label: 'PROBLEMS' },
@@ -91,7 +92,8 @@ function TerminalInstance({ tabId, tabStatus, tabProfile, onStatusChange }: {
     fitAddonRef.current = fitAddon;
 
     const workspacePath = useIdeStore.getState().workspacePath;
-    let url = tabProfile ? `${WS_URL}?shell=${tabProfile}` : WS_URL;
+    const baseWsUrl = getWsUrl();
+    let url = tabProfile ? `${baseWsUrl}?shell=${tabProfile}` : baseWsUrl;
     if (workspacePath) {
       url += (url.includes('?') ? '&' : '?') + `cwd=${encodeURIComponent(workspacePath)}`;
     }

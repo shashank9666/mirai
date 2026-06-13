@@ -10,6 +10,7 @@ import { useEditorStore } from '@/store/editorStore';
 import DiffEditorPanel from './DiffEditor';
 import MarkdownPreview from './MarkdownPreview';
 import PanelHeader from './PanelHeader';
+import { getBackendBase } from '@/lib/api';
 
 if (typeof window !== 'undefined') {
   loader.config({ paths: { vs: '/vs' } });
@@ -40,7 +41,7 @@ const isVideo = (path: string) => /\.(mp4|webm|ogg)$/i.test(path);
 const isAudio = (path: string) => /\.(mp3|wav|ogg)$/i.test(path);
 
 function FileViewer({ filePath, content, monacoProps }: { filePath: string; content: string; monacoProps: { path?: string; theme?: string; language?: string; onChange?: OnChange; onMount?: OnMount; options?: Record<string, unknown> } }) {
-  const rawUrl = `http://127.0.0.1:8000/api/fs/raw?path=${encodeURIComponent(filePath)}`;
+  const rawUrl = `${getBackendBase()}/api/fs/raw?path=${encodeURIComponent(filePath)}`;
 
   if (isImage(filePath)) {
     return (
@@ -183,9 +184,10 @@ function EditorTabs({ group }: { group: EditorGroup }) {
 }
 
 function EditorGroupPanel({ group }: { group: EditorGroup }) {
-  const { activeGroupId, setActiveGroup, removeGroup, groups, updateFileContent, saveFile } = useEditorStore();
+  const { activeGroupId, setActiveGroup, removeGroup, groups, updateFileContent, saveFile, pendingChanges, acceptChange, rejectChange } = useEditorStore();
   const { editorSettings } = useSettingsStore();
   const isActive = group.id === activeGroupId;
+  const activePendingChange = group.activeFile ? pendingChanges.find(c => c.fileName === group.activeFile && c.status === 'pending') : undefined;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const editorRef = useRef<any>(null);
   const [cursorLine, setCursorLine] = useState(1);
@@ -274,6 +276,16 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.key === 'Enter' && activePendingChange && isActive) {
+        e.preventDefault();
+        acceptChange(activePendingChange.id);
+        return;
+      }
+      if (mod && (e.key === 'Backspace' || e.key === 'Delete') && activePendingChange && isActive) {
+        e.preventDefault();
+        rejectChange(activePendingChange.id);
+        return;
+      }
       if (mod && e.key === 's' && isActive) {
         e.preventDefault();
         if (editorSettings.formatOnSave && editorRef.current) {
@@ -287,7 +299,7 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isActive, editorSettings.formatOnSave, saveFile]);
+  }, [isActive, editorSettings.formatOnSave, saveFile, activePendingChange, acceptChange, rejectChange]);
 
   // Handle revealing a specific line
   useEffect(() => {
@@ -379,6 +391,13 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
       {group.activeFile && <Breadcrumbs filePath={group.activeFile} />}
 
       <div className="flex-1 relative min-h-0">
+        {activePendingChange && (
+          <div className="absolute top-4 right-8 z-20 flex items-center gap-2 bg-black/80 backdrop-blur-md border border-[var(--color-primary-accent)]/50 px-3 py-1.5 rounded-lg shadow-2xl text-[11px] font-mono shadow-[0_0_20px_rgba(124,58,237,0.15)] animate-in slide-in-from-top-4 fade-in duration-200">
+            <span className="text-white/80">Pending AI Edit</span>
+            <button onClick={() => acceptChange(activePendingChange.id)} className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 ml-2 transition-colors border border-emerald-500/20">Accept <span className="text-emerald-400/50">Ctrl+Enter</span></button>
+            <button onClick={() => rejectChange(activePendingChange.id)} className="px-2 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors border border-red-500/20">Reject <span className="text-red-400/50">Ctrl+Del</span></button>
+          </div>
+        )}
         {group.activeFile ? (
           <FileViewer
             filePath={group.activeFile}

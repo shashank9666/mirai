@@ -16,17 +16,7 @@ from core.session_memory import session_memory
 
 app = Flask("Mirai Backend")
 
-# Restrict CORS to local development and Electron's file:// origin ("null").
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-    "http://localhost:4000",
-    "http://127.0.0.1:4000",
-    "null",
-]
-CORS(app, resources={r"/*": {"origins": ALLOWED_ORIGINS}}, supports_credentials=True)
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 # Setup WebSockets
 sock = Sock(app)
@@ -92,4 +82,4 @@ if __name__ == "__main__":
     # but for local IDE backend, the built-in server is usually fine.
     # We use threaded=True for simultaneous connections and websockets.
     # We disable use_reloader on Windows because it causes the socket to hang with flask-sock.
-    app.run(host="127.0.0.1", port=8000, debug=True, use_reloader=False, threaded=True)
+    app.run(host="0.0.0.0", port=8000, debug=True, use_reloader=False, threaded=True)

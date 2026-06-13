@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
+import { getWsBase } from '@/lib/api';
 
 export function NotificationManager() {
   useEffect(() => {
@@ -15,7 +16,7 @@ export function NotificationManager() {
     let shouldReconnect = true;
 
     const connect = () => {
-      ws = new WebSocket('ws://127.0.0.1:8000/ws/notifications');
+      ws = new WebSocket(`${getWsBase()}/ws/notifications`);
 
       ws.onmessage = (event) => {
         try {

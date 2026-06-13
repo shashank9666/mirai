@@ -98,11 +98,7 @@ export function HyprDatabase() {
       <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-3">
         <div className="text-[11px] font-mono text-white/30 mb-3">MCP Servers</div>
         <div className="space-y-1">
-          <div className="flex items-center gap-2 px-2 py-1.5 rounded bg-white/5">
-            <div className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span className="text-[11px] font-mono text-white/55">sqlite</span>
-            <span className="ml-auto text-[9px] font-mono text-white/25">connected</span>
-          </div>
+
           <div className="flex items-center gap-2 px-2 py-1.5 rounded bg-white/5">
             <div className="w-2 h-2 rounded-full bg-emerald-400" />
             <span className="text-[11px] font-mono text-white/55">filesystem</span>
@@ -123,18 +119,6 @@ export function HyprDebug() {
         <Bug className="w-3 h-3 text-white/30" />
       </div>
       <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-3">
-        <div className="text-[11px] font-mono text-white/30 mb-3">Launch Configurations</div>
-        <div className="space-y-1">
-          <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/5 transition-colors text-left">
-            <Bug className="w-3 h-3 text-red-400/60" />
-            <span className="text-[11px] font-mono text-white/55">Run Mirai Backend</span>
-          </button>
-          <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/5 transition-colors text-left">
-            <Bug className="w-3 h-3 text-red-400/60" />
-            <span className="text-[11px] font-mono text-white/55">Run Frontend Dev</span>
-          </button>
-        </div>
-        <div className="mt-4 text-[10px] font-mono text-white/20">Configure in .vscode/launch.json</div>
       </div>
     </motion.div>
   );

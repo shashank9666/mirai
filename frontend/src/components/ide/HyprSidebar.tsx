@@ -3,7 +3,7 @@ import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useSettingsStore } from '@/store/settingsStore';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { api, FileEntry } from '@/lib/api';
+import { api, FileEntry, getWsBase } from '@/lib/api';
 import { useEditorStore } from '@/store/editorStore';
 import PanelHeader from './PanelHeader';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -311,7 +311,7 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
   // Real-time file system watcher WebSocket
   useEffect(() => {
     if (!workspacePath) return;
-    const ws = new WebSocket('ws://127.0.0.1:8000/ws/watcher');
+    const ws = new WebSocket(`${getWsBase()}/ws/watcher`);
     ws.onopen = () => ws.send(JSON.stringify({ event: 'watch-workspace', data: { workspacePath } }));
     ws.onmessage = (e) => {
       try {
