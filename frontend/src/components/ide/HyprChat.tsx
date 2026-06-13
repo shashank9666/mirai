@@ -5,8 +5,12 @@ import PanelHeader from './PanelHeader';
 import { useIdeStore } from '@/store/ideStore';
 import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, Paperclip, FileCode, TerminalSquare, X, Settings2, Trash2, MessageSquarePlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface Message {
+  id: string;
   role: 'user' | 'assistant';
   content: string;
 }
@@ -192,13 +196,14 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     if (attachedFiles.length > 0) {
       contentStr += `\n[Attached Files: ${attachedFiles.map(f => f.name).join(', ')}]`;
     }
-    const userMessage: Message = { role: 'user', content: contentStr };
+    const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content: contentStr };
     const newMessages: Message[] = [...messages, userMessage];
     setMessages(newMessages);
     setInput('');
     setAttachedFiles([]);
 
-    const assistantMessage: Message = { role: 'assistant', content: '' };
+    const assistantId = crypto.randomUUID();
+    const assistantMessage: Message = { id: assistantId, role: 'assistant', content: '' };
     setMessages([...newMessages, assistantMessage]);
     setIsStreaming(true);
 
@@ -206,7 +211,8 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     abortRef.current = controller;
 
     try {
-      const activeModelName = aiProviders.find(p => p.id === activeAiProviderId)?.name || 'gpt-4o';
+      const activeProvider = aiProviders.find(p => p.id === activeAiProviderId);
+      const activeModelName = activeProvider?.model || 'gpt-4o';
       
       const res = await fetch('http://127.0.0.1:8000/api/chat', {
         method: 'POST',
@@ -250,25 +256,21 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
           try {
             const event = JSON.parse(jsonStr);
+            console.log('SSE Event:', event);
             if (event.type === 'token' && event.content) {
               assistantMessage.content += event.content;
-              setMessages((prev) => {
-                const updated = [...prev];
-                updated[updated.length - 1] = { ...assistantMessage };
-                return updated;
-              });
-            } else if (event.type === 'final' && event.content) {
-              assistantMessage.content = event.content;
-              setMessages((prev) => {
-                const updated = [...prev];
-                updated[updated.length - 1] = { ...assistantMessage };
-                return updated;
-              });
+              setMessages((prev) => prev.map(m => m.id === assistantId ? { ...assistantMessage } : m));
+            } else if (event.type === 'final') {
+              if (event.content) assistantMessage.content = event.content;
+              setMessages((prev) => prev.map(m => m.id === assistantId ? { ...assistantMessage } : m));
             } else if (event.type === 'error') {
-              throw new Error(event.content || 'Unknown error from AI');
+              throw new Error(event.error || event.content || 'Unknown error from AI');
             }
-          } catch {
-            // skip malformed lines
+          } catch (e) {
+            // Rethrow Error objects to be caught by the outer catch, but ignore JSON parse errors
+            if (e instanceof Error && !(e instanceof SyntaxError)) {
+              throw e;
+            }
           }
         }
       }
@@ -278,7 +280,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
           const updated = [...prev];
           const last = updated[updated.length - 1];
           if (last.role === 'assistant' && !last.content) {
-            updated[updated.length - 1] = { role: 'assistant', content: '(Generation stopped)' };
+            updated[updated.length - 1] = { ...last, content: '(Generation stopped)' };
           }
           return updated;
         });
@@ -472,15 +474,46 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
               )}
 
               {messages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div key={i} className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                  {/* Message Header */}
+                  <div className="flex items-center gap-2 px-1 opacity-60">
+                    <span className="text-[10px] font-bold uppercase tracking-wider">{msg.role === 'user' ? 'You' : 'Mirai'}</span>
+                  </div>
                   <div
-                    className={`max-w-[90%] px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono whitespace-pre-wrap ${
+                    className={`max-w-[90%] px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono ${
                       msg.role === 'user'
                         ? 'bg-[var(--color-primary-accent)]/20 text-[var(--text-active)] rounded-br-sm'
                         : 'bg-[var(--color-glass-bg)] text-[var(--text-normal)] rounded-bl-sm border border-[var(--color-glass-border)]'
                     }`}
                   >
-                    {msg.content}
+                    <div className="whitespace-pre-wrap break-words">
+                      <ReactMarkdown
+                        components={{
+                          code(props) {
+                            const { children, className, ...rest } = props;
+                            const match = /language-(\w+)/.exec(className || '');
+                            return match ? (
+                              <SyntaxHighlighter
+                                {...rest}
+                                PreTag="div"
+                                language={match[1]}
+                                // @ts-expect-error Types mismatch between syntax-highlighter and its prism styles
+                                style={vscDarkPlus}
+                                className="rounded-md my-2 text-[11px]"
+                              >
+                                {String(children).replace(/\n$/, '')}
+                              </SyntaxHighlighter>
+                            ) : (
+                              <code {...rest} className="bg-black/30 px-1 py-0.5 rounded text-[var(--color-primary-accent)]">
+                                {children}
+                              </code>
+                            );
+                          }
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                    </div>
                     {isStreaming && msg.role === 'assistant' && i === messages.length - 1 && (
                       <span className="inline-block w-1.5 h-3 bg-purple-400/70 rounded-sm ml-0.5 animate-pulse align-text-bottom" />
                     )}

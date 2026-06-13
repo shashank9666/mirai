@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { builtinThemes } from '@/lib/themes';
 
 export type ThemeType = 'light' | 'dark' | 'hc-light' | 'hc-dark';
 
@@ -94,7 +95,7 @@ export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
       activeThemeId: DEFAULT_THEME_ID,
-      availableThemes: [], // Populated on boot
+      availableThemes: builtinThemes, // Populated immediately
       userThemeOverrides: {},
       layoutSettings: {
         compactMode: false,
