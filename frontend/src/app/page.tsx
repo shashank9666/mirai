@@ -17,6 +17,10 @@ import WelcomeScreen from '@/components/ide/WelcomeScreen';
 import SettingsPanel from '@/components/ide/SettingsPanel';
 import { HyprExtensions, HyprAgent, HyprDatabase, HyprDebug, HyprAIProviders } from '@/components/ide/HyprPanels';
 import { useIdeStore } from '@/store/ideStore';
+import { useWorkspaceStore } from '@/store/workspaceStore';
+import { useSettingsStore } from '@/store/settingsStore';
+import { useEditorStore } from '@/store/editorStore';
+
 import { useThemeStore } from '@/store/themeStore';
 import { builtinThemes } from '@/lib/themes';
 
@@ -124,7 +128,8 @@ export default function Home() {
   const [dragOverSide, setDragOverSide] = useState<string | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
-  const { zenMode, fullscreenMode, toggleZenMode, toggleFullscreenMode, workspacePath, setWorkspace, editorSettings, zoom, setZoom } = useIdeStore();
+  const { zenMode, fullscreenMode, toggleZenMode, toggleFullscreenMode, editorSettings, zoom, setZoom } = useSettingsStore();
+  const { workspacePath, setWorkspace } = useWorkspaceStore();
   const hasWorkspace = !!workspacePath;
   const [welcomeOverride, setWelcomeOverride] = useState<{ show: boolean; forWorkspace: string | null } | null>(null);
   const showWelcome = useMemo(() => {
@@ -222,11 +227,11 @@ export default function Home() {
       const mod = e.ctrlKey || e.metaKey;
       if (mod && (e.key === '=' || e.key === '+')) {
         e.preventDefault();
-        setZoom(Math.min(2.0, useIdeStore.getState().zoom + 0.1));
+        setZoom(Math.min(2.0, useSettingsStore.getState().zoom + 0.1));
       }
       if (mod && (e.key === '-' || e.key === '_')) {
         e.preventDefault();
-        setZoom(Math.max(0.5, useIdeStore.getState().zoom - 0.1));
+        setZoom(Math.max(0.5, useSettingsStore.getState().zoom - 0.1));
       }
       if (mod && e.key === '0') {
         e.preventDefault();
@@ -273,22 +278,22 @@ export default function Home() {
       else if (cmd?.startsWith('view:')) handleViewChange(cmd.slice(5));
       else if (cmd === 'toggleZenMode') toggleZenMode();
       else if (cmd === 'toggleFullscreen') toggleFullscreenMode();
-      else if (cmd === 'toggleWordWrap') useIdeStore.getState().toggleWordWrap();
-      else if (cmd === 'toggleMinimap') useIdeStore.getState().toggleMinimap();
-      else if (cmd === 'toggleStickyScroll') useIdeStore.getState().toggleStickyScroll();
-      else if (cmd === 'toggleFormatOnSave') useIdeStore.getState().toggleFormatOnSave();
-      else if (cmd === 'toggleBracketColorization') useIdeStore.getState().toggleBracketPairColorization();
-      else if (cmd === 'toggleFolding') useIdeStore.getState().toggleFolding();
-      else if (cmd === 'zoomIn') setZoom(Math.min(2.0, useIdeStore.getState().zoom + 0.1));
-      else if (cmd === 'zoomOut') setZoom(Math.max(0.1, useIdeStore.getState().zoom - 0.1));
+      else if (cmd === 'toggleWordWrap') useSettingsStore.getState().toggleWordWrap();
+      else if (cmd === 'toggleMinimap') useSettingsStore.getState().toggleMinimap();
+      else if (cmd === 'toggleStickyScroll') useSettingsStore.getState().toggleStickyScroll();
+      else if (cmd === 'toggleFormatOnSave') useSettingsStore.getState().toggleFormatOnSave();
+      else if (cmd === 'toggleBracketColorization') useSettingsStore.getState().toggleBracketPairColorization();
+      else if (cmd === 'toggleFolding') useSettingsStore.getState().toggleFolding();
+      else if (cmd === 'zoomIn') setZoom(Math.min(2.0, useSettingsStore.getState().zoom + 0.1));
+      else if (cmd === 'zoomOut') setZoom(Math.max(0.1, useSettingsStore.getState().zoom - 0.1));
       else if (cmd === 'resetZoom') {
         setZoom(0.7);
         setSidebarWidth(250);
         setTerminalHeight(300);
         setChatWidth(300);
       }
-      else if (cmd === 'splitHorizontal') useIdeStore.getState().addGroup('horizontal');
-      else if (cmd === 'splitVertical') useIdeStore.getState().addGroup('vertical');
+      else if (cmd === 'splitHorizontal') useEditorStore.getState().addGroup('horizontal');
+      else if (cmd === 'splitVertical') useEditorStore.getState().addGroup('vertical');
 
       else if (cmd === 'closeGroup') {
         const state = useIdeStore.getState();
@@ -316,7 +321,7 @@ export default function Home() {
   useEffect(() => {
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement && fullscreenMode) {
-        useIdeStore.getState().toggleFullscreenMode();
+        useSettingsStore.getState().toggleFullscreenMode();
       }
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);

@@ -1,8 +1,10 @@
 'use client';
+import { useWorkspaceStore } from '@/store/workspaceStore';
+import { useSettingsStore } from '@/store/settingsStore';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api, FileEntry } from '@/lib/api';
-import { useIdeStore } from '@/store/ideStore';
+import { useEditorStore } from '@/store/editorStore';
 import PanelHeader from './PanelHeader';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, FilePlus, FolderPlus, Edit2, Monitor, FileCode2, FileJson, FileText, File, FileImage, FileTerminal, Database, Palette, Settings as SettingsIcon } from 'lucide-react';
@@ -162,7 +164,7 @@ const TreeItem = React.memo(({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [children, setChildren] = useState<FileEntry[]>([]);
-  const { setActiveFile, getActiveGroup } = useIdeStore();
+  const { setActiveFile, getActiveGroup } = useEditorStore();
   const activeFile = getActiveGroup()?.activeFile || null;
 
   const handleToggle = async () => {
@@ -248,7 +250,9 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
   const [renameTarget, setRenameTarget] = useState<ContextMenu | null>(null);
   const [newItemTarget, setNewItemTarget] = useState<{ parentPath: string; type: 'file' | 'folder' } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(true);
-  const { renameTab, workspacePath, getActiveGroup, editorSettings } = useIdeStore();
+  const { renameTab, getActiveGroup } = useEditorStore();
+  const { workspacePath } = useWorkspaceStore();
+  const { editorSettings } = useSettingsStore();
 
   const refresh = useCallback(() => {
     setIsRefreshing(true);

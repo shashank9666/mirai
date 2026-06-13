@@ -2,7 +2,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useIdeStore } from '@/store/ideStore';
+import { useEditorStore } from '@/store/editorStore';
+import { useWorkspaceStore } from '@/store/workspaceStore';
 import {
   FolderOpen,
   ArrowLeftRight,
@@ -35,7 +36,8 @@ function truncatePath(path: string | null) {
 }
 
 export default function Waybar() {
-  const { getActiveGroup, clearWorkspace, workspaceName, workspacePath } = useIdeStore();
+  const { getActiveGroup } = useEditorStore();
+  const { clearWorkspace, workspaceName, workspacePath } = useWorkspaceStore();
   const activeFile = getActiveGroup()?.activeFile || null;
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);

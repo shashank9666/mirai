@@ -3,7 +3,8 @@
 import React, { useCallback, useRef } from 'react';
 import { DiffEditor as MonacoDiffEditor, loader } from '@monaco-editor/react';
 import { X, GitCompareArrows } from 'lucide-react';
-import { useIdeStore } from '@/store/ideStore';
+import { useEditorStore } from '@/store/editorStore';
+import { useSettingsStore } from '@/store/settingsStore';
 
 loader.config({ paths: { vs: '/vs' } });
 
@@ -21,7 +22,8 @@ function getLanguageFromPath(path: string): string {
 }
 
 export default function DiffEditorPanel() {
-  const { diffMode, diffFilePath, diffOriginal, diffModified, closeDiff, editorSettings } = useIdeStore();
+  const { diffMode, diffFilePath, diffOriginal, diffModified, closeDiff } = useEditorStore();
+  const { editorSettings } = useSettingsStore();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const editorRef = useRef<any>(null);
 

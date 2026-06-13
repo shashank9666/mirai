@@ -7,11 +7,11 @@ import {
   HardDrive, ArrowLeft, Sparkles,
   History, X,
 } from 'lucide-react';
-import { useIdeStore } from '@/store/ideStore';
+import { useWorkspaceStore } from '@/store/workspaceStore';
 import { api, type FileEntry } from '@/lib/api';
 
 export default function WelcomeScreen({ onWorkspaceOpened }: { onWorkspaceOpened?: () => void }) {
-  const { setWorkspace, recentWorkspaces } = useIdeStore();
+  const { setWorkspace, recentWorkspaces } = useWorkspaceStore();
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [drives, setDrives] = useState<{ name: string; label: string }[]>([]);
   const [currentDir, setCurrentDir] = useState<string | null>(null);

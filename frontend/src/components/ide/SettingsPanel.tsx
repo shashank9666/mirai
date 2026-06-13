@@ -3,12 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Type, Palette, Sparkles, Globe, Blocks, Eye, EyeOff, Puzzle, ImageIcon } from 'lucide-react';
 import { useIdeStore, type EditorSettings } from '@/store/ideStore';
+import { useAiStore } from '@/store/aiStore';
+import { useSettingsStore } from '@/store/settingsStore';
+
 import { api } from '@/lib/api';
 
 type SettingsTab = 'editor' | 'theme' | 'ai' | 'extensions' | 'mcp' | 'general';
 
 export default function SettingsPanel({ onClose }: { onClose: () => void }) {
-  const { editorSettings, setEditorSettings, aiProviders, activeAiProviderId, setAiProviderConfig, setActiveAiProvider, extensions, setExtensions, notificationsEnabled, toggleNotifications } = useIdeStore();
+  const { editorSettings, setEditorSettings, extensions, setExtensions, notificationsEnabled, toggleNotifications } = useSettingsStore();
+  const { aiProviders, activeAiProviderId, setAiProviderConfig, setActiveAiProvider } = useAiStore();
   const [activeTab, setActiveTab] = useState<SettingsTab>('editor');
   const [settingsJson, setSettingsJson] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
@@ -417,7 +421,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
 }
 
 function EditorSettings() {
-  const { editorSettings, setEditorSettings } = useIdeStore();
+  const { editorSettings, setEditorSettings } = useSettingsStore();
   const s = editorSettings;
 
   return (

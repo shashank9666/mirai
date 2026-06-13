@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, FileCode, File, Clock } from 'lucide-react';
 import { useIdeStore } from '@/store/ideStore';
+import { useEditorStore } from '@/store/editorStore';
+
 import { api } from '@/lib/api';
 
 interface FileItem {
@@ -172,7 +174,7 @@ export default function QuickOpen() {
     try {
       const { content } = await api.readFile(filePath);
       const name = filePath.split(/[\\/]/).pop() || filePath;
-      useIdeStore.getState().setActiveFile(filePath, name, content);
+      useEditorStore.getState().setActiveFile(filePath, name, content);
       setIsOpen(false);
     } catch (err) {
       console.error('Failed to open file:', err);

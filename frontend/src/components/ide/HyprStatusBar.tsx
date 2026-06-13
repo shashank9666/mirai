@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useIdeStore } from '@/store/ideStore';
+import { useEditorStore } from '@/store/editorStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { api } from '@/lib/api';
 
 export default function HyprStatusBar() {
-  const { activeGroupId, getActiveGroup, editorSettings, groups } = useIdeStore();
+  const { activeGroupId, getActiveGroup, groups } = useEditorStore();
+  const { editorSettings } = useSettingsStore();
   const group = getActiveGroup();
   const activeFile = group?.activeFile || null;
   const activeFileContent = group?.activeFileContent || '';

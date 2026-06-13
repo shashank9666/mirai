@@ -7,6 +7,9 @@ import {
   Undo2, Redo2,
 } from 'lucide-react';
 import { useIdeStore, type EditorSettings } from '@/store/ideStore';
+import { useSettingsStore } from '@/store/settingsStore';
+import { useEditorStore } from '@/store/editorStore';
+
 
 function ToolbarButton({
   active,
@@ -43,13 +46,8 @@ function ToolbarDivider() {
 }
 
 export default function EditorToolbar() {
-  const {
-    editorSettings, zenMode,
-    toggleZenMode, toggleWordWrap, toggleMinimap, toggleStickyScroll,
-    toggleFormatOnSave, toggleBracketPairColorization, toggleFolding,
-    increaseFontSize, decreaseFontSize, resetFontSize, toggleMouseWheelZoom,
-    addGroup, setSplitDirection, splitDirection,
-  } = useIdeStore();
+  const { editorSettings, zenMode, toggleZenMode, toggleWordWrap, toggleMinimap, toggleStickyScroll, toggleFormatOnSave, toggleBracketPairColorization, toggleFolding, increaseFontSize, decreaseFontSize, resetFontSize, toggleMouseWheelZoom } = useSettingsStore();
+  const { addGroup, setSplitDirection, splitDirection } = useEditorStore();
 
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const s = editorSettings;
@@ -158,15 +156,15 @@ export default function EditorToolbar() {
 
               <SettingsItem label="Line Height" value={`${s.lineHeight}px`}>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => useIdeStore.getState().setEditorSettings({ lineHeight: Math.max(12, s.lineHeight - 2) })} className="w-5 h-5 rounded bg-white/5 hover:bg-white/10 text-white/50 text-[10px]">-</button>
-                  <button onClick={() => useIdeStore.getState().setEditorSettings({ lineHeight: Math.min(40, s.lineHeight + 2) })} className="w-5 h-5 rounded bg-white/5 hover:bg-white/10 text-white/50 text-[10px]">+</button>
+                  <button onClick={() => useSettingsStore.getState().setEditorSettings({ lineHeight: Math.max(12, s.lineHeight - 2) })} className="w-5 h-5 rounded bg-white/5 hover:bg-white/10 text-white/50 text-[10px]">-</button>
+                  <button onClick={() => useSettingsStore.getState().setEditorSettings({ lineHeight: Math.min(40, s.lineHeight + 2) })} className="w-5 h-5 rounded bg-white/5 hover:bg-white/10 text-white/50 text-[10px]">+</button>
                 </div>
               </SettingsItem>
 
               <SettingsItem label="Tab Size" value={`${s.tabSize}`}>
                 <div className="flex items-center gap-1">
                   {[2, 4, 8].map(v => (
-                    <button key={v} onClick={() => useIdeStore.getState().setEditorSettings({ tabSize: v })}
+                    <button key={v} onClick={() => useSettingsStore.getState().setEditorSettings({ tabSize: v })}
                       className={`w-5 h-5 rounded text-[10px] ${s.tabSize === v ? 'bg-white/15 text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>
                       {v}
                     </button>
@@ -182,26 +180,26 @@ export default function EditorToolbar() {
               <SettingsToggle label="Bracket Colorization" active={s.bracketPairColorization} onClick={toggleBracketPairColorization} />
               <SettingsToggle label="Mouse Wheel Zoom" active={s.mouseWheelZoom} onClick={toggleMouseWheelZoom} />
               <SettingsToggle label="Auto Closing Brackets" active={s.autoClosingBrackets}
-                onClick={() => useIdeStore.getState().setEditorSettings({ autoClosingBrackets: !s.autoClosingBrackets })} />
+                onClick={() => useSettingsStore.getState().setEditorSettings({ autoClosingBrackets: !s.autoClosingBrackets })} />
               <SettingsToggle label="Auto Closing Quotes" active={s.autoClosingQuotes}
-                onClick={() => useIdeStore.getState().setEditorSettings({ autoClosingQuotes: !s.autoClosingQuotes })} />
+                onClick={() => useSettingsStore.getState().setEditorSettings({ autoClosingQuotes: !s.autoClosingQuotes })} />
               <SettingsToggle label="Format on Paste" active={s.formatOnPaste}
-                onClick={() => useIdeStore.getState().setEditorSettings({ formatOnPaste: !s.formatOnPaste })} />
+                onClick={() => useSettingsStore.getState().setEditorSettings({ formatOnPaste: !s.formatOnPaste })} />
               <SettingsToggle label="Smooth Scrolling" active={s.smoothScrolling}
-                onClick={() => useIdeStore.getState().setEditorSettings({ smoothScrolling: !s.smoothScrolling })} />
+                onClick={() => useSettingsStore.getState().setEditorSettings({ smoothScrolling: !s.smoothScrolling })} />
               <SettingsToggle label="Quick Suggestions" active={s.quickSuggestions}
-                onClick={() => useIdeStore.getState().setEditorSettings({ quickSuggestions: !s.quickSuggestions })} />
+                onClick={() => useSettingsStore.getState().setEditorSettings({ quickSuggestions: !s.quickSuggestions })} />
               <SettingsToggle label="Links" active={s.links}
-                onClick={() => useIdeStore.getState().setEditorSettings({ links: !s.links })} />
+                onClick={() => useSettingsStore.getState().setEditorSettings({ links: !s.links })} />
               <SettingsToggle label="Color Decorators" active={s.colorDecorators}
-                onClick={() => useIdeStore.getState().setEditorSettings({ colorDecorators: !s.colorDecorators })} />
+                onClick={() => useSettingsStore.getState().setEditorSettings({ colorDecorators: !s.colorDecorators })} />
               <SettingsToggle label="Context Menu" active={s.contextmenu}
-                onClick={() => useIdeStore.getState().setEditorSettings({ contextmenu: !s.contextmenu })} />
+                onClick={() => useSettingsStore.getState().setEditorSettings({ contextmenu: !s.contextmenu })} />
 
               <div className="text-[10px] font-mono text-white/30 uppercase tracking-wider px-2 py-1.5 mt-2">Render Whitespace</div>
               <div className="flex gap-1 px-2 mb-2">
                 {(['none', 'boundary', 'all'] as const).map(v => (
-                  <button key={v} onClick={() => useIdeStore.getState().setEditorSettings({ renderWhitespace: v })}
+                  <button key={v} onClick={() => useSettingsStore.getState().setEditorSettings({ renderWhitespace: v })}
                     className={`px-2 py-0.5 rounded text-[10px] ${s.renderWhitespace === v ? 'bg-white/15 text-white' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}>
                     {v}
                   </button>
@@ -211,7 +209,7 @@ export default function EditorToolbar() {
               <div className="text-[10px] font-mono text-white/30 uppercase tracking-wider px-2 py-1.5 mt-2">Cursor Style</div>
               <div className="flex gap-1 px-2 mb-2 flex-wrap">
                 {(['line', 'block', 'underline'] as const).map(v => (
-                  <button key={v} onClick={() => useIdeStore.getState().setEditorSettings({ cursorStyle: v })}
+                  <button key={v} onClick={() => useSettingsStore.getState().setEditorSettings({ cursorStyle: v })}
                     className={`px-2 py-0.5 rounded text-[10px] ${s.cursorStyle === v ? 'bg-white/15 text-white' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}>
                     {v}
                   </button>
@@ -221,7 +219,7 @@ export default function EditorToolbar() {
               <div className="text-[10px] font-mono text-white/30 uppercase tracking-wider px-2 py-1.5 mt-2">Cursor Blinking</div>
               <div className="flex gap-1 px-2 mb-2 flex-wrap">
                 {(['blink', 'smooth', 'phase', 'expand', 'solid'] as const).map(v => (
-                  <button key={v} onClick={() => useIdeStore.getState().setEditorSettings({ cursorBlinking: v })}
+                  <button key={v} onClick={() => useSettingsStore.getState().setEditorSettings({ cursorBlinking: v })}
                     className={`px-2 py-0.5 rounded text-[10px] ${s.cursorBlinking === v ? 'bg-white/15 text-white' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}>
                     {v}
                   </button>

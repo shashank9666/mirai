@@ -1,231 +1,23 @@
+import { useEditorStore } from '@/store/editorStore';
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { api } from '@/lib/api';
+import { EditorGroup, Tab, getLanguageFromPath } from './ideStore';
 
-export interface Tab {
-  id: string;
-  name: string;
-  path: string;
-  dirty: boolean;
-  savedContent: string;
-  editedContent: string;
-  language?: string;
-  pinned?: boolean;
-}
+let groupCounter = 1;
 
-export interface Extension {
-  name: string;
-  enabled: boolean;
-  desc: string;
-  builtin: boolean;
-}
-
-export interface AIProviderConfig {
-  id: string;
-  name: string;
-  baseUrl: string;
-  apiKey: string;
-  model: string;
-  isCustom: boolean;
-}
-
-export interface AutoApproveSettings {
-  readProjectFiles: boolean;
-  readAllFiles: boolean;
-  editProjectFiles: boolean;
-  executeSafeCommands: boolean;
-  executeAllCommands: boolean;
-  useBrowser: boolean;
-  useMcpServers: boolean;
-}
-
-interface ClosedTab {
-  name: string;
-  path: string;
-}
-
-export interface EditorGroup {
-  id: string;
-  activeFile: string | null;
-  activeFileContent: string;
-  tabs: Tab[];
-  closedTabs: ClosedTab[];
-}
-
-export interface EditorSettings {
-  wordWrap: 'off' | 'on' | 'wordWrapColumn' | 'bounded';
-  wordWrapColumn: number;
-  minimap: boolean;
-  minimapScale: number;
-  fontSize: number;
-  lineHeight: number;
-  tabSize: number;
-  renderWhitespace: 'none' | 'boundary' | 'all';
-  showIndentGuides: boolean;
-  bracketPairColorization: boolean;
-  autoClosingBrackets: boolean;
-  autoClosingQuotes: boolean;
-  formatOnSave: boolean;
-  formatOnPaste: boolean;
-  stickyScroll: boolean;
-  smoothScrolling: boolean;
-  cursorBlinking: 'blink' | 'smooth' | 'phase' | 'expand' | 'solid';
-  cursorStyle: 'line' | 'block' | 'underline' | 'line-thin' | 'block-outline' | 'underline-thin';
-  cursorWidth: number;
-  fontSizeMinimap: number;
-  renderLineHighlight: 'none' | 'gutter' | 'all';
-  showFoldingControls: 'always' | 'mouseover';
-  folding: boolean;
-  rulers: number[];
-  padding: { top: number; bottom: number };
-  scrollBeyondLastLine: boolean;
-  links: boolean;
-  colorDecorators: boolean;
-  contextmenu: boolean;
-  mouseWheelZoom: boolean;
-  quickSuggestions: boolean;
-  suggestOnTriggerCharacters: boolean;
-  acceptSuggestionOnEnter: 'on' | 'smart' | 'off';
-  tabCompletion: 'on' | 'off' | 'onlySnippets';
-  wordBasedSuggestions: 'off' | 'allDocuments' | 'currentDocument';
-  overviewRulerBorder: boolean;
-  hideCursorInOverviewRuler: boolean;
-  automaticLayout: boolean;
-  theme: string;
-  backgroundImage: string | null;
-  backgroundOpacity: number;
-  accentColor?: string;
-  explorerIndentGuides: boolean;
-  panelOpacity: number;
-  panelBlur: number;
-  appTheme: 'dark' | 'glass' | 'solid' | 'light';
-}
-
-const defaultEditorSettings: EditorSettings = {
-  wordWrap: 'off',
-  wordWrapColumn: 80,
-  minimap: true,
-  minimapScale: 1,
-  fontSize: 13,
-  lineHeight: 20,
-  tabSize: 2,
-  renderWhitespace: 'none',
-  showIndentGuides: true,
-  bracketPairColorization: true,
-  autoClosingBrackets: true,
-  autoClosingQuotes: true,
-  formatOnSave: false,
-  formatOnPaste: true,
-  stickyScroll: true,
-  smoothScrolling: true,
-  cursorBlinking: 'smooth',
-  cursorStyle: 'line',
-  cursorWidth: 2,
-  fontSizeMinimap: 12,
-  renderLineHighlight: 'gutter',
-  showFoldingControls: 'mouseover',
-  folding: true,
-  rulers: [],
-  padding: { top: 16, bottom: 16 },
-  scrollBeyondLastLine: false,
-  links: true,
-  colorDecorators: true,
-  contextmenu: true,
-  mouseWheelZoom: true,
-  quickSuggestions: true,
-  suggestOnTriggerCharacters: true,
-  acceptSuggestionOnEnter: 'smart',
-  tabCompletion: 'on',
-  wordBasedSuggestions: 'currentDocument',
-  overviewRulerBorder: false,
-  hideCursorInOverviewRuler: false,
-  automaticLayout: true,
-  theme: 'vs-dark',
-  backgroundImage: null,
-  backgroundOpacity: 0.8,
-  accentColor: '#3b82f6',
-  explorerIndentGuides: true,
-  panelOpacity: 0.6,
-  panelBlur: 16,
-  appTheme: 'glass',
-};
-
-const DEFAULT_EXTENSIONS: Extension[] = [
-  { name: 'Tailwind CSS IntelliSense', enabled: true, desc: 'Autocomplete & linting for Tailwind', builtin: true },
-  { name: 'ESLint', enabled: true, desc: 'JavaScript/TypeScript linting', builtin: true },
-  { name: 'Prettier', enabled: true, desc: 'Code formatting', builtin: true },
-  { name: 'Error Lens', enabled: true, desc: 'Inline error display', builtin: true },
-  { name: 'GitLens', enabled: true, desc: 'Git history & blame', builtin: false },
-  { name: 'GitHub Copilot', enabled: true, desc: 'AI-powered code suggestions', builtin: false },
-  { name: 'Docker', enabled: true, desc: 'Docker container management', builtin: false },
-  { name: 'Python', enabled: true, desc: 'Python language support', builtin: false },
-];
-
-const DEFAULT_AI_PROVIDERS: AIProviderConfig[] = [
-  { id: 'openai', name: 'OpenAI', baseUrl: '', apiKey: '', model: 'gpt-4o', isCustom: false },
-  { id: 'anthropic', name: 'Anthropic', baseUrl: '', apiKey: '', model: 'claude-3-opus-20240229', isCustom: false },
-  { id: 'gemini', name: 'Google Gemini', baseUrl: '', apiKey: '', model: 'gemini-1.5-pro', isCustom: false },
-  { id: 'deepseek', name: 'DeepSeek', baseUrl: '', apiKey: '', model: 'deepseek-chat', isCustom: false },
-  { id: 'xai', name: 'xAI', baseUrl: '', apiKey: '', model: 'grok-beta', isCustom: false },
-  { id: 'groq', name: 'Groq', baseUrl: '', apiKey: '', model: 'llama3-70b-8192', isCustom: false },
-  { id: 'mistral', name: 'Mistral', baseUrl: '', apiKey: '', model: 'mistral-large-latest', isCustom: false },
-  { id: 'cohere', name: 'Cohere', baseUrl: '', apiKey: '', model: 'command-r-plus', isCustom: false },
-  { id: 'openrouter', name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', apiKey: '', model: '', isCustom: true },
-  { id: 'together', name: 'Together AI', baseUrl: 'https://api.together.xyz/v1', apiKey: '', model: '', isCustom: true },
-  { id: 'fireworks', name: 'Fireworks AI', baseUrl: 'https://api.fireworks.ai/inference/v1', apiKey: '', model: '', isCustom: true },
-  { id: 'huggingface', name: 'Hugging Face', baseUrl: '', apiKey: '', model: '', isCustom: false },
-  { id: 'ollama', name: 'Ollama', baseUrl: 'http://127.0.0.1:11434', apiKey: '', model: 'llama3', isCustom: true },
-  { id: 'lmstudio', name: 'LM Studio', baseUrl: 'http://localhost:1234/v1', apiKey: '', model: '', isCustom: true },
-  { id: 'custom', name: 'Custom OpenAI Compatible', baseUrl: '', apiKey: '', model: '', isCustom: true }
-];
-
-export function getLanguageFromPath(path: string): string {
-  const ext = path.split('.').pop()?.toLowerCase() || '';
-  const langMap: Record<string, string> = {
-    ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
-    py: 'python', rb: 'ruby', go: 'go', rs: 'rust', java: 'java',
-    c: 'c', cpp: 'cpp', h: 'c', hpp: 'cpp', cs: 'csharp',
-    html: 'html', htm: 'html', css: 'css', scss: 'scss', less: 'less',
-    json: 'json', yaml: 'yaml', yml: 'yaml', toml: 'toml', xml: 'xml',
-    md: 'markdown', txt: 'plaintext', sql: 'sql', sh: 'shell', bash: 'shell',
-    vue: 'html', svelte: 'html', graphql: 'graphql',
-  };
-  return langMap[ext] || 'plaintext';
-}
-
-interface IdeState {
-  workspacePath: string | null;
-  workspaceName: string | null;
-  recentWorkspaces: string[];
+interface EditorState {
   activeGroupId: string;
   groups: EditorGroup[];
-  editorSettings: EditorSettings;
-  zenMode: boolean;
-  fullscreenMode: boolean;
   splitDirection: 'horizontal' | 'vertical';
   diffMode: boolean;
   diffOriginal: string;
   diffModified: string;
   diffFilePath: string;
-  extensions: Extension[];
-  zoom: number;
-
-  aiProviders: AIProviderConfig[];
-  activeAiProviderId: string | null;
-
-  autoApproveSettings: AutoApproveSettings;
-  setAutoApproveSettings: (settings: Partial<AutoApproveSettings>) => void;
-
-  notificationsEnabled: boolean;
-  toggleNotifications: () => void;
-
-  setExtensions: (exts: Extension[] | ((prev: Extension[]) => Extension[])) => void;
-  setAiProviderConfig: (id: string, config: Partial<AIProviderConfig>) => void;
-  setActiveAiProvider: (id: string) => void;
 
   getActiveGroup: () => EditorGroup | undefined;
   getGroupById: (id: string) => EditorGroup | undefined;
-
   setActiveFile: (path: string, name: string, content: string) => void;
   closeTab: (id: string) => void;
   closeAllTabs: () => void;
@@ -238,71 +30,26 @@ interface IdeState {
   renameTab: (oldPath: string, newPath: string) => void;
   reorderTabs: (groupId: string, draggedPath: string, targetPath: string) => void;
   toggleTabPin: (groupId: string, tabPath: string) => void;
-
   addGroup: (direction: 'horizontal' | 'vertical') => string;
   removeGroup: (groupId: string) => void;
   setActiveGroup: (groupId: string) => void;
   moveTabToGroup: (tabPath: string, fromGroupId: string, toGroupId: string) => void;
-
-  setEditorSettings: (settings: Partial<EditorSettings>) => void;
-  toggleZenMode: () => void;
-  toggleFullscreenMode: () => void;
-  toggleWordWrap: () => void;
-  toggleMinimap: () => void;
-  toggleStickyScroll: () => void;
-  toggleFormatOnSave: () => void;
-  toggleBracketPairColorization: () => void;
-  toggleFolding: () => void;
-  increaseFontSize: () => void;
-  decreaseFontSize: () => void;
-  resetFontSize: () => void;
-  setZoom: (z: number) => void;
-  toggleMouseWheelZoom: () => void;
   setSplitDirection: (dir: 'horizontal' | 'vertical') => void;
-
   openDiff: (filePath: string, original: string, modified: string) => void;
   closeDiff: () => void;
-
-  setWorkspace: (path: string, name: string) => void;
-  clearWorkspace: () => void;
-  addRecentWorkspace: (path: string) => void;
 }
 
-let groupCounter = 1;
-
-export const useIdeStore = create<IdeState>()(
+export const useEditorStore = create<EditorState>()(
   persist(
     (set, get) => ({
-      workspacePath: null,
-      workspaceName: null,
-      recentWorkspaces: [],
-      extensions: DEFAULT_EXTENSIONS,
-      zoom: 0.1,
-      aiProviders: DEFAULT_AI_PROVIDERS,
-      activeAiProviderId: 'openai',
-      autoApproveSettings: {
-        readProjectFiles: true,
-        readAllFiles: false,
-        editProjectFiles: false,
-        executeSafeCommands: true,
-        executeAllCommands: false,
-        useBrowser: false,
-        useMcpServers: false,
-      },
-      notificationsEnabled: true,
       activeGroupId: 'group-1',
-      groups: [
-        {
-          id: 'group-1',
-          activeFile: null,
-          activeFileContent: '',
-          tabs: [],
-          closedTabs: [],
-        },
-      ],
-      editorSettings: { ...defaultEditorSettings },
-      zenMode: false,
-      fullscreenMode: false,
+      groups: [{
+        id: 'group-1',
+        activeFile: null,
+        activeFileContent: '',
+        tabs: [],
+        closedTabs: [],
+      }],
       splitDirection: 'horizontal',
       diffMode: false,
       diffOriginal: '',
@@ -519,7 +266,6 @@ export const useIdeStore = create<IdeState>()(
         const [draggedTab] = newTabs.splice(draggedIdx, 1);
         newTabs.splice(targetIdx, 0, draggedTab);
 
-        // Sort so pinned are always first
         newTabs.sort((a, b) => (a.pinned === b.pinned ? 0 : a.pinned ? -1 : 1));
 
         const newGroups = [...state.groups];
@@ -602,60 +348,6 @@ export const useIdeStore = create<IdeState>()(
         return { groups: newGroups };
       }),
 
-      setEditorSettings: (settings) => set((state) => ({
-        editorSettings: { ...state.editorSettings, ...settings },
-      })),
-
-      toggleZenMode: () => set((state) => ({ zenMode: !state.zenMode })),
-      toggleFullscreenMode: () => set((state) => ({ fullscreenMode: !state.fullscreenMode })),
-      toggleNotifications: () => set((state) => ({ notificationsEnabled: !state.notificationsEnabled })),
-
-      toggleWordWrap: () => set((state) => ({
-        editorSettings: {
-          ...state.editorSettings,
-          wordWrap: state.editorSettings.wordWrap === 'off' ? 'on' : 'off',
-        },
-      })),
-
-      toggleMinimap: () => set((state) => ({
-        editorSettings: { ...state.editorSettings, minimap: !state.editorSettings.minimap },
-      })),
-
-      toggleStickyScroll: () => set((state) => ({
-        editorSettings: { ...state.editorSettings, stickyScroll: !state.editorSettings.stickyScroll },
-      })),
-
-      toggleFormatOnSave: () => set((state) => ({
-        editorSettings: { ...state.editorSettings, formatOnSave: !state.editorSettings.formatOnSave },
-      })),
-
-      toggleBracketPairColorization: () => set((state) => ({
-        editorSettings: { ...state.editorSettings, bracketPairColorization: !state.editorSettings.bracketPairColorization },
-      })),
-
-      toggleFolding: () => set((state) => ({
-        editorSettings: { ...state.editorSettings, folding: !state.editorSettings.folding },
-      })),
-
-      increaseFontSize: () => set((state) => ({
-        editorSettings: { ...state.editorSettings, fontSize: Math.min(state.editorSettings.fontSize + 1, 40) },
-      })),
-
-      decreaseFontSize: () => set((state) => ({
-        editorSettings: { ...state.editorSettings, fontSize: Math.max(state.editorSettings.fontSize - 1, 8) },
-      })),
-
-      resetFontSize: () => set((state) => ({
-        editorSettings: { ...state.editorSettings, fontSize: 13 },
-        zoom: 0.7,
-      })),
-
-      setZoom: (z) => set(() => ({ zoom: z })),
-
-      toggleMouseWheelZoom: () => set((state) => ({
-        editorSettings: { ...state.editorSettings, mouseWheelZoom: !state.editorSettings.mouseWheelZoom },
-      })),
-
       setSplitDirection: (dir) => set(() => ({ splitDirection: dir })),
 
       openDiff: (filePath, original, modified) => set(() => ({
@@ -671,63 +363,13 @@ export const useIdeStore = create<IdeState>()(
         diffOriginal: '',
         diffModified: '',
       })),
-
-      setWorkspace: (path, name) => {
-        const state = get();
-        const recent = state.recentWorkspaces.filter(p => p !== path);
-        const newRecent = [path, ...recent].slice(0, 10);
-        set(() => ({ workspacePath: path, workspaceName: name, recentWorkspaces: newRecent }));
-        try {
-          localStorage.setItem('miraiRecentWorkspaces', JSON.stringify(newRecent));
-          localStorage.setItem('miraiLastWorkspace', path);
-        } catch { }
-      },
-
-      clearWorkspace: () => set(() => ({
-        workspacePath: null,
-        workspaceName: null,
-        groups: [{
-          id: 'group-1',
-          activeFile: null,
-          activeFileContent: '',
-          tabs: [],
-          closedTabs: [],
-        }],
-        activeGroupId: 'group-1',
-      })),
-
-      addRecentWorkspace: (path) => set((state) => {
-        const recent = state.recentWorkspaces.filter(p => p !== path);
-        return { recentWorkspaces: [path, ...recent].slice(0, 10) };
-      }),
-
-      setExtensions: (exts) => set((state) => ({
-        extensions: typeof exts === 'function' ? exts(state.extensions) : exts,
-      })),
-
-      setAiProviderConfig: (id, config) => set((state) => ({
-        aiProviders: state.aiProviders.map(p => p.id === id ? { ...p, ...config } : p)
-      })),
-
-      setActiveAiProvider: (id) => set(() => ({ activeAiProviderId: id })),
-
-      setAutoApproveSettings: (settings) => set((state) => ({
-        autoApproveSettings: { ...state.autoApproveSettings, ...settings }
-      })),
     }),
     {
-      name: 'mirai-ide-storage',
+      name: 'mirai-editor-storage',
       partialize: (state) => ({
-        workspacePath: state.workspacePath,
-        workspaceName: state.workspaceName,
-        recentWorkspaces: state.recentWorkspaces,
-        zoom: state.zoom,
-        editorSettings: state.editorSettings,
-        extensions: state.extensions,
-        aiProviders: state.aiProviders,
-        activeAiProviderId: state.activeAiProviderId,
-        autoApproveSettings: state.autoApproveSettings,
-        notificationsEnabled: state.notificationsEnabled,
+        groups: state.groups,
+        activeGroupId: state.activeGroupId,
+        splitDirection: state.splitDirection,
       }),
     }
   )

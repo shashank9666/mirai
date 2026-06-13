@@ -4,6 +4,9 @@ import React, { useEffect, useCallback, useRef, useState } from 'react';
 import Editor, { type OnMount, type OnChange, loader } from '@monaco-editor/react';
 import { X, ChevronRight, Pin } from 'lucide-react';
 import { useIdeStore, type EditorGroup } from '@/store/ideStore';
+import { useSettingsStore } from '@/store/settingsStore';
+import { useEditorStore } from '@/store/editorStore';
+
 import DiffEditorPanel from './DiffEditor';
 import PanelHeader from './PanelHeader';
 
@@ -102,11 +105,11 @@ function Breadcrumbs({ filePath }: { filePath: string }) {
 }
 
 function EditorTabs({ group }: { group: EditorGroup }) {
-  const { setActiveGroup, closeTab, reorderTabs, toggleTabPin, activeGroupId } = useIdeStore();
+  const { setActiveGroup, closeTab, reorderTabs, toggleTabPin, activeGroupId } = useEditorStore();
 
   const handleTabClick = (path: string, name: string, savedContent: string) => {
     setActiveGroup(group.id);
-    useIdeStore.getState().setActiveFile(path, name, savedContent);
+    useEditorStore.getState().setActiveFile(path, name, savedContent);
   };
 
   const handleDragStart = (e: React.DragEvent, tabPath: string) => {
@@ -127,7 +130,7 @@ function EditorTabs({ group }: { group: EditorGroup }) {
     if (sourceGroupId === group.id && draggedPath) {
       reorderTabs(group.id, draggedPath, targetTabPath);
     } else if (sourceGroupId && sourceGroupId !== group.id && draggedPath) {
-      useIdeStore.getState().moveTabToGroup(draggedPath, sourceGroupId, group.id);
+      useEditorStore.getState().moveTabToGroup(draggedPath, sourceGroupId, group.id);
       reorderTabs(group.id, draggedPath, targetTabPath);
     }
   };
@@ -177,7 +180,8 @@ function EditorTabs({ group }: { group: EditorGroup }) {
 }
 
 function EditorGroupPanel({ group }: { group: EditorGroup }) {
-  const { activeGroupId, setActiveGroup, removeGroup, groups, editorSettings, updateFileContent, saveFile } = useIdeStore();
+  const { activeGroupId, setActiveGroup, removeGroup, groups, updateFileContent, saveFile } = useEditorStore();
+  const { editorSettings } = useSettingsStore();
   const isActive = group.id === activeGroupId;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const editorRef = useRef<any>(null);
@@ -408,7 +412,7 @@ export default function HyprEditor({
   onClose?: () => void;
   onDragStart?: (e: React.DragEvent) => void;
 } = {}) {
-  const { groups, splitDirection, addGroup, diffMode } = useIdeStore();
+  const { groups, splitDirection, addGroup, diffMode } = useEditorStore();
 
   // Register global keyboard shortcuts
   useEffect(() => {
@@ -424,7 +428,7 @@ export default function HyprEditor({
       // Alt+Z to toggle word wrap
       if (e.altKey && e.key === 'z') {
         e.preventDefault();
-        useIdeStore.getState().toggleWordWrap();
+        useSettingsStore.getState().toggleWordWrap();
       }
 
       // Ctrl+K Z to toggle zen mode
@@ -435,15 +439,15 @@ export default function HyprEditor({
       // Ctrl+= / Ctrl+- for font size
       if (mod && e.key === '=') {
         e.preventDefault();
-        useIdeStore.getState().increaseFontSize();
+        useSettingsStore.getState().increaseFontSize();
       }
       if (mod && e.key === '-') {
         e.preventDefault();
-        useIdeStore.getState().decreaseFontSize();
+        useSettingsStore.getState().decreaseFontSize();
       }
       if (mod && e.key === '0') {
         e.preventDefault();
-        useIdeStore.getState().resetFontSize();
+        useSettingsStore.getState().resetFontSize();
       }
     };
     window.addEventListener('keydown', handleKeyDown);

@@ -1,13 +1,14 @@
 'use client';
+import { useAiStore } from '@/store/aiStore';
 
 import React, { useState, useEffect } from 'react';
 import { Puzzle, Bot, Database, Bug, Zap, Plus, ChevronDown, Eye, EyeOff } from 'lucide-react';
 import { api } from '@/lib/api';
-import { useIdeStore } from '@/store/ideStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { motion } from 'framer-motion';
 
 export function HyprExtensions() {
-  const { extensions, setExtensions } = useIdeStore();
+  const { extensions, setExtensions } = useSettingsStore();
 
   const toggleExtension = (name: string) => {
     setExtensions((prev) =>
@@ -140,7 +141,7 @@ export function HyprDebug() {
 }
 
 export function HyprAIProviders() {
-  const { aiProviders, activeAiProviderId, setAiProviderConfig, setActiveAiProvider } = useIdeStore();
+  const { aiProviders, activeAiProviderId, setAiProviderConfig, setActiveAiProvider } = useAiStore();
   const [selectedProviderId, setSelectedProviderId] = useState<string>(activeAiProviderId || 'openai');
   const [prevActiveId, setPrevActiveId] = useState<string | null>(activeAiProviderId);
   const [showPassword, setShowPassword] = useState(false);

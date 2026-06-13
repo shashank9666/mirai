@@ -3,7 +3,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Search } from 'lucide-react';
 import { api, SearchResult } from '@/lib/api';
-import { useIdeStore } from '@/store/ideStore';
+import { useEditorStore } from '@/store/editorStore';
 
 const FILE_ICONS: Record<string, string> = {
   '.tsx': '⚛️', '.ts': '🔷', '.js': '🟨', '.jsx': '⚛️',
@@ -43,7 +43,7 @@ export default function HyprSearch() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { setActiveFile } = useIdeStore();
+  const { setActiveFile } = useEditorStore();
 
   const handleSearch = useCallback(async () => {
     if (!query.trim()) return;

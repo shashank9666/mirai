@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import PanelHeader from './PanelHeader';
-import { useIdeStore } from '@/store/ideStore';
+import { useAiStore } from '@/store/aiStore';
 import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, Paperclip, FileCode, TerminalSquare, X, Settings2, Trash2, MessageSquarePlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
@@ -27,7 +27,7 @@ interface ChatPanelProps {
 }
 
 export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onClose, onDragStart }: ChatPanelProps) {
-  const { aiProviders, activeAiProviderId, setActiveAiProvider, autoApproveSettings, setAutoApproveSettings } = useIdeStore();
+  const { aiProviders, activeAiProviderId, setActiveAiProvider, autoApproveSettings, setAutoApproveSettings } = useAiStore();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);

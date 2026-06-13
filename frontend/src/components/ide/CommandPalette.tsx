@@ -10,6 +10,8 @@ import {
   ZoomIn, ZoomOut, RefreshCw, Scissors,
 } from 'lucide-react';
 import { useIdeStore } from '@/store/ideStore';
+import { useSettingsStore } from '@/store/settingsStore';
+
 
 interface Command {
   id: string;
@@ -88,7 +90,7 @@ export default function CommandPalette() {
     { id: 'zoomIn', label: 'Increase Font Size', category: 'Editor', icon: <ZoomIn className="w-4 h-4" />, shortcut: 'Ctrl+=', action: () => emit('increaseFontSize') },
     { id: 'zoomOut', label: 'Decrease Font Size', category: 'Editor', icon: <ZoomOut className="w-4 h-4" />, shortcut: 'Ctrl+-', action: () => emit('decreaseFontSize') },
     { id: 'resetZoom', label: 'Reset Font Size', category: 'Editor', icon: <RefreshCw className="w-4 h-4" />, shortcut: 'Ctrl+0', action: () => emit('resetFontSize') },
-    { id: 'toggleMouseZoom', label: 'Toggle Mouse Wheel Zoom', category: 'Editor', icon: <MousePointer2 className="w-4 h-4" />, action: () => useIdeStore.getState().toggleMouseWheelZoom() },
+    { id: 'toggleMouseZoom', label: 'Toggle Mouse Wheel Zoom', category: 'Editor', icon: <MousePointer2 className="w-4 h-4" />, action: () => useSettingsStore.getState().toggleMouseWheelZoom() },
 
     // Editor - Cursor & Selection
     { id: 'addCursorAbove', label: 'Add Cursor Above', category: 'Editor', icon: <Scissors className="w-4 h-4" />, shortcut: 'Ctrl+Alt+Up', action: () => {
