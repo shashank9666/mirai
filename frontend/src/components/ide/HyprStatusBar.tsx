@@ -6,7 +6,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { api } from '@/lib/api';
 
 export default function HyprStatusBar() {
-  const { activeGroupId, getActiveGroup, groups } = useEditorStore();
+  const { getActiveGroup, groups } = useEditorStore();
   const { editorSettings } = useSettingsStore();
   const group = getActiveGroup();
   const activeFile = group?.activeFile || null;
@@ -15,7 +15,13 @@ export default function HyprStatusBar() {
   const dirtyCount = tabs.filter(t => t.dirty).length;
 
   const linesOfCode = activeFileContent ? activeFileContent.split('\n').length : 0;
+  const [mounted, setMounted] = useState(false);
   const [gitInfo, setGitInfo] = useState<{ branch: string | null; dirty: boolean }>({ branch: null, dirty: false });
+
+  useEffect(() => {
+    const timer = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     api.gitBranch().then(setGitInfo).catch(() => {});
@@ -23,6 +29,13 @@ export default function HyprStatusBar() {
 
   const fileName = activeFile ? activeFile.split(/[\\/]/).pop() : '';
   const ext = fileName ? '.' + fileName.split('.').pop() : '';
+
+  if (!mounted) {
+    return (
+      <div className="hypr-panel h-8 w-full px-3 flex items-center justify-between text-[11px] font-mono select-none" style={{ background: 'var(--panel-bg, linear-gradient(90deg, rgba(14,165,233,0.1) 0%, rgba(99,102,241,0.1) 100%))', backdropFilter: 'var(--panel-backdrop, blur(16px))', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+      </div>
+    );
+  }
 
   return (
     <div className="hypr-panel h-8 w-full px-3 flex items-center justify-between text-[11px] font-mono select-none" style={{ background: 'var(--panel-bg, linear-gradient(90deg, rgba(14,165,233,0.1) 0%, rgba(99,102,241,0.1) 100%))', backdropFilter: 'var(--panel-backdrop, blur(16px))', borderTop: '1px solid rgba(255,255,255,0.05)' }}>

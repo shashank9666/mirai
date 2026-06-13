@@ -7,7 +7,7 @@ import { api, FileEntry } from '@/lib/api';
 import { useEditorStore } from '@/store/editorStore';
 import PanelHeader from './PanelHeader';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronDown, Folder, FolderOpen, FilePlus, FolderPlus, Edit2, Monitor, FileCode2, FileJson, FileText, File, FileImage, FileTerminal, Database, Palette, Settings as SettingsIcon } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, FolderOpen, FilePlus, FolderPlus, Edit2, Monitor, FileCode2, FileJson, FileText, File, FileImage, FileTerminal, Database, Palette, Settings as SettingsIcon, Eye, ExternalLink } from 'lucide-react';
 
 const getFileIcon = (name: string) => {
   const ext = '.' + name.split('.').pop()?.toLowerCase();
@@ -55,6 +55,7 @@ function ContextMenuComponent({ menu, onAction, onClose }: {
       { label: 'New File', action: 'newFile', key: 'f' },
       { label: 'New Folder', action: 'newFolder', key: 'd' },
     ] : []),
+    { label: 'Reveal in Explorer', action: 'revealInExplorer', key: 'e' },
     ...(menu.name.toLowerCase().endsWith('.md') ? [
       { label: 'Preview Markdown', action: 'previewMarkdown', key: 'md' },
     ] : []),
@@ -161,7 +162,7 @@ const TreeItem = React.memo(({
   node, depth = 0, onContextMenu, onRefresh, explorerIndentGuides
 }: {
   node: FileEntry; depth?: number;
-  onContextMenu: (e: React.MouseEvent, path: string, name: string, isDir: boolean) => void;
+  onContextMenu: (e: React.MouseEvent, path: string, name: string, isDir: boolean, directAction?: string) => void;
   onRefresh: () => void;
   explorerIndentGuides: boolean;
 }) => {
@@ -229,6 +230,32 @@ const TreeItem = React.memo(({
             }
           </span>
           <span className="truncate z-10">{node.name}</span>
+
+          {/* Hover Actions */}
+          <div className="ml-auto flex items-center gap-1 pr-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            {!node.isDirectory && node.name.toLowerCase().endsWith('.md') && (
+              <button
+                className="p-1 hover:bg-white/20 rounded text-white/50 hover:text-white transition-colors"
+                title="Preview Markdown"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onContextMenu(e, node.path, node.name, node.isDirectory, 'previewMarkdown');
+                }}
+              >
+                <Eye className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              className="p-1 hover:bg-white/20 rounded text-white/50 hover:text-white transition-colors"
+              title="Reveal in Explorer"
+              onClick={(e) => {
+                e.stopPropagation();
+                onContextMenu(e, node.path, node.name, node.isDirectory, 'revealInExplorer');
+              }}
+            >
+              <ExternalLink className="w-3 h-3" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -297,10 +324,6 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
     return () => ws.close();
   }, [workspacePath, refresh]);
 
-  const handleContextMenu = useCallback((e: React.MouseEvent, path: string, name: string, isDir: boolean) => {
-    setContextMenu({ x: e.clientX, y: e.clientY, type: isDir ? 'directory' : 'file', path, name, isDir });
-  }, []);
-
   const handleAction = useCallback(async (action: string, target: ContextMenu) => {
     switch (action) {
       case 'rename':
@@ -320,6 +343,9 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
         setNewItemTarget({ parentPath, type: 'folder' });
         break;
       }
+      case 'revealInExplorer':
+        api.executeCommand(`explorer /select,"${target.path}"`).catch(console.error);
+        break;
       case 'previewMarkdown':
         try {
           const { content } = await api.readFile(target.path);
@@ -329,7 +355,15 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
         }
         break;
     }
-  }, [refresh]);
+  }, [refresh, renameTab]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, path: string, name: string, isDir: boolean, directAction?: string) => {
+    if (directAction) {
+      handleAction(directAction, { x: e.clientX, y: e.clientY, type: isDir ? 'directory' : 'file', path, name, isDir });
+      return;
+    }
+    setContextMenu({ x: e.clientX, y: e.clientY, type: isDir ? 'directory' : 'file', path, name, isDir });
+  }, [handleAction]);
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-transparent">
