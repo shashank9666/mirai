@@ -13,8 +13,7 @@ export default function ThemeEditor() {
     updateThemeOverride,
     exportTheme,
     importTheme,
-    resetToDefaults,
-    glassmorphism
+    resetToDefaults
   } = useThemeStore();
 
   const [search, setSearch] = useState('');
@@ -117,7 +116,7 @@ export default function ThemeEditor() {
                       <input 
                         type="color" 
                         value={effectiveValue}
-                        onChange={(e) => updateThemeOverride(key as any, e.target.value)}
+                        onChange={(e) => updateThemeOverride(key as Parameters<typeof updateThemeOverride>[0], e.target.value)}
                         className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent p-0"
                       />
                     </div>
