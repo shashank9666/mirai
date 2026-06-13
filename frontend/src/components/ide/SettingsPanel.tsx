@@ -5,6 +5,7 @@ import { X, Save, Type, Palette, Sparkles, Globe, Blocks, Eye, EyeOff, Puzzle, I
 import { useIdeStore, type EditorSettings } from '@/store/ideStore';
 import { useAiStore } from '@/store/aiStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useThemeStore } from '@/store/themeStore';
 
 import { api } from '@/lib/api';
 
@@ -13,12 +14,15 @@ const WALLPAPER_PRESETS = [
   { id: 'sakura-night', name: 'Sakura Night', url: '/wallpapers/sakura-night.svg' },
   { id: 'cyber-city', name: 'Cyber City', url: '/wallpapers/cyber-city.svg' },
   { id: 'moon-rain', name: 'Moon Rain', url: '/wallpapers/moon-rain.svg' },
+  { id: 'spirited-away', name: 'Spirited Away', url: '/wallpapers/spirited-away.svg' },
+  { id: 'neon-genesis', name: 'Neon Genesis', url: '/wallpapers/neon-genesis.svg' },
 ];
 
 type SettingsTab = 'editor' | 'theme' | 'ai' | 'extensions' | 'mcp' | 'general';
 
 export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   const { editorSettings, setEditorSettings, extensions, setExtensions, notificationsEnabled, toggleNotifications } = useSettingsStore();
+  const { availableThemes, activeThemeId, setActiveTheme } = useThemeStore();
   const { aiProviders, activeAiProviderId, setAiProviderConfig, setActiveAiProvider } = useAiStore();
   const [activeTab, setActiveTab] = useState<SettingsTab>('editor');
   const [settingsJson, setSettingsJson] = useState('');
@@ -124,21 +128,21 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
           <div className="space-y-6">
             <div className="space-y-4">
               <SectionTitle>Editor Theme</SectionTitle>
-              <div className="grid grid-cols-1 gap-3 max-w-xs">
-                {['vs'].map(t => (
+              <div className="grid grid-cols-2 gap-3 max-w-md">
+                {availableThemes.map(t => (
                   <button 
-                    key={t}
-                    onClick={() => setEditorSettings({ theme: t })}
+                    key={t.id}
+                    onClick={() => setActiveTheme(t.id)}
                     className={`p-3 border rounded-lg transition-colors flex flex-col items-center gap-2 ${
-                      editorSettings.theme === t 
+                      activeThemeId === t.id 
                         ? 'border-[var(--color-primary-accent)] bg-[var(--color-primary-accent)]/10' 
                         : 'border-white/10 hover:border-[var(--color-primary-accent)]/50 bg-white/5'
                     }`}
                   >
-                    <div className="w-full h-12 rounded bg-black/50 shadow-inner flex items-center justify-center">
-                      <span className="text-[10px] text-white/30">{t}</span>
+                    <div className="w-full h-12 rounded shadow-inner flex items-center justify-center border border-white/5" style={{ backgroundColor: t.colors['editor.background'] as string }}>
+                      <span className="text-[10px]" style={{ color: t.colors['editor.foreground'] as string }}>{t.name}</span>
                     </div>
-                    <span className="text-[11px] font-mono text-white/70">{t}</span>
+                    <span className="text-[11px] font-mono text-white/70">{t.name}</span>
                   </button>
                 ))}
               </div>
