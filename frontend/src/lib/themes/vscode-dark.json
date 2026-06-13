@@ -1,0 +1,47 @@
+{
+  "id": "vscode-dark-plus",
+  "name": "Dark+ (default dark)",
+  "author": "Microsoft",
+  "version": "1.0.0",
+  "type": "dark",
+  "colors": {
+    "focusBorder": "#007fd4",
+    "foreground": "#cccccc",
+    "widget.shadow": "#000000",
+    
+    "editor.background": "#1e1e1e",
+    "editor.foreground": "#d4d4d4",
+    "sideBar.background": "#252526",
+    "sideBar.foreground": "#cccccc",
+    "activityBar.background": "#333333",
+    "activityBar.foreground": "#ffffff",
+    "titleBar.activeBackground": "#323233",
+    "titleBar.activeForeground": "#cccccc",
+    "statusBar.background": "#007acc",
+    "statusBar.foreground": "#ffffff",
+    
+    "panel.background": "#1e1e1e",
+    "tab.activeBackground": "#1e1e1e",
+    "tab.inactiveBackground": "#2d2d2d",
+    "tab.activeForeground": "#ffffff",
+    
+    "terminal.background": "#1e1e1e",
+    "terminal.foreground": "#cccccc",
+    "terminal.ansiBlack": "#000000",
+    "terminal.ansiRed": "#cd3131",
+    "terminal.ansiGreen": "#0dbc79",
+    "terminal.ansiYellow": "#e5e510",
+    "terminal.ansiBlue": "#2472c8",
+    "terminal.ansiMagenta": "#bc3fbc",
+    "terminal.ansiCyan": "#11a8cd",
+    "terminal.ansiWhite": "#e5e5e5",
+    "terminal.ansiBrightBlack": "#666666",
+    "terminal.ansiBrightRed": "#f14c4c",
+    "terminal.ansiBrightGreen": "#23d18b",
+    "terminal.ansiBrightYellow": "#f5f543",
+    "terminal.ansiBrightBlue": "#3b8eea",
+    "terminal.ansiBrightMagenta": "#d670d6",
+    "terminal.ansiBrightCyan": "#29b8db",
+    "terminal.ansiBrightWhite": "#e5e5e5"
+  }
+}

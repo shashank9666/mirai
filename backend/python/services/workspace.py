@@ -22,22 +22,27 @@ class WorkspaceManager:
             resolved = os.path.abspath(os.path.join(self._workspace_root, path))
         
         try:
-            root_norm = os.path.normcase(self._workspace_root)
-            res_norm = os.path.normcase(resolved)
-            if os.path.commonpath([root_norm, res_norm]) != root_norm:
-                raise ValueError(f"Path '{path}' attempts to escape workspace root")
-        except ValueError:
-            raise ValueError(f"Path '{path}' attempts to escape workspace root")
+            root_norm = os.path.normpath(os.path.normcase(os.path.abspath(self._workspace_root)))
+            res_norm = os.path.normpath(os.path.normcase(os.path.abspath(resolved)))
+            if not root_norm.endswith(os.sep):
+                root_norm += os.sep
+            if not res_norm.startswith(root_norm) and res_norm + os.sep != root_norm:
+                raise ValueError(f"Path '{path}' attempts to escape workspace root. (Root: {root_norm}, Res: {res_norm})")
+        except Exception as e:
+            if "attempts to escape" in str(e):
+                raise
+            raise ValueError(f"Path '{path}' validation failed: {str(e)}")
         
         return resolved
     
     def is_within_workspace(self, path: str) -> bool:
         """Check if a path is within the workspace root."""
         try:
-            resolved = os.path.abspath(path)
-            root_norm = os.path.normcase(self._workspace_root)
-            res_norm = os.path.normcase(resolved)
-            return os.path.commonpath([root_norm, res_norm]) == root_norm
+            root_norm = os.path.normpath(os.path.normcase(os.path.abspath(self._workspace_root)))
+            res_norm = os.path.normpath(os.path.normcase(os.path.abspath(path)))
+            if not root_norm.endswith(os.sep):
+                root_norm += os.sep
+            return res_norm.startswith(root_norm) or res_norm + os.sep == root_norm
         except Exception:
             return False
     

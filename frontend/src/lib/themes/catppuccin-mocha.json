@@ -1,0 +1,47 @@
+{
+  "id": "catppuccin-mocha",
+  "name": "Catppuccin Mocha",
+  "author": "Catppuccin",
+  "version": "1.0.0",
+  "type": "dark",
+  "colors": {
+    "focusBorder": "#cba6f7",
+    "foreground": "#cdd6f4",
+    "widget.shadow": "#11111b",
+    
+    "editor.background": "#1e1e2e",
+    "editor.foreground": "#cdd6f4",
+    "sideBar.background": "#181825",
+    "sideBar.foreground": "#bac2de",
+    "activityBar.background": "#11111b",
+    "activityBar.foreground": "#cdd6f4",
+    "titleBar.activeBackground": "#11111b",
+    "titleBar.activeForeground": "#cdd6f4",
+    "statusBar.background": "#11111b",
+    "statusBar.foreground": "#cdd6f4",
+    
+    "panel.background": "#1e1e2e",
+    "tab.activeBackground": "#1e1e2e",
+    "tab.inactiveBackground": "#181825",
+    "tab.activeForeground": "#cba6f7",
+    
+    "terminal.background": "#1e1e2e",
+    "terminal.foreground": "#cdd6f4",
+    "terminal.ansiBlack": "#45475a",
+    "terminal.ansiRed": "#f38ba8",
+    "terminal.ansiGreen": "#a6e3a1",
+    "terminal.ansiYellow": "#f9e2af",
+    "terminal.ansiBlue": "#89b4fa",
+    "terminal.ansiMagenta": "#f5c2e7",
+    "terminal.ansiCyan": "#94e2d5",
+    "terminal.ansiWhite": "#bac2de",
+    "terminal.ansiBrightBlack": "#585b70",
+    "terminal.ansiBrightRed": "#f38ba8",
+    "terminal.ansiBrightGreen": "#a6e3a1",
+    "terminal.ansiBrightYellow": "#f9e2af",
+    "terminal.ansiBrightBlue": "#89b4fa",
+    "terminal.ansiBrightMagenta": "#f5c2e7",
+    "terminal.ansiBrightCyan": "#94e2d5",
+    "terminal.ansiBrightWhite": "#a6adc8"
+  }
+}

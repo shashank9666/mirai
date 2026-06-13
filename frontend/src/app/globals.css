@@ -14,12 +14,34 @@
   --color-warning: #F59E0B;
   --color-danger: #EF4444;
   
-  --color-text-muted: var(--text-muted, #888888);
-  --color-text-normal: var(--text-normal, #cccccc);
-  --color-text-active: var(--text-active, #ffffff);
+  /* IDE Semantic Colors */
+  --color-editor-bg: var(--editor-background, #1e1e1e);
+  --color-editor-fg: var(--editor-foreground, #d4d4d4);
+  --color-sidebar-bg: var(--sideBar-background, #252526);
+  --color-sidebar-fg: var(--sideBar-foreground, #cccccc);
+  --color-activity-bg: var(--activityBar-background, #333333);
+  --color-activity-fg: var(--activityBar-foreground, #ffffff);
+  --color-titlebar-bg: var(--titleBar-activeBackground, #323233);
+  --color-titlebar-fg: var(--titleBar-activeForeground, #cccccc);
+  --color-statusbar-bg: var(--statusBar-background, #007acc);
+  --color-statusbar-fg: var(--statusBar-foreground, #ffffff);
+  
+  --color-panel-bg: var(--panel-background, #1e1e1e);
+  --color-tab-active-bg: var(--tab-activeBackground, #1e1e1e);
+  --color-tab-inactive-bg: var(--tab-inactiveBackground, #2d2d2d);
+  --color-tab-active-fg: var(--tab-activeForeground, #ffffff);
+  
+  --color-focus-border: var(--focusBorder, #007fd4);
+  --color-widget-shadow: var(--widget-shadow, #000000);
 
-  --color-white: var(--text-active);
-  --color-black: var(--bg-color);
+  --color-terminal-bg: var(--terminal-background, #1e1e1e);
+  --color-terminal-fg: var(--terminal-foreground, #cccccc);
+
+  /* Glassmorphism Configuration */
+  --glass-opacity: var(--glass-opacity, 0.85);
+  --glass-blur: var(--glass-blur, 24px);
+  --panel-radius: var(--panel-radius, 12px);
+  --border-thickness: var(--border-thickness, 1px);
 }
 
 @layer base {

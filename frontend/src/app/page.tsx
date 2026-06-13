@@ -17,6 +17,8 @@ import WelcomeScreen from '@/components/ide/WelcomeScreen';
 import SettingsPanel from '@/components/ide/SettingsPanel';
 import { HyprExtensions, HyprAgent, HyprDatabase, HyprDebug, HyprAIProviders } from '@/components/ide/HyprPanels';
 import { useIdeStore } from '@/store/ideStore';
+import { useThemeStore } from '@/store/themeStore';
+import { builtinThemes } from '@/lib/themes';
 
 function ResizeHandle({
   direction = 'horizontal',
@@ -134,6 +136,8 @@ export default function Home() {
 
   // On mount, wait for backend to be ready then restore last workspace
   useEffect(() => {
+    useThemeStore.getState().registerThemes(builtinThemes);
+
     let cancelled = false;
     let retryTimeout: ReturnType<typeof setTimeout>;
 
