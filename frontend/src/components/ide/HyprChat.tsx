@@ -16,6 +16,7 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  pendingChangeIds?: string[];
 }
 
 const DEFAULT_SYSTEM_PROMPT = `You are a coding agent integrated into the Mirai IDE.
@@ -41,6 +42,67 @@ interface ChatPanelProps {
   onMinimize: () => void;
   onClose: () => void;
   onDragStart?: (e: React.DragEvent) => void;
+}
+
+function PendingChangesWidget({ changeIds }: { changeIds: string[] }) {
+  const { pendingChanges, openDiffForReview, acceptChange, rejectChange } = useEditorStore();
+  const changes = changeIds
+    .map((id) => pendingChanges.find((c) => c.id === id))
+    .filter(Boolean) as typeof pendingChanges;
+
+  if (changes.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-1.5 mt-1 max-w-[90%]">
+      {changes.map((change) => (
+        <div
+          key={change.id}
+          className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-[11px] font-mono border transition-all ${
+            change.status === 'accepted'
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              : change.status === 'rejected'
+              ? 'bg-red-500/10 border-red-500/30 text-red-400'
+              : 'bg-white/5 border-white/10 text-white/70'
+          }`}
+        >
+          <div className="flex items-center gap-2 overflow-hidden">
+            <FileCode className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{change.fileName}</span>
+            {change.status !== 'pending' && (
+              <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ${
+                change.status === 'accepted' ? 'bg-emerald-500/20' : 'bg-red-500/20'
+              }`}>
+                {change.status}
+              </span>
+            )}
+          </div>
+          {change.status === 'pending' && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => openDiffForReview(change.id)}
+                className="px-2 py-1 rounded bg-blue-500/15 text-blue-400 hover:bg-blue-500/25 transition-colors border border-blue-500/30"
+                title="View Diff"
+              >
+                <GitCompareArrows className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => rejectChange(change.id)}
+                className="px-2 py-1 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors border border-red-500/30"
+              >
+                Reject
+              </button>
+              <button
+                onClick={async () => { await acceptChange(change.id); }}
+                className="px-2 py-1 rounded bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition-colors border border-emerald-500/30"
+              >
+                Accept
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onClose, onDragStart }: ChatPanelProps) {
@@ -585,38 +647,49 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
                           const { children, className, node: _node, ref: _ref, ...rest } = props as any;
                           const codeString = String(children).replace(/\n$/, '');
+                          // Match language:filepath OR just language
                           const match = /language-([a-zA-Z0-9_-]+)(?::(.+))?/.exec(className || '');
                           const lang = match ? match[1] : '';
                           const filepath = match && match[2] ? match[2] : '';
 
-                          return match ? (
-                            <div className="my-2 border border-white/10 rounded-md overflow-hidden relative group">
-                              {filepath && (
+                          if (match) {
+                            return (
+                              <div className="my-2 border border-white/10 rounded-md overflow-hidden relative group">
                                 <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-white/10">
                                   <div className="flex items-center gap-1.5">
                                     <FileCode className="w-3 h-3 text-blue-400" />
-                                    <span className="text-[10px] font-mono text-white/60">{filepath}</span>
+                                    <span className="text-[10px] font-mono text-white/60">{filepath || `${lang} snippet`}</span>
                                   </div>
-                                  <button
-                                    onClick={() => handleReviewChange(filepath, codeString)}
-                                    className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 text-[10px] font-mono transition-colors border border-emerald-500/30"
-                                  >
-                                    <GitCompareArrows className="w-3 h-3" />
-                                    Review Changes
-                                  </button>
+                                  {filepath ? (
+                                    <button
+                                      onClick={() => handleReviewChange(filepath, codeString)}
+                                      className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 text-[10px] font-mono transition-colors border border-emerald-500/30"
+                                    >
+                                      <GitCompareArrows className="w-3 h-3" />
+                                      Review Changes
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => { navigator.clipboard.writeText(codeString); }}
+                                      className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/70 text-[10px] font-mono transition-colors opacity-0 group-hover:opacity-100"
+                                    >
+                                      Copy
+                                    </button>
+                                  )}
                                 </div>
-                              )}
-                              <SyntaxHighlighter
-                                {...rest}
-                                PreTag="div"
-                                language={lang}
-                                style={vscDarkPlus}
-                                className="!m-0 !bg-transparent text-[11px]"
-                              >
-                                {codeString}
-                              </SyntaxHighlighter>
-                            </div>
-                          ) : (
+                                <SyntaxHighlighter
+                                  {...rest}
+                                  PreTag="div"
+                                  language={lang}
+                                  style={vscDarkPlus}
+                                  className="!m-0 !bg-transparent text-[11px]"
+                                >
+                                  {codeString}
+                                </SyntaxHighlighter>
+                              </div>
+                            );
+                          }
+                          return (
                             <code {...rest} className="bg-black/30 px-1 py-0.5 rounded text-[var(--color-primary-accent)]">
                               {children}
                             </code>
@@ -631,6 +704,11 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                     <span className="inline-block w-1.5 h-3 bg-purple-400/70 rounded-sm ml-0.5 animate-pulse align-text-bottom" />
                   )}
                 </div>
+
+                {/* Pending Changes Status for this message */}
+                {msg.pendingChangeIds && msg.pendingChangeIds.length > 0 && (
+                  <PendingChangesWidget changeIds={msg.pendingChangeIds} />
+                )}
               </div>
             ))}
 

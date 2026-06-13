@@ -101,6 +101,13 @@ function TerminalInstance({ tabId, tabStatus, tabProfile, onStatusChange }: {
     ws.onopen = () => {
       if (mountedRef.current && wsRef.current === ws) {
         onStatusChange(tabId, 'connected');
+        // Send initial terminal size to backend
+        if (fitAddonRef.current) {
+          fitAddonRef.current.fit();
+        }
+        if (xtermRef.current) {
+          ws.send(JSON.stringify({ event: 'terminal:resize', cols: xtermRef.current.cols, rows: xtermRef.current.rows }));
+        }
       }
     };
 
@@ -150,6 +157,10 @@ function TerminalInstance({ tabId, tabStatus, tabProfile, onStatusChange }: {
     const handleResize = () => {
       if (mountedRef.current && fitAddonRef.current) {
         fitAddonRef.current.fit();
+        // Sync size with backend PTY
+        if (xtermRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ event: 'terminal:resize', cols: xtermRef.current.cols, rows: xtermRef.current.rows }));
+        }
       }
     };
     window.addEventListener('resize', handleResize);

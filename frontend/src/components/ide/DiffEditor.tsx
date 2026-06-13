@@ -37,6 +37,17 @@ export default function DiffEditorPanel() {
     editorRef.current = editor;
   }, []);
 
+  // Dispose editor before React unmounts the DOM to prevent the
+  // "TextModel got disposed before DiffEditorWidget model got reset" error
+  React.useEffect(() => {
+    return () => {
+      if (editorRef.current) {
+        try { editorRef.current.dispose(); } catch { /* ignore */ }
+        editorRef.current = null;
+      }
+    };
+  }, []);
+
   if (!diffMode) return null;
 
   const fileName = diffFilePath.split(/[/\\]/).pop() || diffFilePath;
