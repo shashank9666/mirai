@@ -532,7 +532,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
   useEffect(() => {
     sendMessageRef.current = sendMessage;
-  }, [sendMessage]);
+  });
 
   const handleClearChat = () => {
     if (chatMessages.length === 0) return;
