@@ -310,12 +310,16 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
         await api.deleteItem(target.path);
         refresh();
         break;
-      case 'newFile':
-        setNewItemTarget({ parentPath: target.path, type: 'file' });
+      case 'newFile': {
+        const parentPath = target.isDir ? target.path : target.path.replace(/[\\/][^\\/]+$/, '');
+        setNewItemTarget({ parentPath, type: 'file' });
         break;
-      case 'newFolder':
-        setNewItemTarget({ parentPath: target.path, type: 'folder' });
+      }
+      case 'newFolder': {
+        const parentPath = target.isDir ? target.path : target.path.replace(/[\\/][^\\/]+$/, '');
+        setNewItemTarget({ parentPath, type: 'folder' });
         break;
+      }
       case 'previewMarkdown':
         try {
           const { content } = await api.readFile(target.path);
@@ -337,10 +341,10 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
         onDragStart={onDragStart}
       >
         <div className="flex items-center gap-1.5 ml-auto">
-          <button onClick={() => setNewItemTarget({ parentPath: rootNodes[0]?.path || workspacePath || '', type: 'file' })} className="text-white/30 hover:text-white/70 transition-colors p-0.5" title="New File">
+          <button onClick={() => setNewItemTarget({ parentPath: workspacePath || '', type: 'file' })} className="text-white/30 hover:text-white/70 transition-colors p-0.5" title="New File">
             <FilePlus className="w-3.5 h-3.5" />
           </button>
-          <button onClick={() => setNewItemTarget({ parentPath: rootNodes[0]?.path || workspacePath || '', type: 'folder' })} className="text-white/30 hover:text-white/70 transition-colors p-0.5" title="New Folder">
+          <button onClick={() => setNewItemTarget({ parentPath: workspacePath || '', type: 'folder' })} className="text-white/30 hover:text-white/70 transition-colors p-0.5" title="New Folder">
             <FolderPlus className="w-3.5 h-3.5" />
           </button>
           <button onClick={() => {
