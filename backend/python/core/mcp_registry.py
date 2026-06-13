@@ -107,12 +107,6 @@ BUILTIN_SERVERS: Dict[str, MCPServerConfig] = {
     ),
 }
 
-# Ensure each builtin has description
-for cfg in BUILTIN_SERVERS.values():
-    if not hasattr(cfg, 'description'):
-        cfg.description = f"{cfg.type.capitalize()} MCP server"
-
-
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
