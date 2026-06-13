@@ -132,7 +132,8 @@ def agent_chat():
         
     print(f"--- [DEBUG agent_router.py] Raw messages count={len(messages)}")
     for idx, m in enumerate(messages):
-        print(f"  [{idx}] role={m.get('role')} content={repr(m.get('content'))[:100]}")
+        content_safe = repr(m.get('content')).encode('ascii', errors='backslashreplace').decode('ascii')
+        print(f"  [{idx}] role={m.get('role')} content={content_safe[:100]}")
 
     provider = data.get("provider", "openai")
     model = data.get("model", "gpt-4o")
@@ -166,7 +167,8 @@ def agent_chat():
 
     print(f"--- [DEBUG agent_router.py] Processed lc_messages count={len(lc_messages)}")
     for idx, m in enumerate(lc_messages):
-        print(f"  [{idx}] type={type(m).__name__} content={repr(m.content)[:100]}")
+        content_safe = repr(m.content).encode('ascii', errors='backslashreplace').decode('ascii')
+        print(f"  [{idx}] type={type(m).__name__} content={content_safe[:100]}")
 
     agent = MiraiAgent(
         provider=provider,
@@ -198,7 +200,8 @@ def agent_chat():
 
         async def _run():
             try:
-                result = await agent.run(lc_messages, session_id=session_id)
+                auto_approve_settings = data.get("autoApproveSettings", {})
+                result = await agent.run(lc_messages, session_id=session_id, auto_approve_settings=auto_approve_settings)
                 content = ""
                 for msg in reversed(result["messages"]):
                     if isinstance(msg, AIMessage):

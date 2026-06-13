@@ -20,8 +20,8 @@ if (typeof window !== 'undefined') {
       inherit: true,
       rules: [],
       colors: {
-        'editor.background': '#00000000',
-        'minimap.background': '#00000000',
+        'editor.background': '#00000001',
+        'minimap.background': '#00000001',
       }
     });
     monaco.editor.defineTheme('mirai-glass-light', {
@@ -29,8 +29,8 @@ if (typeof window !== 'undefined') {
       inherit: true,
       rules: [],
       colors: {
-        'editor.background': '#00000000',
-        'minimap.background': '#00000000',
+        'editor.background': '#00000001',
+        'minimap.background': '#00000001',
       }
     });
   });

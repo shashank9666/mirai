@@ -2,7 +2,7 @@
 import { useAiStore } from '@/store/aiStore';
 
 import React, { useState, useEffect } from 'react';
-import { Puzzle, Bot, Database, Bug, Zap, Plus, ChevronDown, Eye, EyeOff } from 'lucide-react';
+import { Puzzle, Bot, Database, Zap, Plus, ChevronDown, Eye, EyeOff } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useSettingsStore } from '@/store/settingsStore';
 import { motion } from 'framer-motion';
@@ -111,18 +111,7 @@ export function HyprDatabase() {
   );
 }
 
-export function HyprDebug() {
-  return (
-    <motion.div layout className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
-      <div className="px-4 py-3 border-b border-white/5 font-mono text-[10px] text-white/40 tracking-widest uppercase shrink-0 flex items-center justify-between">
-        <span>Debug</span>
-        <Bug className="w-3 h-3 text-white/30" />
-      </div>
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-3">
-      </div>
-    </motion.div>
-  );
-}
+
 
 export function HyprAIProviders() {
   const { aiProviders, activeAiProviderId, setAiProviderConfig, setActiveAiProvider } = useAiStore();

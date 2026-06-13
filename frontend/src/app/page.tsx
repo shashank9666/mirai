@@ -15,7 +15,8 @@ import HyprSearch from '@/components/ide/HyprSearch';
 import HyprGit from '@/components/ide/HyprGit';
 import WelcomeScreen from '@/components/ide/WelcomeScreen';
 import SettingsPanel from '@/components/ide/SettingsPanel';
-import { HyprExtensions, HyprAgent, HyprDatabase, HyprDebug, HyprAIProviders } from '@/components/ide/HyprPanels';
+import { HyprExtensions, HyprAgent, HyprDatabase, HyprAIProviders } from '@/components/ide/HyprPanels';
+import RecoveryScreen from '@/components/ide/RecoveryScreen';
 import { useIdeStore } from '@/store/ideStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -38,8 +39,6 @@ function SidebarContent({ activeView, isMinimized, onMinimize, onClose, onDragSt
       return <HyprDatabase />;
     case 'ai-providers':
       return <HyprAIProviders />;
-    case 'debug':
-      return <HyprDebug />;
     case 'explorer':
     default:
       return <HyprSidebar isMinimized={isMinimized} onMinimize={onMinimize} onClose={onClose} onDragStart={onDragStart} />;
@@ -65,6 +64,29 @@ export default function Home() {
   const [sidebarMinimized, setSidebarMinimized] = useState(false);
 
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  const [backendConnected, setBackendConnected] = useState(false);
+
+  // Poll backend health status
+  useEffect(() => {
+    let checkInterval: ReturnType<typeof setInterval>;
+    
+    const checkConnection = async () => {
+      try {
+        const res = await fetch('http://127.0.0.1:8000/health', { method: 'GET', signal: AbortSignal.timeout(2000) });
+        setBackendConnected(res.ok);
+      } catch {
+        setBackendConnected(false);
+      }
+    };
+
+    checkConnection();
+    checkInterval = setInterval(checkConnection, 5000);
+
+    return () => {
+      clearInterval(checkInterval);
+    };
+  }, []);
 
   const { zenMode, fullscreenMode, toggleZenMode, toggleFullscreenMode, editorSettings, zoom, setZoom } = useSettingsStore();
   const { workspacePath, setWorkspace } = useWorkspaceStore();
@@ -278,6 +300,10 @@ export default function Home() {
   }, [editorSettings, zoom]);
 
 
+
+  if (!backendConnected) {
+    return <RecoveryScreen />;
+  }
 
   return (
     <div className="shrink-0 overflow-hidden flex flex-col relative bg-transparent text-[var(--foreground)] selection:bg-[var(--color-primary-accent)]/30"

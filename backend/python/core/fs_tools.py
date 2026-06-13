@@ -42,9 +42,21 @@ def read_file(path: str) -> str:
 
 @tool
 def write_file(path: str, content: str) -> str:
-    """Request approval to write or overwrite a file. Direct writes are blocked."""
+    """Request approval to write or overwrite a file. Direct writes are blocked unless auto-approved."""
     try:
         abs_path = _get_absolute_path(path)
+        
+        # Check auto-approve settings
+        from core.agent import auto_approve_settings_var
+        settings = auto_approve_settings_var.get()
+        
+        if settings.get("editProjectFiles", False):
+            # Auto-approved! Write file directly.
+            os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+            with open(abs_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            return f"File '{path}' successfully written/updated."
+
         old_content = ""
         if os.path.exists(abs_path):
             if not os.path.isfile(abs_path):

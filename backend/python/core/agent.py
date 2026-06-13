@@ -1,7 +1,11 @@
 from typing import TypedDict, Annotated, Sequence, List, Optional, Dict, Any
 import operator
 import json
+import contextvars
 from langgraph.graph import StateGraph, END
+
+# Context variable to hold auto-approve settings for the current execution context
+auto_approve_settings_var = contextvars.ContextVar("auto_approve_settings", default={})
 from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.tools import tool
@@ -48,7 +52,8 @@ class MiraiAgent:
         messages = state['messages']
         print(f"--- [DEBUG agent.py] Calling llm.ainvoke with {len(messages)} messages:")
         for idx, m in enumerate(messages):
-            print(f"  [{idx}] type={type(m).__name__} content={repr(m.content)[:100]}")
+            content_safe = repr(m.content).encode('ascii', errors='backslashreplace').decode('ascii')
+            print(f"  [{idx}] type={type(m).__name__} content={content_safe[:100]}")
         response = await self.llm.ainvoke(messages)
         tool_call = self._parse_text_tool_call(response.content)
         if not response.tool_calls and tool_call:
@@ -92,55 +97,61 @@ class MiraiAgent:
         stripped = text.lstrip()
         return stripped.startswith("{") or stripped.startswith("```")
 
-    async def run(self, messages: List[BaseMessage], session_id: str = "agent_stream"):
-        compacted_messages = await compact_context(messages, self.llm)
-        state = {"messages": compacted_messages}
-        
-        from core.event_bus import event_bus
-        
-        final_messages = []
-        stream_buffer = ""
-        buffering_tool_json = False
-
-        async for event in self.graph.astream_events(state, version="v2"):
-            kind = event["event"]
-            if kind == "on_chat_model_stream":
-                chunk = event["data"]["chunk"]
-                if hasattr(chunk, 'content') and chunk.content:
-                    text = ""
-                    if isinstance(chunk.content, str):
-                        text = chunk.content
-                    elif isinstance(chunk.content, list):
-                        text = "".join([item.get("text", "") for item in chunk.content if isinstance(item, dict) and item.get("type") == "text"])
-                    
-                    if text:
-                        if not stream_buffer and self._is_potential_json_tool_call(text):
-                            buffering_tool_json = True
-
-                        if buffering_tool_json:
-                            stream_buffer += text
-                            if self._parse_text_tool_call(stream_buffer):
-                                stream_buffer = ""
-                                buffering_tool_json = False
-                            elif len(stream_buffer) > 4096:
-                                await event_bus.publish(session_id, {"type": "token", "content": stream_buffer})
-                                stream_buffer = ""
-                                buffering_tool_json = False
-                        else:
-                            await event_bus.publish(session_id, {"type": "token", "content": text})
-
-            elif kind == "on_tool_start":
-                await event_bus.publish(session_id, {"type": "tool_start", "name": event["name"], "input": event["data"].get("input")})
-            elif kind == "on_tool_end":
-                await event_bus.publish(session_id, {"type": "tool_end", "name": event["name"], "output": event["data"].get("output")})
-            elif kind == "on_chain_end" and event["name"] == "LangGraph":
-                final_messages = event["data"].get("output", {}).get("messages", [])
-
-        if stream_buffer:
-            if not self._parse_text_tool_call(stream_buffer):
-                await event_bus.publish(session_id, {"type": "token", "content": stream_buffer})
-                
-        if not final_messages:
-            final_messages = state["messages"]
+    async def run(self, messages: List[BaseMessage], session_id: str = "agent_stream", auto_approve_settings: dict = None):
+        if auto_approve_settings is None:
+            auto_approve_settings = {}
+        token = auto_approve_settings_var.set(auto_approve_settings)
+        try:
+            compacted_messages = await compact_context(messages, self.llm)
+            state = {"messages": compacted_messages}
             
-        return {"messages": final_messages}
+            from core.event_bus import event_bus
+            
+            final_messages = []
+            stream_buffer = ""
+            buffering_tool_json = False
+
+            async for event in self.graph.astream_events(state, version="v2"):
+                kind = event["event"]
+                if kind == "on_chat_model_stream":
+                    chunk = event["data"]["chunk"]
+                    if hasattr(chunk, 'content') and chunk.content:
+                        text = ""
+                        if isinstance(chunk.content, str):
+                            text = chunk.content
+                        elif isinstance(chunk.content, list):
+                            text = "".join([item.get("text", "") for item in chunk.content if isinstance(item, dict) and item.get("type") == "text"])
+                        
+                        if text:
+                            if not stream_buffer and self._is_potential_json_tool_call(text):
+                                buffering_tool_json = True
+
+                            if buffering_tool_json:
+                                stream_buffer += text
+                                if self._parse_text_tool_call(stream_buffer):
+                                    stream_buffer = ""
+                                    buffering_tool_json = False
+                                elif len(stream_buffer) > 4096:
+                                    await event_bus.publish(session_id, {"type": "token", "content": stream_buffer})
+                                    stream_buffer = ""
+                                    buffering_tool_json = False
+                            else:
+                                await event_bus.publish(session_id, {"type": "token", "content": text})
+
+                elif kind == "on_tool_start":
+                    await event_bus.publish(session_id, {"type": "tool_start", "name": event["name"], "input": event["data"].get("input")})
+                elif kind == "on_tool_end":
+                    await event_bus.publish(session_id, {"type": "tool_end", "name": event["name"], "output": event["data"].get("output")})
+                elif kind == "on_chain_end" and event["name"] == "LangGraph":
+                    final_messages = event["data"].get("output", {}).get("messages", [])
+
+            if stream_buffer:
+                if not self._parse_text_tool_call(stream_buffer):
+                    await event_bus.publish(session_id, {"type": "token", "content": stream_buffer})
+                    
+            if not final_messages:
+                final_messages = state["messages"]
+                
+            return {"messages": final_messages}
+        finally:
+            auto_approve_settings_var.reset(token)

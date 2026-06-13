@@ -65,11 +65,38 @@ export const useChatStore = create<ChatState>()(
       },
 
       updateMessage: (id, updates) =>
-        set((state) => ({
-          messages: state.messages.map((m) =>
-            m.id === id ? { ...m, ...updates, tokenCount: updates.content ? estimateTokenCount(updates.content) : m.tokenCount } : m
-          ),
-        })),
+        set((state) => {
+          let oldTokenCount = 0;
+          let newTokenCount = 0;
+          let role: 'user' | 'assistant' | 'system' = 'user';
+
+          const newMessages = state.messages.map((m) => {
+            if (m.id === id) {
+              oldTokenCount = m.tokenCount || 0;
+              role = m.role;
+              const nextMsg = { ...m, ...updates };
+              newTokenCount = updates.content ? estimateTokenCount(updates.content) : (m.tokenCount || 0);
+              nextMsg.tokenCount = newTokenCount;
+              return nextMsg;
+            }
+            return m;
+          });
+
+          const diff = newTokenCount - oldTokenCount;
+          const storeUpdates: Partial<ChatState> = {
+            messages: newMessages,
+          };
+
+          if (diff !== 0) {
+            if (role === 'user') {
+              storeUpdates.totalInputTokens = state.totalInputTokens + diff;
+            } else if (role === 'assistant') {
+              storeUpdates.totalOutputTokens = state.totalOutputTokens + diff;
+            }
+          }
+
+          return storeUpdates;
+        }),
 
       clearMessages: () =>
         set({

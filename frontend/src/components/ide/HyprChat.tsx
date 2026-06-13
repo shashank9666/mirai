@@ -441,6 +441,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
       // Build messages from chat store
       const storeMessages = useChatStore.getState().messages;
+      const autoApproveSettings = useAiStore.getState().autoApproveSettings;
 
       const res = await fetch('http://127.0.0.1:8000/api/chat', {
         method: 'POST',
@@ -454,6 +455,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
           model: activeModelName,
           apiKey: activeProvider?.apiKey || '',
           baseUrl: activeProvider?.baseUrl || '',
+          autoApproveSettings,
         }),
         signal: controller.signal,
       });
@@ -702,36 +704,6 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
               </button>
             </div>
 
-            <div className="relative shrink-0 ml-2">
-              <button
-                onClick={() => setShowModelMenu(!showModelMenu)}
-                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono text-white/50 hover:text-white/80 hover:bg-white/5 transition-all"
-              >
-                <span className="max-w-[80px] truncate">{activeProvider?.name || 'Model'}</span>
-                <ChevronDown className="w-3 h-3" />
-              </button>
-              <AnimatePresence>
-                {showModelMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: -5 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute top-full right-0 mt-1 w-40 bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl py-1 z-50 max-h-[200px] overflow-y-auto custom-scrollbar"
-                  >
-                    {aiProviders.map(p => (
-                      <button
-                        key={p.id}
-                        onClick={() => { setActiveAiProvider(p.id); setShowModelMenu(false); }}
-                        className={`w-full text-left px-3 py-1.5 text-[10px] font-mono ${p.id === activeAiProviderId ? 'text-white bg-white/10' : 'text-white/50 hover:bg-white/5'}`}
-                      >
-                        {p.name}
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
           </div>
 
           {/* Backend offline banner */}
@@ -809,7 +781,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                   <TokenBadge tokenCount={msg.tokenCount} role={msg.role} />
                 </div>
                 <div
-                  className={`max-w-[90%] px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono ${msg.role === 'user'
+                  className={`max-w-[90%] overflow-x-auto px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono ${msg.role === 'user'
                       ? 'bg-[var(--color-primary-accent)]/20 text-[var(--text-active)] rounded-br-sm'
                       : 'bg-[var(--color-glass-bg)] text-[var(--text-normal)] rounded-bl-sm border border-[var(--color-glass-border)]'
                     }`}

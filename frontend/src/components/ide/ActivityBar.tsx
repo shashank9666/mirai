@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Files, Search, GitBranch, Blocks, Bot, Database, Settings, Bug, Sparkles, Monitor } from 'lucide-react';
+import { Files, Search, GitBranch, Blocks, Bot, Database, Settings, Sparkles, Monitor } from 'lucide-react';
 
 interface ActivityBarProps {
   activeView: string;
@@ -17,7 +17,6 @@ const VIEWS = [
   { id: 'agent', icon: Bot, label: 'AI Agent Tasks' },
   { id: 'ai-providers', icon: Sparkles, label: 'AI Providers' },
   { id: 'database', icon: Database, label: 'Database Explorer' },
-  { id: 'debug', icon: Bug, label: 'Debugger' },
 ];
 
 export default function ActivityBar({ activeView, onViewChange, onShowSettings }: ActivityBarProps) {
