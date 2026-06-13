@@ -14,7 +14,9 @@ interface ElectronAPI {
 declare global {
   interface Window {
     electronAPI?: ElectronAPI;
+    __miraiEditor?: unknown;
+    __miraiSetModifiedLines?: (modifiedLines: number[]) => void;
   }
 }
 
-export {};
+export { };

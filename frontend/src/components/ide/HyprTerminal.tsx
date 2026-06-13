@@ -189,11 +189,17 @@ function TerminalInstance({ tabId, tabStatus, tabProfile, onStatusChange }: {
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-transparent p-2">
       {tabStatus === 'connecting' && (
-        <div className="absolute top-2 left-2 text-white/30 animate-pulse text-[12px] font-mono z-10">Connecting to terminal...</div>
+        <div className="absolute top-2 left-2 text-white/30 animate-pulse text-[12px] font-mono z-10 flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400/60 animate-pulse" />
+          Connecting...
+        </div>
       )}
       {tabStatus === 'disconnected' && (
         <div className="absolute top-2 left-2 text-white/20 z-10">
-          <div className="text-red-400/60 mb-2 text-[12px]">Terminal disconnected</div>
+          <div className="text-[11px] font-mono text-white/25 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-400/40" />
+            Not connected
+          </div>
         </div>
       )}
       <div ref={terminalRef} className="flex-1 overflow-hidden w-full h-full" />

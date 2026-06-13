@@ -153,8 +153,8 @@ function EditorTabs({ group }: { group: EditorGroup }) {
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, tab.path)}
             className={`flex items-center gap-2 px-3 py-[6px] border-r border-white/5 text-[11px] font-mono cursor-pointer transition-all duration-150 group ${group.activeFile === tab.path && isActive
-                ? 'bg-white/5 text-white border-t-2 border-t-[var(--color-primary-accent)]'
-                : 'text-white/40 hover:text-white/70 hover:bg-white/[0.03]'
+              ? 'bg-white/5 text-white border-t-2 border-t-[var(--color-primary-accent)]'
+              : 'text-white/40 hover:text-white/70 hover:bg-white/[0.03]'
               }`}
             onClick={() => handleTabClick(tab.path, tab.name, tab.savedContent)}
             onDoubleClick={() => toggleTabPin(group.id, tab.path)}
@@ -205,6 +205,35 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
       setCursorColumn(e.position.column);
     });
 
+    // Track modified lines for gutter decorations & minimap highlighting
+    const modifiedLinesDecoration = (() => {
+      let decorationIds: string[] = [];
+      return (modifiedLines: number[]) => {
+        if (decorationIds.length > 0) {
+          decorationIds = editor.deltaDecorations(decorationIds, []);
+        }
+        decorationIds = editor.deltaDecorations([], modifiedLines.map(line => ({
+          range: new monaco.Range(line, 1, line, 1),
+          options: {
+            isWholeLine: true,
+            linesDecorationsClassName: 'modified-line-gutter',
+            overviewRuler: {
+              color: '#eab308',
+              position: monaco.editor.OverviewRulerLane.Left,
+            },
+            minimap: {
+              color: '#eab308',
+              position: monaco.editor.MinimapPosition.Inline,
+            },
+            inlineClassName: 'modified-line-bg',
+          },
+        })));
+      };
+    })();
+
+    // Expose modified line decoration function to window so chat can update it
+    (window as any).__miraiSetModifiedLines = modifiedLinesDecoration;
+
     // Register custom keybindings that trigger built-in actions safely
     editor.addAction({
       id: 'mirai.action.formatDocument',
@@ -237,8 +266,7 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
   // Store editor ref for external access
   useEffect(() => {
     if (isActive && editorRef.current) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).__miraiEditor = editorRef.current;
+      window.__miraiEditor = editorRef.current;
     }
   }, [isActive]);
 
