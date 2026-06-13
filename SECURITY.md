@@ -2,20 +2,58 @@
 
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+The following versions of Mirai IDE are currently supported with security updates and vulnerability patches.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+| Version                       | Supported      |
+| ----------------------------- | -------------- |
+| Latest Stable Release         | ✅              |
+| Development / Beta Builds     | ⚠️ Best Effort |
+| Unsupported / Legacy Versions | ❌              |
+
+Users are strongly encouraged to upgrade to the latest stable release to receive security fixes and improvements.
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+If you discover a security vulnerability, please report it responsibly and do not disclose it publicly until it has been reviewed and addressed.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+### How to Report
+
+Please send a detailed report to:
+
+**Email:** [shettyshashank2002@gmail.com(mailto:shettyshashank2002@gmail.com)
+
+Include the following information:
+
+* Description of the vulnerability
+* Steps to reproduce the issue
+* Potential impact
+* Screenshots, logs, or proof-of-concept code (if applicable)
+* Version of Mirai IDE affected
+
+### Response Timeline
+
+* Initial acknowledgment: within 72 hours
+* Status update: within 7 days
+* Resolution timeline: depends on severity and complexity
+
+### Responsible Disclosure
+
+Please do not:
+
+* Publicly disclose vulnerabilities before a fix is available
+* Access, modify, or destroy data belonging to others
+* Perform actions that could negatively affect users or infrastructure
+
+### What to Expect
+
+If the report is accepted:
+
+* The issue will be investigated and prioritized
+* A fix will be developed and released
+* You may be credited for the discovery (if desired)
+
+If the report is determined not to be a security vulnerability:
+
+* An explanation will be provided whenever possible
+
+We appreciate responsible disclosure efforts that help keep Mirai IDE and its users safe.
