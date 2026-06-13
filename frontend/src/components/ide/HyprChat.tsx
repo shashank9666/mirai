@@ -4,8 +4,9 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import PanelHeader from './PanelHeader';
 import { useAiStore } from '@/store/aiStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
+import { useEditorStore } from '@/store/editorStore';
 import { api } from '@/lib/api';
-import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, Paperclip, FileCode, TerminalSquare, X, Settings2, Trash2, MessageSquarePlus } from 'lucide-react';
+import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, Paperclip, FileCode, TerminalSquare, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -212,6 +213,42 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const handleAddContext = () => {
     setShowActionMenu(false);
     if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handleAddActiveFile = () => {
+    setShowActionMenu(false);
+    const activeGroup = useEditorStore.getState().getActiveGroup();
+    const activeFile = activeGroup?.activeFile;
+    if (activeFile) {
+      setAttachedPaths(prev => {
+        if (!prev.includes(activeFile)) return [...prev, activeFile];
+        return prev;
+      });
+    }
+  };
+
+  const handleReviewChange = async (filepath: string, codeString: string) => {
+    try {
+      const workspacePath = useWorkspaceStore.getState().workspacePath;
+      if (!workspacePath) return;
+      const sep = workspacePath.includes('\\') ? '\\' : '/';
+      const absPath = filepath.startsWith('/') || filepath.match(/^[a-zA-Z]:[\\/]/) ? filepath : `${workspacePath}${sep}${filepath}`;
+      
+      // Try to read original content; if file doesn't exist, treat as new file
+      let originalContent = '';
+      try {
+        const result = await api.readFile(absPath);
+        originalContent = result.content;
+      } catch {
+        originalContent = ''; // New file
+      }
+
+      const { proposePendingChange, openDiffForReview } = useEditorStore.getState();
+      const changeId = proposePendingChange(absPath, codeString, originalContent);
+      openDiffForReview(changeId);
+    } catch (err) {
+      console.error('Failed to open review:', err);
+    }
   };
 
   const removeFile = (index: number) => {
@@ -556,30 +593,16 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                             <div className="my-2 border border-white/10 rounded-md overflow-hidden relative group">
                               {filepath && (
                                 <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-white/10">
-                                  <span className="text-[10px] font-mono text-white/60">{filepath}</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <FileCode className="w-3 h-3 text-blue-400" />
+                                    <span className="text-[10px] font-mono text-white/60">{filepath}</span>
+                                  </div>
                                   <button
-                                    onClick={async (e) => {
-                                      e.preventDefault();
-                                      const btn = e.currentTarget;
-                                      const originalText = btn.innerText;
-                                      try {
-                                        btn.innerText = 'Applying...';
-                                        const workspacePath = useWorkspaceStore.getState().workspacePath;
-                                        if (!workspacePath) throw new Error('No workspace opened');
-                                        const sep = workspacePath.includes('\\') ? '\\\\' : '/';
-                                        const absPath = filepath.startsWith('/') || filepath.match(/^[a-zA-Z]:\\\\/) ? filepath : `${workspacePath}${sep}${filepath}`;
-                                        await api.writeFile(absPath, codeString);
-                                        btn.innerText = 'Applied!';
-                                        setTimeout(() => btn.innerText = originalText, 2000);
-                                      } catch (err) {
-                                        console.error(err);
-                                        btn.innerText = 'Failed';
-                                        setTimeout(() => btn.innerText = originalText, 2000);
-                                      }
-                                    }}
-                                    className="px-2 py-0.5 rounded bg-[var(--color-primary-accent)]/20 text-[var(--color-primary-accent)] hover:bg-[var(--color-primary-accent)]/40 text-[10px] font-mono transition-colors opacity-0 group-hover:opacity-100"
+                                    onClick={() => handleReviewChange(filepath, codeString)}
+                                    className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 text-[10px] font-mono transition-colors border border-emerald-500/30"
                                   >
-                                    Apply to File
+                                    <GitCompareArrows className="w-3 h-3" />
+                                    Review Changes
                                   </button>
                                 </div>
                               )}
@@ -650,6 +673,9 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                   transition={{ duration: 0.15 }}
                   className="absolute bottom-full left-2 mb-2 w-48 bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-1 z-50"
                 >
+                  <button onClick={handleAddActiveFile} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+                    <FilePlus2 className="w-3.5 h-3.5 text-blue-400/70" /> Add Active File
+                  </button>
                   <button onClick={handleUploadMedia} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
                     <Paperclip className="w-3.5 h-3.5 text-white/40" /> Upload Media
                   </button>

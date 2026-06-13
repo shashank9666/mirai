@@ -5,6 +5,16 @@ import { EditorGroup, Tab, getLanguageFromPath } from './ideStore';
 
 let groupCounter = 1;
 
+export interface PendingChange {
+  id: string;
+  filePath: string;
+  fileName: string;
+  originalContent: string;
+  proposedContent: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: number;
+}
+
 interface EditorState {
   activeGroupId: string;
   groups: EditorGroup[];
@@ -16,6 +26,9 @@ interface EditorState {
   previewMode: boolean;
   previewFilePath: string;
   previewContent: string;
+
+  pendingChanges: PendingChange[];
+  reviewingChangeId: string | null;
 
   getActiveGroup: () => EditorGroup | undefined;
   getGroupById: (id: string) => EditorGroup | undefined;
@@ -40,6 +53,12 @@ interface EditorState {
   closeDiff: () => void;
   openPreview: (filePath: string, content: string) => void;
   closePreview: () => void;
+  // Pending changes (AI review workflow)
+  proposePendingChange: (filePath: string, proposedContent: string, originalContent: string) => string;
+  openDiffForReview: (changeId: string) => void;
+  acceptChange: (changeId: string) => Promise<void>;
+  rejectChange: (changeId: string) => void;
+  clearPendingChanges: () => void;
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -61,6 +80,8 @@ export const useEditorStore = create<EditorState>()(
       previewMode: false,
       previewFilePath: '',
       previewContent: '',
+      pendingChanges: [],
+      reviewingChangeId: null,
 
       getActiveGroup: () => {
         const state = get();
@@ -368,6 +389,7 @@ export const useEditorStore = create<EditorState>()(
         diffFilePath: '',
         diffOriginal: '',
         diffModified: '',
+        reviewingChangeId: null,
       })),
 
       openPreview: (filePath, content) => set(() => ({
@@ -381,6 +403,88 @@ export const useEditorStore = create<EditorState>()(
         previewFilePath: '',
         previewContent: '',
       })),
+
+      proposePendingChange: (filePath, proposedContent, originalContent) => {
+        const id = crypto.randomUUID();
+        const fileName = filePath.split(/[\/\\]/).pop() || filePath;
+        const change: PendingChange = {
+          id,
+          filePath,
+          fileName,
+          originalContent,
+          proposedContent,
+          status: 'pending',
+          createdAt: Date.now(),
+        };
+        set((s) => ({ pendingChanges: [...s.pendingChanges, change] }));
+        return id;
+      },
+
+      openDiffForReview: (changeId) => {
+        const change = get().pendingChanges.find((c) => c.id === changeId);
+        if (!change) return;
+        set(() => ({
+          diffMode: true,
+          diffFilePath: change.filePath,
+          diffOriginal: change.originalContent,
+          diffModified: change.proposedContent,
+          reviewingChangeId: changeId,
+        }));
+      },
+
+      acceptChange: async (changeId) => {
+        const change = get().pendingChanges.find((c) => c.id === changeId);
+        if (!change) return;
+        try {
+          await api.writeFile(change.filePath, change.proposedContent);
+          // Refresh the tab if open
+          const state = get();
+          for (const group of state.groups) {
+            const tab = group.tabs.find((t) => t.path === change.filePath);
+            if (tab) {
+              set((s) => ({
+                groups: s.groups.map((g) => ({
+                  ...g,
+                  tabs: g.tabs.map((t) =>
+                    t.path === change.filePath
+                      ? { ...t, dirty: false, savedContent: change.proposedContent, editedContent: change.proposedContent }
+                      : t
+                  ),
+                  activeFileContent: g.activeFile === change.filePath ? change.proposedContent : g.activeFileContent,
+                })),
+              }));
+              break;
+            }
+          }
+          set((s) => ({
+            pendingChanges: s.pendingChanges.map((c) =>
+              c.id === changeId ? { ...c, status: 'accepted' } : c
+            ),
+            diffMode: false,
+            diffFilePath: '',
+            diffOriginal: '',
+            diffModified: '',
+            reviewingChangeId: null,
+          }));
+        } catch (err) {
+          console.error('Accept change failed:', err);
+        }
+      },
+
+      rejectChange: (changeId) => {
+        set((s) => ({
+          pendingChanges: s.pendingChanges.map((c) =>
+            c.id === changeId ? { ...c, status: 'rejected' } : c
+          ),
+          diffMode: s.reviewingChangeId === changeId ? false : s.diffMode,
+          diffFilePath: s.reviewingChangeId === changeId ? '' : s.diffFilePath,
+          diffOriginal: s.reviewingChangeId === changeId ? '' : s.diffOriginal,
+          diffModified: s.reviewingChangeId === changeId ? '' : s.diffModified,
+          reviewingChangeId: s.reviewingChangeId === changeId ? null : s.reviewingChangeId,
+        }));
+      },
+
+      clearPendingChanges: () => set(() => ({ pendingChanges: [] })),
     }),
     {
       name: 'mirai-editor-storage',
