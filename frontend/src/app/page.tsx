@@ -24,10 +24,6 @@ import { NotificationManager } from '@/components/ide/NotificationManager';
 
 import { useThemeStore } from '@/store/themeStore';
 import { builtinThemes } from '@/lib/themes';
-
-import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
-
-
 function SidebarContent({ activeView, isMinimized, onMinimize, onClose, onDragStart }: { activeView: string; isMinimized?: boolean; onMinimize?: () => void; onClose?: () => void; onDragStart?: (e: React.DragEvent) => void }) {
   switch (activeView) {
     case 'search':
@@ -311,15 +307,11 @@ export default function Home() {
           {!zenMode && <ActivityBar activeView={activeView} onViewChange={handleViewChange} onShowSettings={handleShowSettings} />}
 
           <div className={`flex-1 flex min-h-0 ${!zenMode ? 'p-2' : ''}`}>
-            <PanelGroup orientation="horizontal">
+          <div className={`flex-1 flex min-h-0 w-full ${!zenMode ? 'gap-2' : ''}`}>
               {/* Sidebar */}
               {(!zenMode && sidebarVisible) && (
-                <>
-                  <Panel
-                    defaultSize={20}
-                    minSize={10}
-                    maxSize={40}
-                    className={`overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''}`}
+                  <div
+                    className={`w-72 flex-shrink-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''}`}
                     style={{ backgroundColor: 'var(--panel-bg, rgba(26, 26, 46, 0.6))', backdropFilter: 'var(--panel-backdrop, blur(16px))' }}
                   >
                     <SidebarContent
@@ -328,18 +320,13 @@ export default function Home() {
                       onMinimize={() => setSidebarMinimized(m => !m)}
                       onClose={() => setSidebarVisible(false)}
                     />
-                  </Panel>
-                  <PanelResizeHandle className="w-2 hover:bg-[var(--color-primary-accent)]/20 cursor-col-resize transition-colors flex items-center justify-center group">
-                    <div className="w-[2px] h-6 bg-white/10 rounded-full group-hover:bg-[var(--color-primary-accent)]" />
-                  </PanelResizeHandle>
-                </>
+                  </div>
               )}
 
               {/* Center (Editor + Terminal) */}
               {editorVisible && (
-                <Panel className="flex flex-col min-h-0">
-                  <PanelGroup orientation="vertical">
-                    <Panel className={`overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''}`} style={{ backgroundColor: 'var(--panel-bg, rgba(26, 26, 46, 0.6))', backdropFilter: 'var(--panel-backdrop, blur(16px))' }}>
+                <div className={`flex-1 flex flex-col min-h-0 min-w-0 ${!zenMode ? 'gap-2' : ''}`}>
+                    <div className={`flex-1 min-h-0 flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''}`} style={{ backgroundColor: 'var(--panel-bg, rgba(26, 26, 46, 0.6))', backdropFilter: 'var(--panel-backdrop, blur(16px))' }}>
                       <div className={`flex-1 min-h-0 flex flex-col ${editorMinimized ? 'hidden' : 'flex'}`}>
                         {hasWorkspace && !showWelcome && <EditorToolbar />}
                         {showWelcome || !hasWorkspace ? (
@@ -352,17 +339,11 @@ export default function Home() {
                           />
                         )}
                       </div>
-                    </Panel>
+                    </div>
 
                     {(!zenMode && terminalVisible) && (
-                      <>
-                        <PanelResizeHandle className="h-2 hover:bg-[var(--color-primary-accent)]/20 cursor-row-resize transition-colors flex items-center justify-center group">
-                          <div className="h-[2px] w-6 bg-white/10 rounded-full group-hover:bg-[var(--color-primary-accent)]" />
-                        </PanelResizeHandle>
-                        <Panel
-                          defaultSize={25}
-                          minSize={10}
-                          className={`overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''}`}
+                        <div
+                          className={`h-64 flex-shrink-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''}`}
                           style={{ backgroundColor: 'var(--panel-bg, rgba(26, 26, 46, 0.6))', backdropFilter: 'var(--panel-backdrop, blur(16px))' }}
                         >
                           <HyprTerminal
@@ -372,23 +353,15 @@ export default function Home() {
                             onMinimize={() => setTerminalMinimized(m => !m)}
                             onClose={() => setTerminalVisible(false)}
                           />
-                        </Panel>
-                      </>
+                        </div>
                     )}
-                  </PanelGroup>
-                </Panel>
+                </div>
               )}
 
               {/* Chat */}
               {(!zenMode && chatVisible) && (
-                <>
-                  <PanelResizeHandle className="w-2 hover:bg-[var(--color-primary-accent)]/20 cursor-col-resize transition-colors flex items-center justify-center group">
-                    <div className="w-[2px] h-6 bg-white/10 rounded-full group-hover:bg-[var(--color-primary-accent)]" />
-                  </PanelResizeHandle>
-                  <Panel
-                    defaultSize={25}
-                    minSize={15}
-                    className={`overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''}`}
+                  <div
+                    className={`w-[350px] flex-shrink-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''}`}
                     style={{ backgroundColor: 'var(--panel-bg, rgba(26, 26, 46, 0.6))', backdropFilter: 'var(--panel-backdrop, blur(16px))' }}
                   >
                     <HyprChat
@@ -398,10 +371,9 @@ export default function Home() {
                       onMinimize={() => setChatMinimized(m => !m)}
                       onClose={() => setChatVisible(false)}
                     />
-                  </Panel>
-                </>
+                  </div>
               )}
-            </PanelGroup>
+            </div>
           </div>
         </div>
 
