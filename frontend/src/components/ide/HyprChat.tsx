@@ -490,14 +490,14 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                       <ReactMarkdown
                         components={{
                           code(props) {
-                            const { children, className, ...rest } = props;
+                            const { children, className, node, ref, ...rest } = props as any;
                             const match = /language-(\w+)/.exec(className || '');
                             return match ? (
                               <SyntaxHighlighter
                                 {...rest}
                                 PreTag="div"
                                 language={match[1]}
-                                // @ts-expect-error Types mismatch between syntax-highlighter and its prism styles
+
                                 style={vscDarkPlus}
                                 className="rounded-md my-2 text-[11px]"
                               >

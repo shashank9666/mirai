@@ -24,7 +24,6 @@
     "ai": "^6.0.197",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "firebase": "^12.14.0",
     "framer-motion": "^12.40.0",
     "gpt-tokenizer": "^3.4.0",
     "lucide-react": "^1.17.0",

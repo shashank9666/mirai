@@ -12,6 +12,7 @@ openai
 google-genai
 anthropic
 mistralai
+langchain-mistralai
 ollama
 
 # Agent Frameworks
