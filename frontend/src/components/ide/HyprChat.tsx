@@ -72,9 +72,12 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     setIsStreaming(false);
   };
 
+  const isListeningRef = useRef(false);
+
   const toggleVoiceMode = useCallback(() => {
-    if (isListening) {
+    if (isListeningRef.current) {
       recognitionRef.current?.stop();
+      isListeningRef.current = false;
       setIsListening(false);
       return;
     }
@@ -104,18 +107,37 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
         }
       };
 
-      recognition.onend = () => setIsListening(false);
-      recognition.onerror = () => setIsListening(false);
+      recognition.onend = () => {
+        if (isListeningRef.current) {
+          try {
+            recognitionRef.current.start();
+          } catch {
+            isListeningRef.current = false;
+            setIsListening(false);
+          }
+        } else {
+          setIsListening(false);
+        }
+      };
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onerror = (e: any) => {
+        if (e.error === 'no-speech' && isListeningRef.current) return;
+        isListeningRef.current = false;
+        setIsListening(false);
+      };
+      
       recognitionRef.current = recognition;
     }
 
     try {
       recognitionRef.current.start();
+      isListeningRef.current = true;
       setIsListening(true);
     } catch (e) {
       console.error(e);
     }
-  }, [isListening]);
+  }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -435,7 +457,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
           <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex flex-col gap-3">
               {messages.length === 0 && !error && (
                 <div className="flex-1 flex items-center justify-center">
-                  <p className="text-[11px] text-white/20 font-mono">
+                  <p className="text-[11px] text-[var(--text-muted)] font-mono">
                     {backendAvailable === false
                       ? 'Backend offline. Start the server to chat.'
                       : `Start a conversation...`}
@@ -454,8 +476,8 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                   <div
                     className={`max-w-[90%] px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono whitespace-pre-wrap ${
                       msg.role === 'user'
-                        ? 'bg-[var(--color-primary-accent)]/20 text-white/90 rounded-br-sm'
-                        : 'bg-white/5 text-white/80 rounded-bl-sm border border-white/5'
+                        ? 'bg-[var(--color-primary-accent)]/20 text-[var(--text-active)] rounded-br-sm'
+                        : 'bg-[var(--color-glass-bg)] text-[var(--text-normal)] rounded-bl-sm border border-[var(--color-glass-border)]'
                     }`}
                   >
                     {msg.content}
@@ -529,7 +551,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                   }}
                   placeholder={backendAvailable === false ? 'Backend offline' : isListening ? 'Listening...' : 'Ask AI...'}
                   disabled={isStreaming || backendAvailable === false}
-                  className="flex-1 bg-transparent border-none outline-none text-[12px] text-white/90 placeholder:text-white/25 font-mono disabled:opacity-40"
+                  className="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--text-active)] placeholder:text-[var(--text-muted)] font-mono disabled:opacity-40"
                 />
                 
                 <button
