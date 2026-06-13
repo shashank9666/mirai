@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, FileCode, File, Clock } from 'lucide-react';
-import { useIdeStore } from '@/store/ideStore';
 import { useEditorStore } from '@/store/editorStore';
 
 import { api } from '@/lib/api';
@@ -108,9 +107,8 @@ export default function QuickOpen() {
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const store = useIdeStore();
-  const { activeGroupId } = store;
-  const activeGroup = store.getGroupById(activeGroupId);
+  const { activeGroupId, getGroupById } = useEditorStore();
+  const activeGroup = getGroupById(activeGroupId);
   const tabs = activeGroup?.tabs || [];
 
   useEffect(() => {

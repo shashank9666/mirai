@@ -1,5 +1,3 @@
-import { useSettingsStore } from '@/store/settingsStore';
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { EditorSettings, Extension } from './ideStore';

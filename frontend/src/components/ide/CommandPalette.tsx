@@ -9,7 +9,7 @@ import {
   Braces, Pilcrow, MousePointer2, Type, UnfoldVertical, FoldVertical,
   ZoomIn, ZoomOut, RefreshCw, Scissors,
 } from 'lucide-react';
-import { useIdeStore } from '@/store/ideStore';
+import { useEditorStore } from '@/store/editorStore';
 import { useSettingsStore } from '@/store/settingsStore';
 
 
@@ -30,8 +30,7 @@ export default function CommandPalette() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const store = useIdeStore();
-  const { saveFile, saveAllFiles, revertFile, closeTab, closeAllTabs, closeOtherTabs, getActiveGroup } = store;
+  const { saveFile, saveAllFiles, revertFile, closeTab, closeAllTabs, closeOtherTabs, getActiveGroup } = useEditorStore();
   const activeFile = getActiveGroup()?.activeFile || null;
 
   const commands: Command[] = useMemo(() => [

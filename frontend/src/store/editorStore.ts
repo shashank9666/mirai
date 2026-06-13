@@ -1,5 +1,3 @@
-import { useEditorStore } from '@/store/editorStore';
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { api } from '@/lib/api';

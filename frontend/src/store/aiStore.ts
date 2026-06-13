@@ -1,5 +1,3 @@
-import { useAiStore } from '@/store/aiStore';
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { AIProviderConfig, AutoApproveSettings } from './ideStore';

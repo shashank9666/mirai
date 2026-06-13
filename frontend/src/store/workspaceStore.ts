@@ -1,5 +1,3 @@
-import { useWorkspaceStore } from '@/store/workspaceStore';
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
