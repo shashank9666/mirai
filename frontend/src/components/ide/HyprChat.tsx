@@ -7,7 +7,7 @@ import { useAiStore } from '@/store/aiStore';
 import { useChatStore } from '@/store/chatStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useEditorStore } from '@/store/editorStore';
-import { getBackendBase } from '@/lib/api';
+
 import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, ChevronRight, Paperclip, FileCode, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, Headphones, Activity, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
@@ -153,7 +153,8 @@ function PendingChangesWidget({ changeIds }: { changeIds: string[] }) {
   );
 }
 
-// Token count badge for messagesfunction TokenBadge({ tokenCount, role }: { tokenCount?: number; role: string }) {
+// Token count badge for messages
+function TokenBadge({ tokenCount, role }: { tokenCount?: number; role: string }) {
 if (tokenCount === undefined) return null;
 return (
   <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${role === 'user' ? 'bg-white/5 text-white/30' : 'bg-white/5 text-white/30'
@@ -212,7 +213,8 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [attachedPaths, setAttachedPaths] = useState<string[]>([]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any  const recognitionRef = useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -375,7 +377,12 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
       let originalContent = '';
       try {
-        const result = await api.readFile(absPath);
+        const res = await fetch('http://127.0.0.1:8000/api/fs/readFile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filePath: absPath }),
+        });
+        const result = await res.json();
         originalContent = result.content;
       } catch {
         originalContent = '';
@@ -437,7 +444,8 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
       const activeProvider = aiProviders.find(p => p.id === activeAiProviderId);
       const activeModelName = activeProvider?.model || 'gpt-4o';
 
-      // Build messages from chat store      const storeMessages = useChatStore.getState().messages;
+      // Build messages from chat store
+      const storeMessages = useChatStore.getState().messages;
       const autoApproveSettings = useAiStore.getState().autoApproveSettings;
       const workspacePath = useWorkspaceStore.getState().workspacePath || 'No workspace open';
       const openFiles = useEditorStore.getState().groups.flatMap(g => g.tabs.map(t => t.path));
@@ -550,7 +558,8 @@ Use this information before asking the user for files.`;
     } finally {
       setIsStreaming(false);
       abortRef.current = null;
-      // Remove empty assistant messages      const currentContent = useChatStore.getState().messages.find(m => m.id === assistantMsg.id)?.content;
+      // Remove empty assistant messages
+      const currentContent = useChatStore.getState().messages.find(m => m.id === assistantMsg.id)?.content;
       if (!currentContent || !currentContent.trim()) {
         useChatStore.getState().removeMessage(assistantMsg.id);
       }
@@ -808,7 +817,7 @@ Use this information before asking the user for files.`;
                     </>
                   )}
                   {/* Core orb */}
-                  <div className={`w-24 h-24 rounded-full shadow-[0_0_40px_rgba(124,58,237,0.4)] border border-white/10 flex items-center justify-center transition-colors duration-500 ${isStreaming ? 'bg-gradient-to-tr from-purple-500/30 to-blue-500/30' : isListening ? 'bg-gradient-to-tr from-emerald-500/30 to-teal-500/30' : 'bg-white/5'`}>
+                  <div className={`w-24 h-24 rounded-full shadow-[0_0_40px_rgba(124,58,237,0.4)] border border-white/10 flex items-center justify-center transition-colors duration-500 ${isStreaming ? 'bg-gradient-to-tr from-purple-500/30 to-blue-500/30' : isListening ? 'bg-gradient-to-tr from-emerald-500/30 to-teal-500/30' : 'bg-white/5'}`}>
                     <Activity className={`w-8 h-8 ${isStreaming ? 'text-purple-400' : isListening ? 'text-emerald-400' : 'text-white/30'}`} />
                   </div>
                 </motion.div>
