@@ -5,6 +5,7 @@ import os
 
 from routers import fs_router, web_router, tasks_router, git_router, agent_router, settings_router, workspace_router, mcp_router
 from routers import workflow_router, graph_router, session_router
+from routers import voice_router, memory_router, proactive_router
 from services import terminal, watcher, notifications, activity_feed
 from services.background_analyzer import get_analyzer
 from services.workspace import workspace_manager
@@ -36,6 +37,9 @@ app.register_blueprint(mcp_router.bp, url_prefix="/api/mcp")
 app.register_blueprint(workflow_router.bp, url_prefix="/api")
 app.register_blueprint(graph_router.bp, url_prefix="/api")
 app.register_blueprint(session_router.bp, url_prefix="/api")
+app.register_blueprint(voice_router.bp, url_prefix="/api")
+app.register_blueprint(memory_router.bp, url_prefix="/api")
+app.register_blueprint(proactive_router.bp, url_prefix="/api")
 
 terminal.setup_terminal_websockets(sock)
 watcher.setup_watcher_websockets(sock)

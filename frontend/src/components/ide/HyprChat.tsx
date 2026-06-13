@@ -861,14 +861,14 @@ Use this information before asking the user for files.`;
                   </div>
                 </motion.div>
                 <div className="font-mono text-[12px] text-white/50 tracking-widest uppercase text-center drop-shadow-md">
-                  {isStreaming ? 'Mirai-chan is speaking...' : isListening ? 'Listening...' : 'Convo Mode Paused'}
+                  {isStreaming ? 'Mirai is speaking...' : isListening ? 'Listening...' : 'Convo Mode Paused'}
                 </div>
                 <div className="mt-8 px-8 text-center text-[11px] font-mono text-white/30 max-w-sm">
                   {chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'user' ? (
                     <span className="text-white/60">&quot;{chatMessages[chatMessages.length - 1].content}&quot;</span>
                   ) : chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'assistant' ? (
-                    <span className="text-white/40 line-clamp-3">Mirai-chan: {chatMessages[chatMessages.length - 1].content}</span>
-                  ) : 'Speak to interact with Mirai-chan.'}
+                    <span className="text-white/40 line-clamp-3">Mirai: {chatMessages[chatMessages.length - 1].content}</span>
+                  ) : 'Speak to interact with Mirai.'}
                 </div>
               </div>
             ) : (
@@ -893,7 +893,7 @@ Use this information before asking the user for files.`;
                   <div key={msg.id} className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                     {/* Message Header */}
                     <div className="flex items-center gap-2 px-1 opacity-60">
-                      <span className="text-[10px] font-bold uppercase tracking-wider">{msg.role === 'user' ? 'You' : 'Mirai-chan'}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider">{msg.role === 'user' ? 'You' : 'Mirai'}</span>
                       <TokenBadge tokenCount={msg.tokenCount} role={msg.role} />
                     </div>
                     {msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0 && (

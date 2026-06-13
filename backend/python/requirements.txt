@@ -67,3 +67,11 @@ opencv-python
 rich
 tiktoken
 langchain_openai
+
+# Voice Pipeline
+gtts
+requests
+
+# Optional: Local TTS/STT (install manually if needed)
+# faster-whisper
+# kokoro
