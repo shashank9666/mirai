@@ -85,6 +85,7 @@ interface ThemeState {
   exportTheme: () => string;
   resetToDefaults: () => void;
   registerThemes: (themes: IDETheme[]) => void;
+  _applyThemeVariables: () => void;
 }
 
 const DEFAULT_THEME_ID = 'catppuccin-mocha';
