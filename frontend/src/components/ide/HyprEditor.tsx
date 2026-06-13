@@ -234,7 +234,7 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
     })();
 
     // Expose modified line decoration function to window so chat can update it
-    (window as any).__miraiSetModifiedLines = modifiedLinesDecoration;
+    (window as unknown as { __miraiSetModifiedLines: (lines: number[]) => void }).__miraiSetModifiedLines = modifiedLinesDecoration;
 
     // Register custom keybindings that trigger built-in actions safely
     editor.addAction({

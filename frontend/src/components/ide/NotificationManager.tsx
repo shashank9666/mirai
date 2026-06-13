@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
 import { getWsBase } from '@/lib/api';
+import { toast } from 'sonner';
 
 export function NotificationManager() {
   useEffect(() => {
@@ -23,8 +24,11 @@ export function NotificationManager() {
           const data = JSON.parse(event.data);
           if (data.title && data.message) {
             const { notificationsEnabled } = useSettingsStore.getState();
-            if (notificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
-              new Notification(data.title, { body: data.message });
+            if (notificationsEnabled) {
+              toast(data.title, { description: data.message });
+              if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(data.title, { body: data.message });
+              }
             }
           }
         } catch (err) {

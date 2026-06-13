@@ -7,6 +7,7 @@ import { api, FileEntry, getWsBase } from '@/lib/api';
 import { useEditorStore } from '@/store/editorStore';
 import PanelHeader from './PanelHeader';
 import { motion, AnimatePresence } from 'framer-motion';
+import SimpleBar from 'simplebar-react';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, FilePlus, FolderPlus, Edit2, Monitor, FileCode2, FileJson, FileText, File, FileImage, FileTerminal, Database, Palette, Settings as SettingsIcon, Eye, ExternalLink } from 'lucide-react';
 
 const getFileIcon = (name: string) => {
@@ -355,7 +356,7 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
         }
         break;
     }
-  }, [refresh, renameTab]);
+  }, [refresh]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, path: string, name: string, isDir: boolean, directAction?: string) => {
     if (directAction) {
@@ -397,9 +398,9 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
       </PanelHeader>
 
       {!isMinimized && (
-        <div
-          className="flex-1 overflow-y-auto custom-scrollbar py-1 relative"
-          onContextMenu={(e) => {
+        <SimpleBar
+          className="flex-1 min-h-0 py-1 relative"
+          onContextMenu={(e: React.MouseEvent) => {
             e.preventDefault();
             setContextMenu({ x: e.clientX, y: e.clientY, type: 'explorer', path: rootNodes[0]?.path || '', name: '', isDir: true });
           }}
@@ -438,7 +439,7 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
               )}
             </motion.div>
           </div>
-        </div>
+        </SimpleBar>
       )}
 
       <AnimatePresence>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Waybar from '@/components/ide/Waybar';
 import ActivityBar from '@/components/ide/ActivityBar';
 import HyprSidebar from '@/components/ide/HyprSidebar';
@@ -24,58 +24,9 @@ import { NotificationManager } from '@/components/ide/NotificationManager';
 
 import { useThemeStore } from '@/store/themeStore';
 import { builtinThemes } from '@/lib/themes';
+// @ts-expect-error - react-resizable-panels types missing in some language servers
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
-function ResizeHandle({
-  direction = 'horizontal',
-  onResize,
-}: {
-  direction?: 'horizontal' | 'vertical';
-  onResize: (delta: number) => void;
-}) {
-  const isDragging = useRef(false);
-  const startPos = useRef(0);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    isDragging.current = true;
-    startPos.current = direction === 'horizontal' ? e.clientX : e.clientY;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging.current) return;
-      const currentPos = direction === 'horizontal' ? e.clientX : e.clientY;
-      const delta = currentPos - startPos.current;
-      startPos.current = currentPos;
-      onResize(delta);
-    };
-
-    const handleMouseUp = () => {
-      isDragging.current = false;
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.body.style.cursor = direction === 'horizontal' ? 'col-resize' : 'row-resize';
-    document.body.style.userSelect = 'none';
-  }, [direction, onResize]);
-
-  return (
-    <div
-      className={`flex-shrink-0 flex items-center justify-center group transition-colors
-        ${direction === 'horizontal'
-          ? 'w-[5px] h-full cursor-col-resize hover:bg-[var(--color-primary-accent)]/20'
-          : 'h-[5px] w-full cursor-row-resize hover:bg-[var(--color-primary-accent)]/20'}`}
-      onMouseDown={handleMouseDown}
-    >
-      <div className={`rounded-full bg-white/10 group-hover:bg-[var(--color-primary-accent)] transition-colors
-        ${direction === 'horizontal' ? 'w-[2px] h-6' : 'w-6 h-[2px]'}`}
-      />
-    </div>
-  );
-}
 
 function SidebarContent({ activeView, isMinimized, onMinimize, onClose, onDragStart }: { activeView: string; isMinimized?: boolean; onMinimize?: () => void; onClose?: () => void; onDragStart?: (e: React.DragEvent) => void }) {
   switch (activeView) {
@@ -100,9 +51,6 @@ function SidebarContent({ activeView, isMinimized, onMinimize, onClose, onDragSt
 }
 
 export default function Home() {
-  const [sidebarWidth, setSidebarWidth] = useState(260);
-  const [chatWidth, setChatWidth] = useState(320);
-  const [terminalHeight, setTerminalHeight] = useState(200);
 
   const [activeView, setActiveView] = useState('explorer');
   const [sidebarVisible, setSidebarVisible] = useState(true);
@@ -120,13 +68,6 @@ export default function Home() {
 
   const [sidebarMinimized, setSidebarMinimized] = useState(false);
 
-  const [panelSlots, setPanelSlots] = useState<Record<string, string>>({
-    sidebar: 'left',
-    editor: 'center',
-    chat: 'right',
-    terminal: 'bottom'
-  });
-  const [dragOverSide, setDragOverSide] = useState<string | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const { zenMode, fullscreenMode, toggleZenMode, toggleFullscreenMode, editorSettings, zoom, setZoom } = useSettingsStore();
@@ -193,18 +134,6 @@ export default function Home() {
     };
   }, [setWorkspace]);
 
-  const handleSidebarResize = useCallback((delta: number) => {
-    setSidebarWidth(w => Math.max(180, Math.min(500, w + delta)));
-  }, []);
-
-  const handleChatResize = useCallback((delta: number) => {
-    setChatWidth(w => Math.max(200, Math.min(500, w - delta)));
-  }, []);
-
-  const handleTerminalResize = useCallback((delta: number) => {
-    setTerminalHeight(h => Math.max(80, Math.min(500, h - delta)));
-  }, []);
-
   const handleViewChange = useCallback((view: string) => {
     if (view === 'settings') {
       setActiveView('settings');
@@ -237,9 +166,6 @@ export default function Home() {
       if (mod && e.key === '0') {
         e.preventDefault();
         setZoom(0.7);
-        setSidebarWidth(250);
-        setTerminalHeight(300);
-        setChatWidth(300);
       }
       if (mod && e.key === 'b') {
         e.preventDefault();
@@ -289,9 +215,6 @@ export default function Home() {
       else if (cmd === 'zoomOut') setZoom(Math.max(0.1, useSettingsStore.getState().zoom - 0.1));
       else if (cmd === 'resetZoom') {
         setZoom(0.7);
-        setSidebarWidth(250);
-        setTerminalHeight(300);
-        setChatWidth(300);
       }
       else if (cmd === 'splitHorizontal') useEditorStore.getState().addGroup('horizontal');
       else if (cmd === 'splitVertical') useEditorStore.getState().addGroup('vertical');
@@ -329,65 +252,6 @@ export default function Home() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, [fullscreenMode]);
 
-  const handleDragOver = useCallback((e: React.DragEvent, side: string) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverSide(side);
-  }, []);
-
-  const handleDragLeave = useCallback(() => {
-    setDragOverSide(null);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent, targetPanel: string) => {
-    e.preventDefault();
-    setDragOverSide(null);
-    const sourcePanel = e.dataTransfer.getData('text/panel');
-    if (sourcePanel && sourcePanel !== targetPanel) {
-      setPanelSlots(prev => {
-        const sourceSlot = prev[sourcePanel];
-        const targetSlot = prev[targetPanel];
-        return {
-          ...prev,
-          [sourcePanel]: targetSlot,
-          [targetPanel]: sourceSlot
-        };
-      });
-    }
-  }, []);
-
-  const handleDragStart = useCallback((e: React.DragEvent, panel: string) => {
-    e.dataTransfer.setData('text/panel', panel);
-    e.dataTransfer.effectAllowed = 'move';
-  }, []);
-
-
-  const visibility: Record<string, boolean> = {
-    sidebar: sidebarVisible,
-    editor: editorVisible,
-    chat: chatVisible,
-    terminal: terminalVisible
-  };
-
-  const getSlotPanel = (slot: string) => Object.keys(panelSlots).find(k => panelSlots[k] === slot) || '';
-
-  const leftVisible = visibility[getSlotPanel('left')];
-  const rightVisible = visibility[getSlotPanel('right')];
-  const bottomVisible = visibility[getSlotPanel('bottom')];
-
-  const columns = [];
-  if (!zenMode && leftVisible) columns.push('left', 'h-res-1');
-  columns.push('center');
-  if (!zenMode && rightVisible) columns.push('h-res-2', 'right');
-
-  const row1 = columns.join(' ');
-  const row2 = columns.map(c => c === 'center' ? 'v-res' : c).join(' ');
-  const row3 = columns.map(c => c === 'center' ? 'bottom' : c).join(' ');
-
-  const gridAreas = zenMode
-    ? '"center"'
-    : `"${row1}"` + (bottomVisible && !zenMode ? `\n"${row2}"\n"${row3}"` : '');
-
   useEffect(() => {
     document.documentElement.style.setProperty('--color-primary-accent', editorSettings.accentColor || '#7C3AED');
     document.documentElement.style.setProperty(
@@ -417,22 +281,7 @@ export default function Home() {
     document.documentElement.style.setProperty('--app-height', zoom !== 1.0 ? `${100 / zoom}vh` : '100vh');
   }, [editorSettings, zoom]);
 
-  const getPanelStyle = (panelId: string) => {
-    return {
-      backgroundColor: 'var(--panel-bg, rgba(26, 26, 46, 0.6))',
-      backdropFilter: 'var(--panel-backdrop, blur(16px))',
-      gridArea: panelSlots[panelId],
-      display: (!zenMode && visibility[panelId]) || (zenMode && panelSlots[panelId] === 'center') ? 'flex' : 'none',
-    };
-  };
 
-  const gridCols = zenMode
-    ? '1fr'
-    : `${leftVisible ? sidebarWidth + 'px 5px ' : ''}1fr${rightVisible ? ' 5px ' + (chatMinimized ? 200 : chatWidth) + 'px' : ''}`;
-
-  const gridRows = zenMode
-    ? '1fr'
-    : `1fr${bottomVisible && !zenMode ? ' 5px ' + (terminalMinimized ? 36 : terminalHeight) + 'px' : ''}`;
 
   return (
     <div className="shrink-0 overflow-hidden flex flex-col relative bg-transparent text-[var(--foreground)] selection:bg-[var(--color-primary-accent)]/30"
@@ -461,110 +310,98 @@ export default function Home() {
         <div className={`flex-1 flex min-h-0 ${!zenMode ? 'mb-8' : ''}`}>
           {!zenMode && <ActivityBar activeView={activeView} onViewChange={handleViewChange} onShowSettings={handleShowSettings} />}
 
-          <div
-            className={`flex-1 grid min-h-0 ${!zenMode ? 'p-2' : ''}`}
-            style={{
-              gridTemplateColumns: gridCols,
-              gridTemplateRows: gridRows,
-              gridTemplateAreas: gridAreas,
-            }}
-          >
-            {/* Resize Handles */}
-            {!zenMode && leftVisible && (
-              <div style={{ gridArea: 'h-res-1' }} className="flex">
-                <ResizeHandle direction="horizontal" onResize={handleSidebarResize} />
-              </div>
-            )}
-            {!zenMode && rightVisible && (
-              <div style={{ gridArea: 'h-res-2' }} className="flex">
-                <ResizeHandle direction="horizontal" onResize={(delta) => handleChatResize(-delta)} />
-              </div>
-            )}
-            {!zenMode && bottomVisible && (
-              <div style={{ gridArea: 'v-res' }} className="flex">
-                <ResizeHandle direction="vertical" onResize={handleTerminalResize} />
-              </div>
-            )}
+          <div className={`flex-1 flex min-h-0 ${!zenMode ? 'p-2' : ''}`}>
+            <PanelGroup direction="horizontal">
+              {/* Sidebar */}
+              {(!zenMode && sidebarVisible) && (
+                <>
+                  <Panel
+                    defaultSize={20}
+                    minSize={10}
+                    maxSize={40}
+                    className={`overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''}`}
+                    style={{ backgroundColor: 'var(--panel-bg, rgba(26, 26, 46, 0.6))', backdropFilter: 'var(--panel-backdrop, blur(16px))' }}
+                  >
+                    <SidebarContent
+                      activeView={activeView}
+                      isMinimized={sidebarMinimized}
+                      onMinimize={() => setSidebarMinimized(m => !m)}
+                      onClose={() => setSidebarVisible(false)}
+                    />
+                  </Panel>
+                  <PanelResizeHandle className="w-2 hover:bg-[var(--color-primary-accent)]/20 cursor-col-resize transition-colors flex items-center justify-center group">
+                    <div className="w-[2px] h-6 bg-white/10 rounded-full group-hover:bg-[var(--color-primary-accent)]" />
+                  </PanelResizeHandle>
+                </>
+              )}
 
-            {/* Sidebar */}
-            <div
-              onDragOver={(e) => handleDragOver(e, 'sidebar')}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, 'sidebar')}
-              className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${dragOverSide === 'sidebar' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
-                }`}
-              style={getPanelStyle('sidebar')}
-            >
-              <SidebarContent
-                activeView={activeView}
-                isMinimized={sidebarMinimized}
-                onMinimize={() => setSidebarMinimized(m => !m)}
-                onClose={() => setSidebarVisible(false)}
-                onDragStart={(e: React.DragEvent) => handleDragStart(e, 'sidebar')}
-              />
-            </div>
+              {/* Center (Editor + Terminal) */}
+              {editorVisible && (
+                <Panel className="flex flex-col min-h-0">
+                  <PanelGroup direction="vertical">
+                    <Panel className={`overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''}`} style={{ backgroundColor: 'var(--panel-bg, rgba(26, 26, 46, 0.6))', backdropFilter: 'var(--panel-backdrop, blur(16px))' }}>
+                      <div className={`flex-1 min-h-0 flex flex-col ${editorMinimized ? 'hidden' : 'flex'}`}>
+                        {hasWorkspace && !showWelcome && <EditorToolbar />}
+                        {showWelcome || !hasWorkspace ? (
+                          <WelcomeScreen onWorkspaceOpened={() => setWelcomeOverride({ show: false, forWorkspace: workspacePath })} />
+                        ) : (
+                          <HyprEditor
+                            isMinimized={editorMinimized}
+                            onMinimize={() => setEditorMinimized(m => !m)}
+                            onClose={() => setEditorVisible(false)}
+                          />
+                        )}
+                      </div>
+                    </Panel>
 
-            {/* Editor */}
-            <div
-              onDragOver={(e) => handleDragOver(e, 'editor')}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, 'editor')}
-              className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${dragOverSide === 'editor' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
-                }`}
-              style={getPanelStyle('editor')}
-            >
-              <div className={`flex-1 min-h-0 flex flex-col ${editorMinimized ? 'hidden' : 'flex'}`}>
-                {hasWorkspace && !showWelcome && <EditorToolbar />}
-                {showWelcome || !hasWorkspace ? (
-                  <WelcomeScreen onWorkspaceOpened={() => setWelcomeOverride({ show: false, forWorkspace: workspacePath })} />
-                ) : (
-                  <HyprEditor
-                    isMinimized={editorMinimized}
-                    onMinimize={() => setEditorMinimized(m => !m)}
-                    onClose={() => setEditorVisible(false)}
-                    onDragStart={(e: React.DragEvent) => handleDragStart(e, 'editor')}
-                  />
-                )}
-              </div>
-            </div>
+                    {(!zenMode && terminalVisible) && (
+                      <>
+                        <PanelResizeHandle className="h-2 hover:bg-[var(--color-primary-accent)]/20 cursor-row-resize transition-colors flex items-center justify-center group">
+                          <div className="h-[2px] w-6 bg-white/10 rounded-full group-hover:bg-[var(--color-primary-accent)]" />
+                        </PanelResizeHandle>
+                        <Panel
+                          defaultSize={25}
+                          minSize={10}
+                          className={`overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''}`}
+                          style={{ backgroundColor: 'var(--panel-bg, rgba(26, 26, 46, 0.6))', backdropFilter: 'var(--panel-backdrop, blur(16px))' }}
+                        >
+                          <HyprTerminal
+                            isPinned={terminalPinned}
+                            isMinimized={terminalMinimized}
+                            onPin={() => setTerminalPinned(p => !p)}
+                            onMinimize={() => setTerminalMinimized(m => !m)}
+                            onClose={() => setTerminalVisible(false)}
+                          />
+                        </Panel>
+                      </>
+                    )}
+                  </PanelGroup>
+                </Panel>
+              )}
 
-            {/* Chat */}
-            <div
-              onDragOver={(e) => handleDragOver(e, 'chat')}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, 'chat')}
-              className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${dragOverSide === 'chat' ? 'ring-2 ring-[var(--color-secondary-accent)]/50' : ''
-                }`}
-              style={getPanelStyle('chat')}
-            >
-              <HyprChat
-                isPinned={chatPinned}
-                isMinimized={chatMinimized}
-                onPin={() => setChatPinned(p => !p)}
-                onMinimize={() => setChatMinimized(m => !m)}
-                onClose={() => setChatVisible(false)}
-                onDragStart={(e: React.DragEvent) => handleDragStart(e, 'chat')}
-              />
-            </div>
-
-            {/* Terminal */}
-            <div
-              onDragOver={(e) => handleDragOver(e, 'terminal')}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, 'terminal')}
-              className={`min-w-0 min-h-0 overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''} ${dragOverSide === 'terminal' ? 'ring-2 ring-[var(--color-primary-accent)]/50' : ''
-                }`}
-              style={getPanelStyle('terminal')}
-            >
-              <HyprTerminal
-                isPinned={terminalPinned}
-                isMinimized={terminalMinimized}
-                onPin={() => setTerminalPinned(p => !p)}
-                onMinimize={() => setTerminalMinimized(m => !m)}
-                onClose={() => setTerminalVisible(false)}
-                onDragStart={(e: React.DragEvent) => handleDragStart(e, 'terminal')}
-              />
-            </div>
+              {/* Chat */}
+              {(!zenMode && chatVisible) && (
+                <>
+                  <PanelResizeHandle className="w-2 hover:bg-[var(--color-primary-accent)]/20 cursor-col-resize transition-colors flex items-center justify-center group">
+                    <div className="w-[2px] h-6 bg-white/10 rounded-full group-hover:bg-[var(--color-primary-accent)]" />
+                  </PanelResizeHandle>
+                  <Panel
+                    defaultSize={25}
+                    minSize={15}
+                    className={`overflow-hidden flex flex-col transition-all duration-200 ${!zenMode ? 'rounded-xl border border-white/10 shadow-lg' : ''}`}
+                    style={{ backgroundColor: 'var(--panel-bg, rgba(26, 26, 46, 0.6))', backdropFilter: 'var(--panel-backdrop, blur(16px))' }}
+                  >
+                    <HyprChat
+                      isPinned={chatPinned}
+                      isMinimized={chatMinimized}
+                      onPin={() => setChatPinned(p => !p)}
+                      onMinimize={() => setChatMinimized(m => !m)}
+                      onClose={() => setChatVisible(false)}
+                    />
+                  </Panel>
+                </>
+              )}
+            </PanelGroup>
           </div>
         </div>
 

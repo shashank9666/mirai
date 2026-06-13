@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Command } from 'cmdk';
 import {
   Search, Terminal, Sparkles, Settings, Save, RotateCcw,
   FilePlus, FolderPlus, X, Copy, Layout, GitBranch, SearchCode,
@@ -33,7 +34,6 @@ const emit = (event: string) => window.dispatchEvent(new CustomEvent('ide:comman
 export default function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { saveFile, saveAllFiles, revertFile, closeTab, closeAllTabs, closeOtherTabs, getActiveGroup } = useEditorStore();
@@ -157,11 +157,7 @@ export default function CommandPalette() {
     { id: 'settings', label: 'Open Settings', category: 'System', icon: <Settings className="w-4 h-4" />, action: () => emit('settings') },
   ], [activeFile, saveFile, saveAllFiles, revertFile, closeTab, closeAllTabs, closeOtherTabs]);
 
-  const filtered = useMemo(() => {
-    if (!query) return commands;
-    const q = query.toLowerCase();
-    return commands.filter(c => c.label.toLowerCase().includes(q) || c.category.toLowerCase().includes(q));
-  }, [commands, query]);
+
 
 
 
@@ -195,18 +191,7 @@ export default function CommandPalette() {
     }
   }, [isOpen]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedIndex((i) => Math.max(i - 1, 0));
-    } else if (e.key === 'Enter' && filtered[selectedIndex]) {
-      filtered[selectedIndex].action();
-      setIsOpen(false);
-    }
-  };
+
 
   return (
     <AnimatePresence>
@@ -226,47 +211,49 @@ export default function CommandPalette() {
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className="fixed z-50 left-1/2 top-[15%] -translate-x-1/2 w-full max-w-2xl bg-black/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_0_50px_rgba(124,58,237,0.15)] overflow-hidden flex flex-col"
           >
-            <div className="flex items-center px-4 py-4 border-b border-white/10">
-              <Search className="w-5 h-5 text-white/50 mr-3" />
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={(e) => { setQuery(e.target.value); setSelectedIndex(0); }}
-                onKeyDown={handleKeyDown}
-                placeholder="Type a command or search..."
-                className="flex-1 bg-transparent border-none outline-none text-white text-lg placeholder:text-white/30"
-              />
-              <div className="px-2 py-1 bg-white/10 rounded text-[10px] text-white/50 font-mono">ESC</div>
-            </div>
+            <Command
+              label="Command Palette"
+              shouldFilter={true}
+              className="flex flex-col w-full h-full"
+            >
+              <div className="flex items-center px-4 py-4 border-b border-white/10">
+                <Search className="w-5 h-5 text-white/50 mr-3" />
+                <Command.Input
+                  ref={inputRef}
+                  value={query}
+                  onValueChange={setQuery}
+                  placeholder="Type a command or search..."
+                  className="flex-1 bg-transparent border-none outline-none text-white text-lg placeholder:text-white/30"
+                />
+                <div className="px-2 py-1 bg-white/10 rounded text-[10px] text-white/50 font-mono">ESC</div>
+              </div>
 
-            <div className="max-h-[60vh] overflow-y-auto p-2 custom-scrollbar">
-              {filtered.length === 0 && (
-                <div className="px-4 py-8 text-center text-white/30 text-sm font-mono">No commands found</div>
-              )}
-              {filtered.map((cmd, idx) => (
-                <button
-                  key={cmd.id}
-                  className={`w-full flex items-center px-3 py-2.5 rounded-xl transition-colors text-left group ${
-                    idx === selectedIndex ? 'bg-white/10' : 'hover:bg-white/5'
-                  }`}
-                  onClick={() => { cmd.action(); setIsOpen(false); }}
-                  onMouseEnter={() => setSelectedIndex(idx)}
-                >
-                  <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center mr-3 text-white/60 group-hover:text-white transition-colors shrink-0">
-                    {cmd.icon}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-white/90 group-hover:text-white">{cmd.label}</div>
-                    <div className="text-[10px] text-white/30">{cmd.category}</div>
-                  </div>
-                  {cmd.shortcut && (
-                    <div className="text-[10px] font-mono text-white/30 bg-white/5 px-1.5 py-0.5 rounded shrink-0 ml-2">
-                      {cmd.shortcut}
+              <Command.List className="max-h-[60vh] overflow-y-auto p-2 custom-scrollbar">
+                <Command.Empty className="px-4 py-8 text-center text-white/30 text-sm font-mono">No commands found</Command.Empty>
+                
+                {commands.map((cmd) => (
+                  <Command.Item
+                    key={cmd.id}
+                    value={cmd.label + ' ' + cmd.category}
+                    onSelect={() => { cmd.action(); setIsOpen(false); }}
+                    className="w-full flex items-center px-3 py-2.5 rounded-xl transition-colors text-left group cursor-pointer aria-selected:bg-white/10 hover:bg-white/5"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center mr-3 text-white/60 group-hover:text-white transition-colors shrink-0">
+                      {cmd.icon}
                     </div>
-                  )}
-                </button>
-              ))}
-            </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-white/90 group-hover:text-white">{cmd.label}</div>
+                      <div className="text-[10px] text-white/30">{cmd.category}</div>
+                    </div>
+                    {cmd.shortcut && (
+                      <div className="text-[10px] font-mono text-white/30 bg-white/5 px-1.5 py-0.5 rounded shrink-0 ml-2">
+                        {cmd.shortcut}
+                      </div>
+                    )}
+                  </Command.Item>
+                ))}
+              </Command.List>
+            </Command>
           </motion.div>
         </>
       )}

@@ -12,9 +12,8 @@ import { api } from '@/lib/api';
 import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, ChevronRight, Paperclip, FileCode, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, Headphones, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { useSettingsStore } from '@/store/settingsStore';
+import ShikiHighlighter from './ShikiHighlighter';
+import SimpleBar from 'simplebar-react';
 import { formatTokens } from '@/lib/agent/policies';
 import AgentPreferencesPanel from './AgentPreferencesPanel';
 import { DEFAULT_AGENT_PREFERENCES } from '@/lib/agent/policies';
@@ -172,15 +171,7 @@ function CodeBlockRenderer({ children, className, handleReviewChange, ...rest }:
             </button>
           )}
         </div>
-        <SyntaxHighlighter
-          {...rest}
-          PreTag="div"
-          language={lang}
-          style={vscDarkPlus}
-          className="!m-0 !bg-transparent text-[11px]"
-        >
-          {codeString}
-        </SyntaxHighlighter>
+        <ShikiHighlighter code={codeString} language={lang} />
       </div>
     );
   }
@@ -198,7 +189,6 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     addMessage,
     updateMessage,
     clearMessages,
-    getTokenBreakdown,
   } = useChatStore();
 
 
@@ -754,7 +744,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
           )}
 
           {/* Content Area */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex flex-col gap-3 relative">
+          <SimpleBar className="flex-1 p-3 flex flex-col gap-3 relative min-h-0">
             {isConvoMode ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--panel-bg)] z-30">
                 <motion.div
@@ -847,10 +837,10 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
               </div>
             ))}
 
-            <div ref={messagesEndRef} />
+            <div ref={messagesEndRef} className="h-4 w-full shrink-0" />
               </>
             )}
-          </div>
+          </SimpleBar>
 
           {/* Attached Files display */}
           {(attachedFiles.length > 0 || attachedPaths.length > 0) && (
