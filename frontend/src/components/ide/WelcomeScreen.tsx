@@ -101,7 +101,7 @@ export default function WelcomeScreen({ onWorkspaceOpened }: { onWorkspaceOpened
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="w-full h-full flex items-center justify-center bg-[#0a0a0a]/80"
+      className="w-full h-full flex items-center justify-center bg-black/80"
     >
       <div className="flex flex-col items-center gap-5 max-w-sm w-full px-6">
         {/* Logo */}
@@ -206,9 +206,9 @@ function FolderPicker({
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="w-full h-full flex items-center justify-center bg-[#0a0a0a]/80"
+      className="w-full h-full flex items-center justify-center bg-black/80"
     >
-      <div className="bg-[#0f0f0f]/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_0_50px_rgba(124,58,237,0.1)] w-[480px] max-h-[70vh] flex flex-col overflow-hidden">
+      <div className="bg-black/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_0_50px_rgba(124,58,237,0.1)] w-[480px] max-h-[70vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
           <div className="flex items-center gap-2">

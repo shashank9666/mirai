@@ -23,7 +23,7 @@ const VIEWS = [
 export default function ActivityBar({ activeView, onViewChange, onShowSettings }: ActivityBarProps) {
   return (
     <div className="w-[48px] h-full flex flex-col items-center py-2 gap-1 shrink-0"
-      style={{ backgroundColor: 'var(--panel-bg, rgba(255,255,255,0.02))', backdropFilter: 'var(--panel-backdrop, blur(16px))', borderRight: '1px solid rgba(255,255,255,0.06)' }}
+      style={{ backgroundColor: 'var(--panel-bg, var(--glass-bg))', backdropFilter: 'var(--panel-backdrop, blur(16px))', borderRight: '1px solid var(--color-glass-border)' }}
     >
       {/* Top icons */}
       <div className="flex flex-col items-center gap-1 flex-1">

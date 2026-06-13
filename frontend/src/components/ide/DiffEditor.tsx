@@ -39,7 +39,7 @@ export default function DiffEditorPanel() {
   return (
     <div className="h-full flex flex-col border-t border-white/10">
       {/* Diff Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#0a0a0a]/60 border-b border-white/5">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-black/60 border-b border-white/5">
         <div className="flex items-center gap-2 text-[11px] font-mono">
           <GitCompareArrows className="w-3.5 h-3.5 text-[var(--color-secondary-accent)]" />
           <span className="text-white/70">{fileName}</span>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Save, Type, Palette, Sparkles, Globe, Blocks, Eye, EyeOff, Puzzle, ImageIcon, Monitor, WandSparkles } from 'lucide-react';
-import { useIdeStore, type EditorSettings } from '@/store/ideStore';
+import { type EditorSettings } from '@/store/ideStore';
 import { useAiStore } from '@/store/aiStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -83,7 +83,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   ];
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
+    <div className="w-full h-full flex flex-col overflow-hidden bg-white/5">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0">
         <div className="flex items-center gap-2">
@@ -187,7 +187,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                         }`}
                       >
                         <div
-                          className="w-full h-16 rounded-md border border-white/10 overflow-hidden bg-[#09090b]"
+                          className="w-full h-16 rounded-md border border-white/10 overflow-hidden bg-black"
                           style={wallpaper.url ? { backgroundImage: `url(${wallpaper.url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
                         />
                         <span className="text-[11px] font-mono text-white/80">{wallpaper.name}</span>

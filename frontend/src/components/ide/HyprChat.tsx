@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import PanelHeader from './PanelHeader';
 import { useAiStore } from '@/store/aiStore';
+import { useWorkspaceStore } from '@/store/workspaceStore';
+import { api } from '@/lib/api';
 import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, Paperclip, FileCode, TerminalSquare, X, Settings2, Trash2, MessageSquarePlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
@@ -15,7 +17,21 @@ interface Message {
   content: string;
 }
 
-const DEFAULT_SYSTEM_PROMPT = 'You are a coding agent. You can read, write, and modify files. When asked to change code, provide the exact file paths, full file contents, and explain every change.';
+const DEFAULT_SYSTEM_PROMPT = `You are a coding agent integrated into the Mirai IDE.
+You can read, write, and modify files.
+When asked to change code, you MUST use the following format exactly for your code blocks to allow the user to apply them:
+
+\`\`\`<language>:<filepath>
+<file contents>
+\`\`\`
+
+Example:
+\`\`\`html:index.html
+<!DOCTYPE html>
+...
+\`\`\`
+
+Always provide the FULL file contents. Do not truncate. Explain your changes briefly before or after the code block.`;
 
 interface ChatPanelProps {
   isPinned: boolean;
@@ -404,7 +420,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95, y: -5 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute top-full left-0 mt-1 w-[260px] bg-[#0f0f0f]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl py-2 z-50 flex flex-col gap-1"
+                      className="absolute top-full left-0 mt-1 w-[260px] bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl py-2 z-50 flex flex-col gap-1"
                     >
                       <div className="px-3 pb-2 border-b border-white/5 mb-1 text-[11px] font-semibold text-white/80">
                         Auto-approve settings
@@ -469,7 +485,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: -5 }}
                     transition={{ duration: 0.15 }}
-                    className="absolute top-full right-0 mt-1 w-40 bg-[#0f0f0f]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl py-1 z-50 max-h-[200px] overflow-y-auto custom-scrollbar"
+                    className="absolute top-full right-0 mt-1 w-40 bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl py-1 z-50 max-h-[200px] overflow-y-auto custom-scrollbar"
                   >
                     {aiProviders.map(p => (
                       <button
@@ -531,18 +547,52 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                         code(props) {
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
                           const { children, className, node: _node, ref: _ref, ...rest } = props as any;
-                          const match = /language-(\w+)/.exec(className || '');
-                          return match ? (
-                            <SyntaxHighlighter
-                              {...rest}
-                              PreTag="div"
-                              language={match[1]}
+                          const codeString = String(children).replace(/\n$/, '');
+                          const match = /language-([a-zA-Z0-9_-]+)(?::(.+))?/.exec(className || '');
+                          const lang = match ? match[1] : '';
+                          const filepath = match && match[2] ? match[2] : '';
 
-                              style={vscDarkPlus}
-                              className="rounded-md my-2 text-[11px]"
-                            >
-                              {String(children).replace(/\n$/, '')}
-                            </SyntaxHighlighter>
+                          return match ? (
+                            <div className="my-2 border border-white/10 rounded-md overflow-hidden relative group">
+                              {filepath && (
+                                <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-white/10">
+                                  <span className="text-[10px] font-mono text-white/60">{filepath}</span>
+                                  <button
+                                    onClick={async (e) => {
+                                      e.preventDefault();
+                                      const btn = e.currentTarget;
+                                      const originalText = btn.innerText;
+                                      try {
+                                        btn.innerText = 'Applying...';
+                                        const workspacePath = useWorkspaceStore.getState().workspacePath;
+                                        if (!workspacePath) throw new Error('No workspace opened');
+                                        const sep = workspacePath.includes('\\') ? '\\\\' : '/';
+                                        const absPath = filepath.startsWith('/') || filepath.match(/^[a-zA-Z]:\\\\/) ? filepath : `${workspacePath}${sep}${filepath}`;
+                                        await api.writeFile(absPath, codeString);
+                                        btn.innerText = 'Applied!';
+                                        setTimeout(() => btn.innerText = originalText, 2000);
+                                      } catch (err) {
+                                        console.error(err);
+                                        btn.innerText = 'Failed';
+                                        setTimeout(() => btn.innerText = originalText, 2000);
+                                      }
+                                    }}
+                                    className="px-2 py-0.5 rounded bg-[var(--color-primary-accent)]/20 text-[var(--color-primary-accent)] hover:bg-[var(--color-primary-accent)]/40 text-[10px] font-mono transition-colors opacity-0 group-hover:opacity-100"
+                                  >
+                                    Apply to File
+                                  </button>
+                                </div>
+                              )}
+                              <SyntaxHighlighter
+                                {...rest}
+                                PreTag="div"
+                                language={lang}
+                                style={vscDarkPlus}
+                                className="!m-0 !bg-transparent text-[11px]"
+                              >
+                                {codeString}
+                              </SyntaxHighlighter>
+                            </div>
                           ) : (
                             <code {...rest} className="bg-black/30 px-1 py-0.5 rounded text-[var(--color-primary-accent)]">
                               {children}
@@ -598,7 +648,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: 5 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute bottom-full left-2 mb-2 w-48 bg-[#0f0f0f]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-1 z-50"
+                  className="absolute bottom-full left-2 mb-2 w-48 bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-1 z-50"
                 >
                   <button onClick={handleUploadMedia} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
                     <Paperclip className="w-3.5 h-3.5 text-white/40" /> Upload Media

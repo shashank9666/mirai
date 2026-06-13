@@ -44,7 +44,7 @@ function FileViewer({ filePath, content, monacoProps }: { filePath: string; cont
 
   if (isImage(filePath)) {
     return (
-      <div className="w-full h-full flex items-center justify-center p-4 bg-[#0a0a0a]/50" style={{ backgroundImage: 'repeating-conic-gradient(rgba(255,255,255,0.05) 0% 25%, transparent 0% 50%)', backgroundSize: '20px 20px' }}>
+      <div className="w-full h-full flex items-center justify-center p-4 bg-black/50" style={{ backgroundImage: 'repeating-conic-gradient(rgba(255,255,255,0.05) 0% 25%, transparent 0% 50%)', backgroundSize: '20px 20px' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={rawUrl} alt={filePath} className="max-w-full max-h-full object-contain drop-shadow-lg" />
       </div>
@@ -61,7 +61,7 @@ function FileViewer({ filePath, content, monacoProps }: { filePath: string; cont
 
   if (isVideo(filePath)) {
     return (
-      <div className="w-full h-full flex items-center justify-center p-4 bg-[#0a0a0a]/50">
+      <div className="w-full h-full flex items-center justify-center p-4 bg-black/50">
         <video src={rawUrl} controls className="max-w-full max-h-full object-contain drop-shadow-lg" />
       </div>
     );
@@ -69,7 +69,7 @@ function FileViewer({ filePath, content, monacoProps }: { filePath: string; cont
 
   if (isAudio(filePath)) {
     return (
-      <div className="w-full h-full flex items-center justify-center p-4 bg-[#0a0a0a]/50">
+      <div className="w-full h-full flex items-center justify-center p-4 bg-black/50">
         <audio src={rawUrl} controls className="w-1/2 drop-shadow-lg" />
       </div>
     );
@@ -94,7 +94,7 @@ function FileViewer({ filePath, content, monacoProps }: { filePath: string; cont
 function Breadcrumbs({ filePath }: { filePath: string }) {
   const parts = filePath.replace(/\\/g, '/').split('/').filter(Boolean);
   return (
-    <div className="flex items-center gap-0.5 px-3 py-1 text-[10px] font-mono text-white/30 bg-[#0a0a0a]/20 border-b border-white/3 overflow-hidden">
+    <div className="flex items-center gap-0.5 px-3 py-1 text-[10px] font-mono text-white/30 bg-black/20 border-b border-white/3 overflow-hidden">
       {parts.map((part, i) => (
         <React.Fragment key={i}>
           {i > 0 && <ChevronRight className="w-2.5 h-2.5 text-white/15 shrink-0" />}
@@ -141,7 +141,7 @@ function EditorTabs({ group }: { group: EditorGroup }) {
   const isActive = group.id === activeGroupId;
 
   return (
-    <div className="flex bg-[#0a0a0a]/50 border-b border-white/5 overflow-x-auto custom-scrollbar shrink-0">
+    <div className="flex bg-black/50 border-b border-white/5 overflow-x-auto custom-scrollbar shrink-0">
       {group.tabs.length === 0 ? (
         <div className="px-4 py-2 text-[11px] font-mono text-white/25 italic">No editors open</div>
       ) : (
@@ -388,7 +388,7 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
 
       {/* Group info bar */}
       {isActive && (
-        <div className="flex items-center justify-between px-2 py-0.5 bg-[#0a0a0a]/30 border-t border-white/5 text-[10px] font-mono text-white/25">
+        <div className="flex items-center justify-between px-2 py-0.5 bg-black/30 border-t border-white/5 text-[10px] font-mono text-white/25">
           <span>Ln {cursorLine}, Col {cursorColumn}</span>
           {groups.length > 1 && (
             <button
@@ -461,7 +461,7 @@ export default function HyprEditor({
 
   if (diffMode) {
     return (
-      <div className="hypr-panel w-full h-full flex flex-col overflow-hidden bg-[#1a1a2e]/40 backdrop-blur-md rounded-xl">
+      <div className="hypr-panel w-full h-full flex flex-col overflow-hidden bg-black/40 backdrop-blur-md rounded-xl">
         <PanelHeader
           title="Diff Editor"
           isMinimized={isMinimized}
@@ -476,7 +476,7 @@ export default function HyprEditor({
 
   if (previewMode) {
     return (
-      <div className="hypr-panel w-full h-full flex flex-col overflow-hidden bg-[#1a1a2e]/40 backdrop-blur-md rounded-xl">
+      <div className="hypr-panel w-full h-full flex flex-col overflow-hidden bg-black/40 backdrop-blur-md rounded-xl">
         <PanelHeader
           title="Markdown Preview"
           isMinimized={isMinimized}

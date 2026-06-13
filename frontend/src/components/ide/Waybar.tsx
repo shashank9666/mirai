@@ -212,7 +212,7 @@ export default function Waybar() {
                   {menu.label}
                 </button>
                 {isOpen && (
-                  <div className="absolute top-full left-0 mt-1 z-50 w-52 bg-[#0f0f0f]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-1.5 overflow-hidden">
+                  <div className="absolute top-full left-0 mt-1 z-50 w-52 bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-1.5 overflow-hidden">
                     {menu.items.map((item: MenuItem, index: number) => {
                       if ('divider' in item) {
                         return <div key={index} className="border-t border-white/5 my-1" />;

@@ -577,7 +577,7 @@ export default function Home() {
 
       {showSettingsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-[80vw] h-[80vh] max-w-5xl rounded-xl border border-white/10 shadow-2xl bg-[#1e1e2e] overflow-hidden flex flex-col">
+          <div className="w-[80vw] h-[80vh] max-w-5xl rounded-xl border border-white/10 shadow-2xl bg-[var(--bg-color)] overflow-hidden flex flex-col">
             <SettingsPanel onClose={() => setShowSettingsModal(false)} />
           </div>
         </div>

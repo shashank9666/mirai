@@ -53,7 +53,7 @@ export default function EditorToolbar() {
   const s = editorSettings;
 
   return (
-    <div className="flex items-center gap-0.5 px-2 py-1 bg-[#0a0a0a]/30 border-b border-white/5">
+    <div className="flex items-center gap-0.5 px-2 py-1 bg-black/30 border-b border-white/5">
       {/* Zen Mode */}
       <ToolbarButton active={zenMode} onClick={toggleZenMode} title="Toggle Zen Mode (Ctrl+K Z)">
         {zenMode ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -144,7 +144,7 @@ export default function EditorToolbar() {
         {showSettingsMenu && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowSettingsMenu(false)} />
-            <div className="absolute right-0 top-full mt-1 z-50 w-64 bg-[#0f0f0f]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-2 overflow-y-auto max-h-96 custom-scrollbar">
+            <div className="absolute right-0 top-full mt-1 z-50 w-64 bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-2 overflow-y-auto max-h-96 custom-scrollbar">
               <div className="text-[10px] font-mono text-white/30 uppercase tracking-wider px-2 py-1.5">Editor Settings</div>
 
               <SettingsItem label="Font Size" value={`${s.fontSize}px`}>

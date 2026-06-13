@@ -111,7 +111,7 @@ export default function TitleBar() {
                   <DropdownMenu>
                     <DropdownMenuTrigger className="hover:text-foreground cursor-pointer transition-colors px-1 outline-none">File</DropdownMenuTrigger>
                     <DropdownMenuPortal>
-                      <DropdownMenuContent className="w-48 bg-[#1f1e1b] border border-border/50 rounded-md shadow-xl text-foreground text-xs py-1 z-[100]" align="start">
+                      <DropdownMenuContent className="w-48 bg-black border border-border/50 rounded-md shadow-xl text-foreground text-xs py-1 z-[100]" align="start">
                         <DropdownMenuItem onClick={handleNewFile} className="px-3 py-1.5 hover:bg-blue-500 hover:text-white cursor-pointer outline-none transition-colors">New File</DropdownMenuItem>
                         <DropdownMenuItem onClick={handleNewFolder} className="px-3 py-1.5 hover:bg-blue-500 hover:text-white cursor-pointer outline-none transition-colors">New Folder</DropdownMenuItem>
                         <DropdownMenuSeparator className="h-px bg-border/50 my-1" />
@@ -124,7 +124,7 @@ export default function TitleBar() {
                   <DropdownMenu>
                     <DropdownMenuTrigger className="hover:text-foreground cursor-pointer transition-colors px-1 outline-none">Edit</DropdownMenuTrigger>
                     <DropdownMenuPortal>
-                      <DropdownMenuContent className="w-48 bg-[#1f1e1b] border border-border/50 rounded-md shadow-xl text-foreground text-xs py-1 z-[100]" align="start">
+                      <DropdownMenuContent className="w-48 bg-black border border-border/50 rounded-md shadow-xl text-foreground text-xs py-1 z-[100]" align="start">
                         <DropdownMenuItem onClick={handleUndo} className="px-3 py-1.5 hover:bg-blue-500 hover:text-white cursor-pointer outline-none transition-colors">Undo</DropdownMenuItem>
                         <DropdownMenuItem onClick={handleRedo} className="px-3 py-1.5 hover:bg-blue-500 hover:text-white cursor-pointer outline-none transition-colors">Redo</DropdownMenuItem>
                       </DropdownMenuContent>
@@ -134,7 +134,7 @@ export default function TitleBar() {
                   <DropdownMenu>
                     <DropdownMenuTrigger className="hover:text-foreground cursor-pointer transition-colors px-1 outline-none">View</DropdownMenuTrigger>
                     <DropdownMenuPortal>
-                      <DropdownMenuContent className="w-56 bg-[#1f1e1b] border border-border/50 rounded-md shadow-xl text-foreground text-xs py-1 z-[100]" align="start">
+                      <DropdownMenuContent className="w-56 bg-black border border-border/50 rounded-md shadow-xl text-foreground text-xs py-1 z-[100]" align="start">
                         <DropdownMenuItem onClick={handleZoomIn} className="flex items-center justify-between px-3 py-1.5 hover:bg-blue-500 hover:text-white cursor-pointer outline-none transition-colors">
                           <span className="flex items-center gap-2"><ZoomIn size={14} /> Zoom In</span>
                           <span className="text-muted-foreground/60">Ctrl+=</span>
@@ -156,7 +156,7 @@ export default function TitleBar() {
                   <DropdownMenu>
                     <DropdownMenuTrigger className="hover:text-foreground cursor-pointer transition-colors px-1 outline-none">Selection</DropdownMenuTrigger>
                     <DropdownMenuPortal>
-                      <DropdownMenuContent className="w-48 bg-[#1f1e1b] border border-border/50 rounded-md shadow-xl text-foreground text-xs py-1 z-[100]" align="start">
+                      <DropdownMenuContent className="w-48 bg-black border border-border/50 rounded-md shadow-xl text-foreground text-xs py-1 z-[100]" align="start">
                         <DropdownMenuItem onClick={handleSelectAll} className="px-3 py-1.5 hover:bg-blue-500 hover:text-white cursor-pointer outline-none transition-colors">Select All</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenuPortal>
@@ -166,7 +166,7 @@ export default function TitleBar() {
                   <DropdownMenu>
                     <DropdownMenuTrigger className="hover:text-foreground cursor-pointer transition-colors px-1 outline-none">Go</DropdownMenuTrigger>
                     <DropdownMenuPortal>
-                      <DropdownMenuContent className="w-48 bg-[#1f1e1b] border border-border/50 rounded-md shadow-xl text-foreground text-xs py-1 z-[100]" align="start">
+                      <DropdownMenuContent className="w-48 bg-black border border-border/50 rounded-md shadow-xl text-foreground text-xs py-1 z-[100]" align="start">
                         <DropdownMenuItem onClick={() => setCommandPaletteOpen(true)} className="flex items-center justify-between px-3 py-1.5 hover:bg-blue-500 hover:text-white cursor-pointer outline-none transition-colors">
                           <span>Go to File...</span>
                           <span className="text-muted-foreground/60">Ctrl+P</span>
@@ -180,7 +180,7 @@ export default function TitleBar() {
                   <DropdownMenu>
                     <DropdownMenuTrigger className="hover:text-foreground cursor-pointer transition-colors px-1 outline-none">Run</DropdownMenuTrigger>
                     <DropdownMenuPortal>
-                      <DropdownMenuContent className="w-56 bg-[#1f1e1b] border border-border/50 rounded-md shadow-xl text-foreground text-xs py-1 z-[100]" align="start">
+                      <DropdownMenuContent className="w-56 bg-black border border-border/50 rounded-md shadow-xl text-foreground text-xs py-1 z-[100]" align="start">
                         <DropdownMenuItem onClick={() => spawnWindow('terminal', 'Terminal', { command: 'npm run dev' })} className="px-3 py-1.5 hover:bg-blue-500 hover:text-white cursor-pointer outline-none transition-colors">Run Project (dev)</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => spawnWindow('terminal', 'Terminal', { command: 'npm run build' })} className="px-3 py-1.5 hover:bg-blue-500 hover:text-white cursor-pointer outline-none transition-colors">Build Project</DropdownMenuItem>
                       </DropdownMenuContent>
@@ -191,7 +191,7 @@ export default function TitleBar() {
                   <DropdownMenu>
                     <DropdownMenuTrigger className="hover:text-foreground cursor-pointer transition-colors px-1 outline-none">Terminal</DropdownMenuTrigger>
                     <DropdownMenuPortal>
-                      <DropdownMenuContent className="w-48 bg-[#1f1e1b] border border-border/50 rounded-md shadow-xl text-foreground text-xs py-1 z-[100]" align="start">
+                      <DropdownMenuContent className="w-48 bg-black border border-border/50 rounded-md shadow-xl text-foreground text-xs py-1 z-[100]" align="start">
                         <DropdownMenuItem onClick={() => spawnWindow('terminal')} className="px-3 py-1.5 hover:bg-blue-500 hover:text-white cursor-pointer outline-none transition-colors">New Terminal</DropdownMenuItem>
                         <DropdownMenuItem onClick={handleSplitTerminal} className="px-3 py-1.5 hover:bg-blue-500 hover:text-white cursor-pointer outline-none transition-colors">Split Terminal</DropdownMenuItem>
                       </DropdownMenuContent>
@@ -202,7 +202,7 @@ export default function TitleBar() {
                   <DropdownMenu>
                     <DropdownMenuTrigger className="hover:text-foreground cursor-pointer transition-colors px-1 outline-none">Help</DropdownMenuTrigger>
                     <DropdownMenuPortal>
-                      <DropdownMenuContent className="w-56 bg-[#1f1e1b] border border-border/50 rounded-md shadow-xl text-foreground text-xs py-1 z-[100]" align="start">
+                      <DropdownMenuContent className="w-56 bg-black border border-border/50 rounded-md shadow-xl text-foreground text-xs py-1 z-[100]" align="start">
                         <DropdownMenuItem onClick={() => alert('Mirai Editor - A Premium Agentic Code IDE built on Next.js and Electron.')} className="px-3 py-1.5 hover:bg-blue-500 hover:text-white cursor-pointer outline-none transition-colors">About Mirai</DropdownMenuItem>
                         <DropdownMenuItem 
                           onClick={() => { 

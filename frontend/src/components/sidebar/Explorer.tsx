@@ -223,11 +223,9 @@ const FileTreeNode = ({
         )}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
         onClick={handleClick}
-        draggable={!entry.isDirectory}
+        draggable={true}
         onDragStart={(e) => {
-          if (!entry.isDirectory) {
-            e.dataTransfer.setData('application/mirai-file-path', entry.path);
-          }
+          e.dataTransfer.setData('application/mirai-file-path', entry.path);
         }}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -527,7 +525,7 @@ export default function Explorer() {
 
       {contextMenu && (
         <div 
-          className="fixed z-50 w-48 bg-[#1f1e1b] border border-border/50 rounded-md shadow-xl py-1"
+          className="fixed z-50 w-48 bg-black border border-border/50 rounded-md shadow-xl py-1"
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()}
         >

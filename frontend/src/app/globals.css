@@ -4,6 +4,9 @@
   --background: var(--bg-color, #09090B);
   --foreground: var(--text-color, #f0f0f0);
   
+  --color-white: var(--tw-color-white, #ffffff);
+  --color-black: var(--tw-color-black, #000000);
+  
   --color-glass-bg: var(--glass-bg, rgba(255, 255, 255, 0.04));
   --color-glass-border: var(--glass-border, rgba(255, 255, 255, 0.08));
   --color-glass-hover: var(--glass-hover, rgba(255, 255, 255, 0.08));
@@ -46,6 +49,8 @@
 
 @layer base {
   :root, html.dark {
+    --tw-color-white: #ffffff;
+    --tw-color-black: #000000;
     --bg-color: #09090B;
     --text-color: #f0f0f0;
     --glass-bg: rgba(255, 255, 255, 0.04);
@@ -57,14 +62,22 @@
   }
   
   html.light {
-    --bg-color: #f8fafc;
-    --text-color: #0f172a;
-    --glass-bg: rgba(0, 0, 0, 0.03);
-    --glass-border: rgba(0, 0, 0, 0.08);
-    --glass-hover: rgba(0, 0, 0, 0.12);
-    --text-muted: #64748b;
-    --text-normal: #334155;
-    --text-active: #0f172a;
+    --tw-color-white: #111827;
+    --tw-color-black: #FFFFFF;
+    --bg-color: #F6F8FB;
+    --text-color: #111827;
+    --glass-bg: rgba(255, 255, 255, 0.8);
+    --glass-border: #DCE3ED;
+    --glass-hover: rgba(255, 255, 255, 0.95);
+    --text-muted: #6B7280;
+    --text-normal: #4B5563;
+    --text-active: #111827;
+    
+    --color-primary-accent: #4F46E5;
+    --color-secondary-accent: #06B6D4;
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+    --color-danger: #EF4444;
   }
 
   * {

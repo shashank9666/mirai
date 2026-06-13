@@ -224,7 +224,7 @@ export default function CommandPalette() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed z-50 left-1/2 top-[15%] -translate-x-1/2 w-full max-w-2xl bg-[#0a0a0a]/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_0_50px_rgba(124,58,237,0.15)] overflow-hidden flex flex-col"
+            className="fixed z-50 left-1/2 top-[15%] -translate-x-1/2 w-full max-w-2xl bg-black/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_0_50px_rgba(124,58,237,0.15)] overflow-hidden flex flex-col"
           >
             <div className="flex items-center px-4 py-4 border-b border-white/10">
               <Search className="w-5 h-5 text-white/50 mr-3" />

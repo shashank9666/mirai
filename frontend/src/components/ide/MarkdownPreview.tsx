@@ -11,7 +11,7 @@ export default function MarkdownPreview() {
   if (!previewMode) return null;
 
   return (
-    <div className="h-full flex flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0a0a0a]/80">
+    <div className="h-full flex flex-col overflow-hidden rounded-xl border border-white/10 bg-black/80">
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/5 bg-black/20">
         <div className="flex items-center gap-2 text-[11px] font-mono text-white/70">
           <FileText className="w-3.5 h-3.5 text-purple-400" />

@@ -69,7 +69,7 @@ function ContextMenuComponent({ menu, onAction, onClose }: {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.1 }}
-      className="fixed z-[100] bg-[#1a1a2e]/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl py-1 min-w-[180px]"
+      className="fixed z-[100] bg-black/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl py-1 min-w-[180px]"
       style={{ left: menu.x, top: menu.y }}
     >
       {items.map((item) => (
@@ -102,7 +102,7 @@ function RenameDialog({ initialName, onConfirm, onCancel }: {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[110] bg-black/50 flex items-center justify-center" onClick={onCancel}>
-      <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="bg-[#1a1a2e]/95 backdrop-blur-xl border border-white/10 rounded-xl p-4 w-80" onClick={(e) => e.stopPropagation()}>
+      <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl p-4 w-80" onClick={(e) => e.stopPropagation()}>
         <div className="text-[11px] font-mono text-white/50 mb-3">Rename to:</div>
         <input
           ref={inputRef}
@@ -135,7 +135,7 @@ function NewItemDialog({ type, onConfirm, onCancel }: {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[110] bg-black/50 flex items-center justify-center" onClick={onCancel}>
-      <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="bg-[#1a1a2e]/95 backdrop-blur-xl border border-white/10 rounded-xl p-4 w-80" onClick={(e) => e.stopPropagation()}>
+      <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl p-4 w-80" onClick={(e) => e.stopPropagation()}>
         <div className="text-[11px] font-mono text-white/50 mb-3">New {type === 'file' ? 'file' : 'folder'} name:</div>
         <input
           ref={inputRef}
@@ -201,6 +201,10 @@ const TreeItem = React.memo(({
             ? 'bg-[var(--color-primary-accent)]/15 text-white'
             : 'text-white/55 hover:bg-white/5 hover:text-white/85'}`}
         onClick={handleToggle}
+        draggable={true}
+        onDragStart={(e) => {
+          e.dataTransfer.setData('application/mirai-file-path', node.path);
+        }}
         onContextMenu={(e) => {
           e.preventDefault();
           onContextMenu(e, node.path, node.name, node.isDirectory);
@@ -215,7 +219,7 @@ const TreeItem = React.memo(({
         <div className="flex items-center w-full" style={{ paddingLeft: depth * 12 + 8 }}>
           <span className="mr-1 w-4 h-4 flex items-center justify-center shrink-0 z-10">
             {node.isDirectory ? (
-              isOpen ? <ChevronDown className="w-3 h-3 text-white/40 bg-[#050505]" /> : <ChevronRight className="w-3 h-3 text-white/40 bg-[#050505]" />
+              isOpen ? <ChevronDown className="w-3 h-3 text-white/40 bg-black" /> : <ChevronRight className="w-3 h-3 text-white/40 bg-black" />
             ) : <span className="w-3" />}
           </span>
           <span className="mr-1.5 text-[11px] shrink-0 flex items-center justify-center z-10">
