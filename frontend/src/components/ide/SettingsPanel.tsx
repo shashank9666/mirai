@@ -135,11 +135,11 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
 
             <div className="space-y-4">
               <SectionTitle>App Theme (Hyprland UI)</SectionTitle>
-              <div className="grid grid-cols-3 gap-3">
-                {['dark', 'glass', 'solid'].map((t) => (
+              <div className="grid grid-cols-4 gap-3">
+                {['dark', 'glass', 'solid', 'light'].map((t) => (
                   <button 
                     key={t}
-                    onClick={() => setEditorSettings({ appTheme: t as 'dark' | 'glass' | 'solid' })}
+                    onClick={() => setEditorSettings({ appTheme: t as 'dark' | 'glass' | 'solid' | 'light' })}
                     className={`p-2 border rounded-lg transition-colors flex flex-col items-center gap-2 ${
                       editorSettings.appTheme === t 
                         ? 'border-[var(--color-primary-accent)] bg-[var(--color-primary-accent)]/10' 
@@ -170,30 +170,47 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 >
                   <div className="flex items-center gap-2">
                     <ImageIcon className="w-4 h-4 text-white/40" />
-                    <span className="text-[12px] font-mono text-white/80">Background Image URL</span>
+                    <span className="text-[12px] font-mono text-white/80">Background Image</span>
                   </div>
-                  <input 
-                    type="text" 
-                    value={editorSettings.backgroundImage || ''}
-                    onChange={(e) => setEditorSettings({ backgroundImage: e.target.value })}
-                    placeholder="Drag and drop image here or paste URL..." 
-                    className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-[11px] font-mono text-white/70 outline-none focus:border-[var(--color-primary-accent)]/50" 
-                  />
-                  <span className="text-[10px] font-mono text-white/40">Leave empty to use flat background color.</span>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-[10px] font-mono text-white/40 border border-white/10 px-2 py-1 rounded bg-black/20">OR</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="text-[10px] font-mono text-white/60"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          uploadImage(file);
-                        }
-                      }}
-                    />
-                  </div>
+                  
+                  {editorSettings.backgroundImage ? (
+                    <div className="flex flex-col gap-2 mt-1">
+                      <div className="w-full h-24 rounded-md bg-cover bg-center border border-white/10" style={{ backgroundImage: `url(${editorSettings.backgroundImage})` }} />
+                      <button 
+                        onClick={() => setEditorSettings({ backgroundImage: null })}
+                        className="w-full py-1.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded text-[11px] font-mono transition-colors"
+                      >
+                        Delete Background
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2 mt-1">
+                      <input 
+                        type="text" 
+                        value={editorSettings.backgroundImage || ''}
+                        onChange={(e) => setEditorSettings({ backgroundImage: e.target.value })}
+                        placeholder="Paste image URL here..." 
+                        className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-[11px] font-mono text-white/70 outline-none focus:border-[var(--color-primary-accent)]/50" 
+                      />
+                      <span className="text-[10px] font-mono text-white/40 text-center">OR</span>
+                      <div className="relative overflow-hidden w-full">
+                        <button className="w-full py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[11px] font-mono text-white/70 transition-colors pointer-events-none">
+                          Browse Local File (or Drag & Drop)
+                        </button>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              uploadImage(file);
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-3 border border-white/10 rounded-lg bg-white/5 flex flex-col gap-2">

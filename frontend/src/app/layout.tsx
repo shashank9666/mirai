@@ -31,6 +31,13 @@ export default function RootLayout({
                   const zoom = parsed?.state?.zoom || 1.0;
                   
                   if (settings) {
+                    if (settings.appTheme === 'light') {
+                      document.documentElement.classList.remove('dark');
+                      document.documentElement.classList.add('light');
+                    } else {
+                      document.documentElement.classList.remove('light');
+                      document.documentElement.classList.add('dark');
+                    }
                     if (settings.accentColor) {
                       document.documentElement.style.setProperty('--color-primary-accent', settings.accentColor);
                     }
@@ -39,6 +46,7 @@ export default function RootLayout({
                     let bg = \`rgba(26, 26, 46, \${settings.panelOpacity ?? 0.6})\`;
                     if (settings.appTheme === 'solid') bg = '#1a1a2e';
                     if (settings.appTheme === 'dark') bg = '#050505';
+                    if (settings.appTheme === 'light') bg = '#f8fafc';
                     document.documentElement.style.setProperty('--panel-bg', bg);
                     document.documentElement.style.setProperty('--panel-backdrop', settings.appTheme === 'glass' ? 'blur(' + (settings.panelBlur ?? 16) + 'px)' : 'none');
                   }

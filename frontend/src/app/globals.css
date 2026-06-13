@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 @theme inline {
-  --background: #09090B;
-  --foreground: #f0f0f0;
+  --background: var(--bg-color, #09090B);
+  --foreground: var(--text-color, #f0f0f0);
   
-  --color-glass-bg: rgba(255, 255, 255, 0.04);
-  --color-glass-border: rgba(255, 255, 255, 0.08);
-  --color-glass-hover: rgba(255, 255, 255, 0.08);
+  --color-glass-bg: var(--glass-bg, rgba(255, 255, 255, 0.04));
+  --color-glass-border: var(--glass-border, rgba(255, 255, 255, 0.08));
+  --color-glass-hover: var(--glass-hover, rgba(255, 255, 255, 0.08));
   
   --color-primary-accent: #7C3AED;
   --color-secondary-accent: #3B82F6;
@@ -14,12 +14,34 @@
   --color-warning: #F59E0B;
   --color-danger: #EF4444;
   
-  --color-text-muted: #888888;
-  --color-text-normal: #cccccc;
-  --color-text-active: #ffffff;
+  --color-text-muted: var(--text-muted, #888888);
+  --color-text-normal: var(--text-normal, #cccccc);
+  --color-text-active: var(--text-active, #ffffff);
 }
 
 @layer base {
+  :root, html.dark {
+    --bg-color: #09090B;
+    --text-color: #f0f0f0;
+    --glass-bg: rgba(255, 255, 255, 0.04);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-hover: rgba(255, 255, 255, 0.12);
+    --text-muted: #888888;
+    --text-normal: #cccccc;
+    --text-active: #ffffff;
+  }
+  
+  html.light {
+    --bg-color: #f8fafc;
+    --text-color: #0f172a;
+    --glass-bg: rgba(0, 0, 0, 0.03);
+    --glass-border: rgba(0, 0, 0, 0.08);
+    --glass-hover: rgba(0, 0, 0, 0.12);
+    --text-muted: #64748b;
+    --text-normal: #334155;
+    --text-active: #0f172a;
+  }
+
   * {
     border-color: var(--color-glass-border);
     outline-color: var(--color-primary-accent);
@@ -30,9 +52,9 @@
     margin: 0;
     overflow: hidden;
     /* Deep space / synthwave subtle mesh background */
-    background-image: 
-      radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08), transparent 25%),
-      radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.08), transparent 25%);
+    background-image: var(--bg-image, none);
+    background-size: cover;
+    background-position: center;
     background-attachment: fixed;
   }
   
@@ -45,19 +67,19 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--color-glass-border);
     border-radius: 10px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--color-glass-hover);
   }
 }
 
 @layer utilities {
   .hypr-panel {
-    background-color: var(--color-glass-bg);
-    backdrop-filter: blur(30px);
-    -webkit-backdrop-filter: blur(30px);
+    background-color: var(--panel-bg, var(--color-glass-bg));
+    backdrop-filter: var(--panel-backdrop, blur(30px));
+    -webkit-backdrop-filter: var(--panel-backdrop, blur(30px));
     border: 1px solid var(--color-glass-border);
     border-radius: 20px;
     box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
@@ -65,7 +87,7 @@
   }
   
   .hypr-panel:hover {
-    border-color: rgba(255, 255, 255, 0.15);
+    border-color: var(--color-glass-hover);
     box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.6);
   }
   
@@ -78,7 +100,7 @@
   
   .hypr-btn:hover {
     background-color: var(--color-glass-hover);
-    border-color: rgba(255, 255, 255, 0.2);
+    border-color: var(--color-glass-border);
   }
 
   /* Transparent overrides for Glass Effect */

@@ -263,6 +263,7 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
       });
   }, []);
 
+  // eslint-disable-next-line
   useEffect(() => { refresh(); }, [refresh, workspacePath]);
 
   // Real-time file system watcher WebSocket
@@ -342,48 +343,40 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
             setContextMenu({ x: e.clientX, y: e.clientY, type: 'explorer', path: rootNodes[0]?.path || '', name: '', isDir: true });
           }}
         >
-          <AnimatePresence mode="wait">
-            {isRefreshing ? (
-              <motion.div
-                key="splash"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="absolute inset-0 flex flex-col gap-2 px-3 py-2 bg-[#050505]/80 backdrop-blur-sm z-10"
-              >
-                {Array.from({ length: 15 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-2.5 opacity-50" style={{ animationDelay: `${i * 0.05}s` }}>
-                    <div className="w-3.5 h-3.5 rounded-sm bg-white/10 animate-pulse" />
-                    <div 
-                      className="h-2.5 rounded-sm bg-white/10 animate-pulse" 
-                      style={{ width: `${Math.max(30, 85 - (i * 3))}%` }}
-                    />
-                  </div>
-                ))}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="tree"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-              >
-                {rootNodes.map((node) => (
-                  <TreeItem
-                    key={node.path}
-                    node={node}
-                    onContextMenu={handleContextMenu}
-                    onRefresh={refresh}
-                    explorerIndentGuides={editorSettings.explorerIndentGuides}
-                  />
-                ))}
-                {rootNodes.length === 0 && (
-                  <div className="text-white/30 text-xs px-4 py-3 font-mono">Empty workspace</div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <div className="relative min-h-[100px] h-full">
+            <AnimatePresence>
+              {isRefreshing && (
+                <motion.div
+                  key="splash"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute inset-0 z-10 flex items-start justify-center pt-4 pointer-events-none"
+                >
+                  <div className="w-4 h-4 border-2 border-[var(--color-primary-accent)] border-t-transparent rounded-full animate-spin opacity-50" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <motion.div
+              key="tree"
+              animate={{ opacity: isRefreshing ? 0.4 : 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              {rootNodes.map((node) => (
+                <TreeItem
+                  key={node.path}
+                  node={node}
+                  onContextMenu={handleContextMenu}
+                  onRefresh={refresh}
+                  explorerIndentGuides={editorSettings.explorerIndentGuides}
+                />
+              ))}
+              {rootNodes.length === 0 && !isRefreshing && (
+                <div className="text-white/30 text-xs px-4 py-3 font-mono">Empty workspace</div>
+              )}
+            </motion.div>
+          </div>
         </div>
       )}
 

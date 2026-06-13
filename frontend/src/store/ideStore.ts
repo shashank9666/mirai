@@ -98,7 +98,7 @@ export interface EditorSettings {
   explorerIndentGuides: boolean;
   panelOpacity: number;
   panelBlur: number;
-  appTheme: 'dark' | 'glass' | 'solid';
+  appTheme: 'dark' | 'glass' | 'solid' | 'light';
 }
 
 const defaultEditorSettings: EditorSettings = {
