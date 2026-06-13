@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useSettingsStore } from '@/store/settingsStore';
 
 export function NotificationManager() {
   useEffect(() => {
@@ -11,15 +12,17 @@ export function NotificationManager() {
 
     let ws: WebSocket | null = null;
     let reconnectTimeout: ReturnType<typeof setTimeout>;
+    let shouldReconnect = true;
 
     const connect = () => {
-      ws = new WebSocket('ws://localhost:8000/ws/notifications');
+      ws = new WebSocket('ws://127.0.0.1:8000/ws/notifications');
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
           if (data.title && data.message) {
-            if ('Notification' in window && Notification.permission === 'granted') {
+            const { notificationsEnabled } = useSettingsStore.getState();
+            if (notificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
               new Notification(data.title, { body: data.message });
             }
           }
@@ -29,18 +32,20 @@ export function NotificationManager() {
       };
 
       ws.onclose = () => {
-        // Reconnect logic
-        reconnectTimeout = setTimeout(connect, 3000);
+        if (shouldReconnect) {
+          reconnectTimeout = setTimeout(connect, 3000);
+        }
       };
       
-      ws.onerror = (err) => {
-        console.error('Notification WS error:', err);
+      ws.onerror = () => {
+        ws?.close();
       };
     };
 
     connect();
 
     return () => {
+      shouldReconnect = false;
       clearTimeout(reconnectTimeout);
       if (ws) {
         ws.close();

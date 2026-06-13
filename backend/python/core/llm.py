@@ -2,7 +2,27 @@ import os
 from typing import Any, Dict, Optional
 from langchain_core.language_models.chat_models import BaseChatModel
 
+SUPPORTED_PROVIDERS = {
+    "openai",
+    "ollama",
+    "anthropic",
+    "gemini",
+    "mistral",
+    "deepseek",
+    "xai",
+    "groq",
+    "together",
+    "openrouter",
+    "fireworks",
+    "lmstudio",
+    "custom",
+}
+
 def get_llm(provider: str, model: str, api_key: str = "", base_url: str = "") -> BaseChatModel:
+    if provider not in SUPPORTED_PROVIDERS:
+        supported = ", ".join(sorted(SUPPORTED_PROVIDERS))
+        raise ValueError(f"Unsupported provider '{provider}'. Supported providers: {supported}")
+
     if provider == "openai":
         from langchain_openai import ChatOpenAI
         return ChatOpenAI(model=model, api_key=api_key, base_url=base_url if base_url else None)
@@ -39,6 +59,10 @@ def get_llm(provider: str, model: str, api_key: str = "", base_url: str = "") ->
                 base_url = "https://api.together.xyz/v1"
             elif provider == "openrouter":
                 base_url = "https://openrouter.ai/api/v1"
+            elif provider == "fireworks":
+                base_url = "https://api.fireworks.ai/inference/v1"
+            elif provider == "lmstudio":
+                base_url = "http://localhost:1234/v1"
 
         return ChatOpenAI(
             model=model, 

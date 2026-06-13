@@ -1,12 +1,19 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Save, Type, Palette, Sparkles, Globe, Blocks, Eye, EyeOff, Puzzle, ImageIcon } from 'lucide-react';
+import { X, Save, Type, Palette, Sparkles, Globe, Blocks, Eye, EyeOff, Puzzle, ImageIcon, Monitor, WandSparkles } from 'lucide-react';
 import { useIdeStore, type EditorSettings } from '@/store/ideStore';
 import { useAiStore } from '@/store/aiStore';
 import { useSettingsStore } from '@/store/settingsStore';
 
 import { api } from '@/lib/api';
+
+const WALLPAPER_PRESETS = [
+  { id: 'none', name: 'None', url: '' },
+  { id: 'sakura-night', name: 'Sakura Night', url: '/wallpapers/sakura-night.svg' },
+  { id: 'cyber-city', name: 'Cyber City', url: '/wallpapers/cyber-city.svg' },
+  { id: 'moon-rain', name: 'Moon Rain', url: '/wallpapers/moon-rain.svg' },
+];
 
 type SettingsTab = 'editor' | 'theme' | 'ai' | 'extensions' | 'mcp' | 'general';
 
@@ -159,6 +166,36 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
             <div className="space-y-4">
               <SectionTitle>Background Settings</SectionTitle>
               <div className="space-y-3">
+                <div className="p-3 border border-white/10 rounded-lg bg-white/5 flex flex-col gap-3">
+                  <div className="flex items-center gap-2">
+                    <Monitor className="w-4 h-4 text-white/40" />
+                    <span className="text-[12px] font-mono text-white/80">Wallpaper Presets</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {WALLPAPER_PRESETS.map((wallpaper) => (
+                      <button
+                        key={wallpaper.id}
+                        onClick={() => setEditorSettings({ wallpaperPreset: wallpaper.id, backgroundImage: wallpaper.url || null })}
+                        className={`flex flex-col items-start gap-2 p-2 rounded-lg border transition-all text-left ${
+                          editorSettings.wallpaperPreset === wallpaper.id
+                            ? 'border-[var(--color-primary-accent)] bg-[var(--color-primary-accent)]/10'
+                            : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
+                        }`}
+                      >
+                        <div
+                          className="w-full h-16 rounded-md border border-white/10 overflow-hidden bg-[#09090b]"
+                          style={wallpaper.url ? { backgroundImage: `url(${wallpaper.url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+                        />
+                        <span className="text-[11px] font-mono text-white/80">{wallpaper.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <WandSparkles className="w-4 h-4 text-white/30" />
+                    <span className="text-[10px] font-mono text-white/40">Select a preset or paste your own wallpaper URL below.</span>
+                  </div>
+                </div>
+
                 <div 
                   className="p-3 border border-white/10 border-dashed rounded-lg bg-white/5 flex flex-col gap-2 relative transition-colors hover:bg-white/10"
                   onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-[var(--color-primary-accent)]'); }}

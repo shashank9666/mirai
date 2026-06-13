@@ -13,6 +13,9 @@ interface EditorState {
   diffOriginal: string;
   diffModified: string;
   diffFilePath: string;
+  previewMode: boolean;
+  previewFilePath: string;
+  previewContent: string;
 
   getActiveGroup: () => EditorGroup | undefined;
   getGroupById: (id: string) => EditorGroup | undefined;
@@ -35,6 +38,8 @@ interface EditorState {
   setSplitDirection: (dir: 'horizontal' | 'vertical') => void;
   openDiff: (filePath: string, original: string, modified: string) => void;
   closeDiff: () => void;
+  openPreview: (filePath: string, content: string) => void;
+  closePreview: () => void;
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -53,6 +58,9 @@ export const useEditorStore = create<EditorState>()(
       diffOriginal: '',
       diffModified: '',
       diffFilePath: '',
+      previewMode: false,
+      previewFilePath: '',
+      previewContent: '',
 
       getActiveGroup: () => {
         const state = get();
@@ -360,6 +368,18 @@ export const useEditorStore = create<EditorState>()(
         diffFilePath: '',
         diffOriginal: '',
         diffModified: '',
+      })),
+
+      openPreview: (filePath, content) => set(() => ({
+        previewMode: true,
+        previewFilePath: filePath,
+        previewContent: content,
+      })),
+
+      closePreview: () => set(() => ({
+        previewMode: false,
+        previewFilePath: '',
+        previewContent: '',
       })),
     }),
     {

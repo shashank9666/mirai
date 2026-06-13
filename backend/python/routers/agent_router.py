@@ -10,6 +10,8 @@ from services.watcher import notify_change
 from core.agent import MiraiAgent
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from services.notifications import notify_user
+from core.llm import SUPPORTED_PROVIDERS
+from core.event_bus import _json_safe
 
 bp = Blueprint("agent", __name__)
 
@@ -42,11 +44,14 @@ load_approvals()
 @bp.route("/approvals/register", methods=["POST"])
 def register_approval():
     data = request.get_json() or {}
-    req_id = data.get("id")
+    req_id = data.get("id") or data.get("callId")
     tool_name = data.get("toolName")
-    arguments = data.get("arguments")
+    arguments = data.get("arguments") or data.get("callArgs")
     old_content = data.get("oldContent")
     new_content = data.get("newContent")
+
+    if not req_id:
+        return jsonify({"detail": "id/callId is required"}), 400
 
     approvals[req_id] = {
         "id": req_id,
@@ -63,8 +68,11 @@ def register_approval():
 @bp.route("/approvals/reply", methods=["POST"])
 def reply_approval():
     data = request.get_json() or {}
-    req_id = data.get("id")
+    req_id = data.get("id") or data.get("callId")
     approved = data.get("approved")
+
+    if not req_id:
+        return jsonify({"detail": "id/callId is required"}), 400
 
     if req_id not in approvals:
         return jsonify({"detail": "Approval request not found"}), 404
@@ -123,6 +131,10 @@ def agent_chat():
     api_key = data.get("apiKey", "")
     base_url = data.get("baseUrl", "")
 
+    if provider not in SUPPORTED_PROVIDERS:
+        supported = ", ".join(sorted(SUPPORTED_PROVIDERS))
+        return jsonify({"detail": f"Unsupported provider '{provider}'. Supported providers: {supported}"}), 400
+
     # Convert payload to LangChain message types
     lc_messages = []
     for msg in messages:
@@ -164,23 +176,30 @@ def agent_chat():
         async def _run():
             try:
                 result = await agent.run(lc_messages, session_id=session_id)
-                last_msg = result["messages"][-1]
-                
-                content = last_msg.content
-                if isinstance(content, list):
-                    text_parts = [p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") == "text"]
-                    content = "".join(text_parts) if text_parts else str(content)
-                elif not isinstance(content, str):
-                    content = str(content)
+                content = ""
+                for msg in reversed(result["messages"]):
+                    if isinstance(msg, AIMessage):
+                        candidate = msg.content
+                        if isinstance(candidate, list):
+                            text_parts = [p.get("text", "") for p in candidate if isinstance(p, dict) and p.get("type") == "text"]
+                            candidate = "".join(text_parts) if text_parts else str(candidate)
+                        elif not isinstance(candidate, str):
+                            candidate = str(candidate)
+
+                        candidate = candidate.strip()
+                        if candidate and candidate != "{}":
+                            content = candidate
+                            break
+
+                if not content:
+                    content = "I have processed your request. Let me know if you need anything else!"
                     
                 await event_bus.publish(session_id, {"type": "final", "content": content})
             except Exception as e:
-                await event_bus.publish(session_id, {"type": "error", "error": str(e)})
+                await event_bus.publish(session_id, {"type": "error", "content": str(e), "error": str(e)})
                 notify_user("Agent Error", f"Failed: {str(e)[:50]}...")
             finally:
                 await event_bus.publish(session_id, {"type": "done"})
-                if "result" in locals():
-                    notify_user("Agent Finished", "Your AI assistant has responded.")
 
         loop.run_until_complete(asyncio.gather(_run(), forward_task))
         event_bus.unsubscribe(session_id, async_q)
@@ -191,7 +210,8 @@ def agent_chat():
     def stream_generator():
         while True:
             event = q.get()
-            yield f"data: {json.dumps(event)}\n\n"
+            safe_event = _json_safe(event)
+            yield f"data: {json.dumps(safe_event, default=str)}\n\n"
             if event.get("type") == "done":
                 break
 

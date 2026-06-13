@@ -240,7 +240,9 @@ export default function Waybar() {
         </div>
 
         {/* Active File Breadcrumb */}
-        <div className="text-white/40 truncate max-w-[300px]">{truncatePath(activeFile)}</div>
+        <div className="text-white/40 truncate max-w-[300px]" suppressHydrationWarning>
+          {truncatePath(activeFile)}
+        </div>
       </div>
 
       {/* Right side */}

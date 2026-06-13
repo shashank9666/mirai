@@ -30,36 +30,39 @@ export default function HyprStatusBar() {
         {gitInfo.branch && (
           <div className="flex items-center gap-1.5 hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>
-            {gitInfo.branch}{gitInfo.dirty ? '*' : ''}
+            <span suppressHydrationWarning>
+              {gitInfo.branch}
+              {gitInfo.dirty ? '*' : ''}
+            </span>
           </div>
         )}
         {ext && (
-          <div className="hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-white/50">
+          <div className="hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-white/50" suppressHydrationWarning>
             {ext}
           </div>
         )}
-        <div className="hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-blue-300">
+        <div className="hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-blue-300" suppressHydrationWarning>
           Ln {linesOfCode}
         </div>
-        <div className="hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-white/40">
+        <div className="hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-white/40" suppressHydrationWarning>
           Spaces: {editorSettings.tabSize}
         </div>
-        <div className="hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-white/40">
+        <div className="hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-white/40" suppressHydrationWarning>
           UTF-8
         </div>
         {editorSettings.wordWrap === 'on' && (
-          <div className="hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-white/40">
+          <div className="hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-white/40" suppressHydrationWarning>
             Wrap
           </div>
         )}
         {dirtyCount > 0 && (
-          <div className="flex items-center gap-1.5 hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-orange-400">
+          <div className="flex items-center gap-1.5 hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-orange-400" suppressHydrationWarning>
             <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
             {dirtyCount} unsaved
           </div>
         )}
         {groups.length > 1 && (
-          <div className="hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-purple-400">
+          <div className="hover:text-white hover:bg-white/10 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-purple-400" suppressHydrationWarning>
             {groups.length} groups
           </div>
         )}

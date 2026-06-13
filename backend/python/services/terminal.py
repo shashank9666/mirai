@@ -10,7 +10,7 @@ def setup_terminal_websockets(sock):
         cwd = request.args.get("cwd")
         shell = request.args.get("shell", "default")
         
-        target_cwd = cwd or os.getcwd()
+        target_cwd = cwd or os.path.expanduser("~")
         
         if sys.platform == "win32":
             try:

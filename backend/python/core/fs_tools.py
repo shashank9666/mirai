@@ -1,14 +1,12 @@
 import os
+import json
+import difflib
 from langchain_core.tools import tool
-from routers.fs_router import BASE_DIR
+from services.workspace import workspace_manager
 
 def _get_absolute_path(path: str) -> str:
-    """Helper to resolve paths strictly within BASE_DIR (if needed) or just return absolute."""
-    if not path:
-        return BASE_DIR
-    if os.path.isabs(path):
-        return path
-    return os.path.abspath(os.path.join(BASE_DIR, path))
+    """Resolve a tool path strictly inside the active workspace."""
+    return workspace_manager.resolve_path(path or "")
 
 @tool
 def list_directory(path: str = "") -> str:
@@ -44,14 +42,36 @@ def read_file(path: str) -> str:
 
 @tool
 def write_file(path: str, content: str) -> str:
-    """Write or overwrite the contents of a file. Use this to modify code."""
+    """Request approval to write or overwrite a file. Direct writes are blocked."""
     try:
         abs_path = _get_absolute_path(path)
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(abs_path), exist_ok=True)
-        with open(abs_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-        return f"Successfully wrote to {path}"
+        old_content = ""
+        if os.path.exists(abs_path):
+            if not os.path.isfile(abs_path):
+                return f"Error: {path} is not a file."
+            with open(abs_path, 'r', encoding='utf-8') as f:
+                old_content = f.read()
+
+        diff = "\n".join(difflib.unified_diff(
+            old_content.splitlines(),
+            content.splitlines(),
+            fromfile=f"a/{path}",
+            tofile=f"b/{path}",
+            lineterm=""
+        ))
+        return json.dumps({
+            "approval_required": True,
+            "tool": "write_file",
+            "path": workspace_manager.get_relative_path(abs_path),
+            "oldContent": old_content,
+            "newContent": content,
+            "diff": diff,
+            "message": "Direct agent writes are blocked. Present this diff to the user and write only after explicit approval."
+        })
+    except UnicodeDecodeError:
+        return f"Error: {path} appears to be a binary file."
+    except ValueError as e:
+        return f"Error: {str(e)}"
     except Exception as e:
         return f"Error writing file: {str(e)}"
 

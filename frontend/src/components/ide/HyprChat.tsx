@@ -251,10 +251,10 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
             { role: 'system', content: DEFAULT_SYSTEM_PROMPT },
             ...newMessages.map((m) => ({ role: m.role, content: m.content })),
           ],
-          provider: activeAiProviderId,
+          provider: activeProvider?.id || 'openai',
           model: activeModelName,
-          apiKey: '',
-          baseUrl: '',
+          apiKey: activeProvider?.apiKey || '',
+          baseUrl: activeProvider?.baseUrl || '',
         }),
         signal: controller.signal,
       });
@@ -290,8 +290,10 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
               assistantMessage.content += event.content;
               setMessages((prev) => prev.map(m => m.id === assistantId ? { ...assistantMessage } : m));
             } else if (event.type === 'final') {
-              if (event.content) assistantMessage.content = event.content;
-              setMessages((prev) => prev.map(m => m.id === assistantId ? { ...assistantMessage } : m));
+              if (typeof event.content === 'string' && event.content.trim()) {
+                assistantMessage.content = event.content;
+                setMessages((prev) => prev.map(m => m.id === assistantId ? { ...assistantMessage } : m));
+              }
             } else if (event.type === 'error') {
               throw new Error(event.error || event.content || 'Unknown error from AI');
             }
@@ -321,6 +323,15 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     } finally {
       setIsStreaming(false);
       abortRef.current = null;
+      setMessages((prev) => {
+        if (!prev.length) return prev;
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last.role === 'assistant' && !last.content) {
+          return updated.slice(0, -1);
+        }
+        return prev;
+      });
       inputRef.current?.focus();
     }
   };

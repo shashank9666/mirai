@@ -95,6 +95,7 @@ export interface EditorSettings {
   backgroundImage: string | null;
   backgroundOpacity: number;
   accentColor?: string;
+  wallpaperPreset: string;
   explorerIndentGuides: boolean;
   panelOpacity: number;
   panelBlur: number;
@@ -144,6 +145,7 @@ const defaultEditorSettings: EditorSettings = {
   backgroundImage: null,
   backgroundOpacity: 0.8,
   accentColor: '#3b82f6',
+  wallpaperPreset: 'none',
   explorerIndentGuides: true,
   panelOpacity: 0.6,
   panelBlur: 16,

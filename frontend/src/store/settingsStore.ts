@@ -90,7 +90,7 @@ const DEFAULT_EXTENSIONS: Extension[] = [
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       editorSettings: { ...defaultEditorSettings },
       zoom: 1,
       extensions: DEFAULT_EXTENSIONS,
@@ -162,6 +162,7 @@ export const useSettingsStore = create<SettingsState>()(
         editorSettings: state.editorSettings,
         zoom: state.zoom,
         extensions: state.extensions,
+        notificationsEnabled: state.notificationsEnabled,
       }),
     }
   )

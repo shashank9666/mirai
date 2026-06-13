@@ -162,13 +162,13 @@ export const api = {
     post('/workspace/listDirectory', { path }),
 
   registerApproval: async (callId: string, toolName: string, callArgs: string, oldContent?: string, newContent?: string): Promise<{ success: boolean }> =>
-    post('/agent/approval/register', { callId, toolName, callArgs, oldContent, newContent }),
+    post('/agent/approvals/register', { callId, toolName, callArgs, oldContent, newContent }),
 
   replyApproval: async (callId: string, approved: boolean): Promise<{ success: boolean }> =>
-    post('/agent/approval/reply', { callId, approved }),
+    post('/agent/approvals/reply', { callId, approved }),
 
   getApprovalStatus: async (callId: string): Promise<{ status: 'pending' | 'approved' | 'denied' }> => {
-    const res = await fetch(`${getApiBase()}/agent/approval/status?callId=${encodeURIComponent(callId)}`);
+    const res = await fetch(`${getApiBase()}/agent/approvals/status/${encodeURIComponent(callId)}`);
     return res.json();
   },
 };

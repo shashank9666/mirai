@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { useIdeStore } from '@/store/ideStore';
 import '@xterm/xterm/css/xterm.css';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws/terminal';
@@ -89,7 +90,11 @@ function TerminalInstance({ tabId, tabStatus, tabProfile, onStatusChange }: {
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    const url = tabProfile ? `${WS_URL}?shell=${tabProfile}` : WS_URL;
+    const workspace = useIdeStore.getState().workspace;
+    let url = tabProfile ? `${WS_URL}?shell=${tabProfile}` : WS_URL;
+    if (workspace?.path) {
+      url += (url.includes('?') ? '&' : '?') + `cwd=${encodeURIComponent(workspace.path)}`;
+    }
     const ws = new WebSocket(url);
     wsRef.current = ws;
 

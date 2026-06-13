@@ -1,5 +1,6 @@
-from typing import TypedDict, Annotated, Sequence, List
+from typing import TypedDict, Annotated, Sequence, List, Optional, Dict, Any
 import operator
+import json
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
@@ -27,6 +28,7 @@ class MiraiAgent:
             self.tools = [dummy_search]
         raw_llm = get_llm(provider, model, api_key, base_url)
         self.llm = raw_llm.bind_tools(self.tools)
+        self.tool_names = {t.name for t in self.tools}
         self.graph = self._build_graph()
 
     def _build_graph(self):
@@ -45,24 +47,47 @@ class MiraiAgent:
     async def _reason_node(self, state: AgentState):
         messages = state['messages']
         response = await self.llm.ainvoke(messages)
-        
-        # If model doesn't natively support tools, it might return JSON in content
-        if not response.tool_calls and isinstance(response.content, str):
-            import json
-            text = response.content.strip()
-            if text.startswith("{") and text.endswith("}"):
-                try:
-                    data = json.loads(text)
-                    if "name" in data and "arguments" in data:
-                        response.tool_calls.append({
-                            "name": data["name"],
-                            "args": data["arguments"],
-                            "id": "call_" + str(hash(text))
-                        })
-                        response.content = ""
-                except Exception:
-                    pass
+        tool_call = self._parse_text_tool_call(response.content)
+        if not response.tool_calls and tool_call:
+            response.tool_calls = [tool_call]
+            response.content = ""
         return {"messages": [response]}
+
+    def _parse_text_tool_call(self, content: Any) -> Optional[Dict[str, Any]]:
+        if not isinstance(content, str):
+            return None
+
+        text = content.strip()
+        if text.startswith("```"):
+            lines = text.splitlines()
+            if len(lines) >= 3 and lines[0].startswith("```") and lines[-1].strip().startswith("```"):
+                text = "\n".join(lines[1:-1]).strip()
+
+        if not text.startswith("{") or not text.endswith("}"):
+            return None
+
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            return None
+
+        if not isinstance(data, dict):
+            return None
+
+        name = data.get("name")
+        args = data.get("arguments")
+        if name not in self.tool_names or not isinstance(args, dict):
+            return None
+
+        return {
+            "name": name,
+            "args": args,
+            "id": "call_" + str(abs(hash(text))),
+        }
+
+    def _is_potential_json_tool_call(self, text: str) -> bool:
+        stripped = text.lstrip()
+        return stripped.startswith("{") or stripped.startswith("```")
 
     async def run(self, messages: List[BaseMessage], session_id: str = "agent_stream"):
         compacted_messages = await compact_context(messages, self.llm)
@@ -72,7 +97,7 @@ class MiraiAgent:
         
         final_messages = []
         stream_buffer = ""
-        is_json_stream = False
+        buffering_tool_json = False
 
         async for event in self.graph.astream_events(state, version="v2"):
             kind = event["event"]
@@ -86,21 +111,18 @@ class MiraiAgent:
                         text = "".join([item.get("text", "") for item in chunk.content if isinstance(item, dict) and item.get("type") == "text"])
                     
                     if text:
-                        # Check if we are potentially streaming a JSON tool call
-                        if not stream_buffer and text.lstrip().startswith("{"):
-                            is_json_stream = True
-                        
-                        stream_buffer += text
-                        
-                        if is_json_stream:
-                            # If it strictly looks like a JSON object containing "name", we suppress it from the UI stream
-                            if '{"name"' in stream_buffer.replace(' ', ''):
-                                continue
-                            # If we realize it's just regular text starting with {, we release the buffer
-                            if len(stream_buffer) > 20 and '{"name"' not in stream_buffer.replace(' ', ''):
-                                is_json_stream = False
+                        if not stream_buffer and self._is_potential_json_tool_call(text):
+                            buffering_tool_json = True
+
+                        if buffering_tool_json:
+                            stream_buffer += text
+                            if self._parse_text_tool_call(stream_buffer):
+                                stream_buffer = ""
+                                buffering_tool_json = False
+                            elif len(stream_buffer) > 4096:
                                 await event_bus.publish(session_id, {"type": "token", "content": stream_buffer})
                                 stream_buffer = ""
+                                buffering_tool_json = False
                         else:
                             await event_bus.publish(session_id, {"type": "token", "content": text})
 
@@ -110,6 +132,10 @@ class MiraiAgent:
                 await event_bus.publish(session_id, {"type": "tool_end", "name": event["name"], "output": event["data"].get("output")})
             elif kind == "on_chain_end" and event["name"] == "LangGraph":
                 final_messages = event["data"].get("output", {}).get("messages", [])
+
+        if stream_buffer:
+            if not self._parse_text_tool_call(stream_buffer):
+                await event_bus.publish(session_id, {"type": "token", "content": stream_buffer})
                 
         if not final_messages:
             final_messages = state["messages"]

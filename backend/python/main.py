@@ -8,9 +8,15 @@ from services import terminal, watcher, notifications
 
 app = Flask("Mirai Backend")
 
-# Allow all origins for Electron + dev
-# Electron's file:// protocol sends "null" as origin, and we need both localhost and 127.0.0.1
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+# Restrict CORS to local development and Electron's file:// origin ("null").
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+    "null",
+]
+CORS(app, resources={r"/*": {"origins": ALLOWED_ORIGINS}}, supports_credentials=True)
 
 # Setup WebSockets
 sock = Sock(app)

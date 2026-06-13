@@ -3,7 +3,11 @@ from typing import Optional
 
 class WorkspaceManager:
     def __init__(self, workspace_root: Optional[str] = None):
-        self._workspace_root = os.path.abspath(workspace_root or os.getcwd())
+        default_root = workspace_root or os.environ.get(
+            "MIRAI_WORKSPACE_ROOT",
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        )
+        self._workspace_root = os.path.abspath(default_root)
         os.makedirs(self._workspace_root, exist_ok=True)
     
     @property

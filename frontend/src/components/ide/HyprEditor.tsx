@@ -8,6 +8,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { useEditorStore } from '@/store/editorStore';
 
 import DiffEditorPanel from './DiffEditor';
+import MarkdownPreview from './MarkdownPreview';
 import PanelHeader from './PanelHeader';
 
 if (typeof window !== 'undefined') {
@@ -414,7 +415,7 @@ export default function HyprEditor({
   onClose?: () => void;
   onDragStart?: (e: React.DragEvent) => void;
 } = {}) {
-  const { groups, splitDirection, addGroup, diffMode } = useEditorStore();
+  const { groups, splitDirection, addGroup, diffMode, previewMode } = useEditorStore();
 
   // Register global keyboard shortcuts
   useEffect(() => {
@@ -469,6 +470,21 @@ export default function HyprEditor({
           onDragStart={onDragStart}
         />
         {!isMinimized && <DiffEditorPanel />}
+      </div>
+    );
+  }
+
+  if (previewMode) {
+    return (
+      <div className="hypr-panel w-full h-full flex flex-col overflow-hidden bg-[#1a1a2e]/40 backdrop-blur-md rounded-xl">
+        <PanelHeader
+          title="Markdown Preview"
+          isMinimized={isMinimized}
+          onMinimize={onMinimize}
+          onClose={onClose}
+          onDragStart={onDragStart}
+        />
+        {!isMinimized && <MarkdownPreview />}
       </div>
     );
   }

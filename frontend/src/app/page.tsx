@@ -390,7 +390,10 @@ export default function Home() {
 
   useEffect(() => {
     document.documentElement.style.setProperty('--color-primary-accent', editorSettings.accentColor || '#7C3AED');
-    document.documentElement.style.setProperty('--bg-image', editorSettings.backgroundImage ? `url(${editorSettings.backgroundImage})` : 'none');
+    document.documentElement.style.setProperty(
+      '--bg-image',
+      editorSettings.backgroundImage ? `url(${editorSettings.backgroundImage})` : (editorSettings.wallpaperPreset && editorSettings.wallpaperPreset !== 'none' ? `url(/wallpapers/${editorSettings.wallpaperPreset}.svg)` : 'none')
+    );
 
     const theme = editorSettings.appTheme || 'glass';
     if (theme === 'light') {

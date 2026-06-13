@@ -55,6 +55,9 @@ function ContextMenuComponent({ menu, onAction, onClose }: {
       { label: 'New File', action: 'newFile', key: 'f' },
       { label: 'New Folder', action: 'newFolder', key: 'd' },
     ] : []),
+    ...(menu.name.toLowerCase().endsWith('.md') ? [
+      { label: 'Preview Markdown', action: 'previewMarkdown', key: 'md' },
+    ] : []),
     { label: 'Rename', action: 'rename', key: 'r' },
     { label: 'Delete', action: 'delete', key: 'del', danger: true },
   ];
@@ -250,6 +253,7 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
   const [renameTarget, setRenameTarget] = useState<ContextMenu | null>(null);
   const [newItemTarget, setNewItemTarget] = useState<{ parentPath: string; type: 'file' | 'folder' } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(true);
+  const lastWorkspaceRefresh = useRef<string | null>(null);
   const { renameTab, getActiveGroup } = useEditorStore();
   const { workspacePath } = useWorkspaceStore();
   const { editorSettings } = useSettingsStore();
@@ -267,8 +271,11 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
       });
   }, []);
 
-  // eslint-disable-next-line
-  useEffect(() => { refresh(); }, [refresh, workspacePath]);
+  useEffect(() => {
+    if (!workspacePath || lastWorkspaceRefresh.current === workspacePath) return;
+    lastWorkspaceRefresh.current = workspacePath;
+    refresh();
+  }, [workspacePath, refresh]);
 
   // Real-time file system watcher WebSocket
   useEffect(() => {
@@ -304,6 +311,14 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
         break;
       case 'newFolder':
         setNewItemTarget({ parentPath: target.path, type: 'folder' });
+        break;
+      case 'previewMarkdown':
+        try {
+          const { content } = await api.readFile(target.path);
+          useEditorStore.getState().openPreview(target.path, content);
+        } catch (err) {
+          console.error('Failed to open markdown preview:', err);
+        }
         break;
     }
   }, [refresh]);
