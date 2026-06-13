@@ -18,7 +18,6 @@ const post = async <T>(endpoint: string, body: Record<string, unknown>, retries 
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       const res = await fetch(`${API_BASE}${endpoint}`, {
-
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -30,7 +29,6 @@ const post = async <T>(endpoint: string, body: Record<string, unknown>, retries 
       return res.json();
     } catch (err) {
       lastError = err as Error;
-      // Only retry on network errors, not HTTP errors
       if (err instanceof TypeError || (err as Error).message?.includes('fetch')) {
         if (attempt < retries - 1) {
           await sleep(500 * (attempt + 1));
@@ -171,4 +169,117 @@ export const api = {
     const res = await fetch(`${getApiBase()}/agent/approvals/status/${encodeURIComponent(callId)}`);
     return res.json();
   },
+
+  // -----------------------------------------------------------------------
+  // NEW: Workflows
+  // -----------------------------------------------------------------------
+  createWorkflow: async (title: string, description?: string, tasks?: any[]) =>
+    post('/workflows', { title, description, tasks }),
+
+  listWorkflows: async () => {
+    const res = await fetch(`${getApiBase()}/workflows`);
+    return res.json();
+  },
+
+  getWorkflow: async (id: string) => {
+    const res = await fetch(`${getApiBase()}/workflows/${id}`);
+    return res.json();
+  },
+
+  cancelWorkflow: async (id: string) =>
+    post(`/workflows/${encodeURIComponent(id)}`, {} as Record<string, unknown>),
+
+  updateTask: async (wfId: string, taskId: string, updates: Record<string, unknown>) =>
+    post(`/workflows/${encodeURIComponent(wfId)}/tasks/${encodeURIComponent(taskId)}`, updates),
+
+  addArtifact: async (wfId: string, taskId: string, type: string, title: string, content: string) =>
+    post(`/workflows/${encodeURIComponent(wfId)}/tasks/${encodeURIComponent(taskId)}/artifacts`, { type, title, content }),
+
+  listArtifacts: async () => {
+    const res = await fetch(`${getApiBase()}/artifacts`);
+    return res.json();
+  },
+
+  // -----------------------------------------------------------------------
+  // NEW: Workspace Graph
+  // -----------------------------------------------------------------------
+  indexWorkspace: async () =>
+    post('/graph/index', {}),
+
+  graphStats: async () => {
+    const res = await fetch(`${getApiBase()}/graph/stats`);
+    return res.json();
+  },
+
+  graphSearch: async (q: string, type?: string) => {
+    const params = new URLSearchParams({ q });
+    if (type) params.set('type', type);
+    const res = await fetch(`${getApiBase()}/graph/search?${params}`);
+    return res.json();
+  },
+
+  graphNodesByType: async (nodeType: string) => {
+    const res = await fetch(`${getApiBase()}/graph/nodes/${encodeURIComponent(nodeType)}`);
+    return res.json();
+  },
+
+  graphFileNodes: async (filePath: string) => {
+    const res = await fetch(`${getApiBase()}/graph/file/${encodeURIComponent(filePath)}`);
+    return res.json();
+  },
+
+  graphRelated: async (nodeId: string, relation?: string) => {
+    const params = relation ? `?relation=${encodeURIComponent(relation)}` : '';
+    const res = await fetch(`${getApiBase()}/graph/related/${encodeURIComponent(nodeId)}${params}`);
+    return res.json();
+  },
+
+  // -----------------------------------------------------------------------
+  // NEW: Sessions
+  // -----------------------------------------------------------------------
+  startSession: async (workspacePath?: string) =>
+    post('/session/start', { workspace_path: workspacePath || null }),
+
+  getCurrentSession: async () => {
+    const res = await fetch(`${getApiBase()}/session/current`);
+    return res.json();
+  },
+
+  getResumeContext: async () => {
+    const res = await fetch(`${getApiBase()}/session/resume`);
+    return res.json();
+  },
+
+  listSessions: async () => {
+    const res = await fetch(`${getApiBase()}/sessions`);
+    return res.json();
+  },
+
+  addMessage: async (sessionId: string, role: string, content: string) =>
+    post('/session/message', { session_id: sessionId, role, content }),
+
+  getMessages: async (sessionId: string, limit: number = 50) => {
+    const res = await fetch(`${getApiBase()}/session/${encodeURIComponent(sessionId)}/messages?limit=${limit}`);
+    return res.json();
+  },
+
+  // -----------------------------------------------------------------------
+  // NEW: MCP
+  // -----------------------------------------------------------------------
+  mcpListServers: async () => {
+    const res = await fetch(`${getApiBase()}/mcp/servers`);
+    return res.json();
+  },
+
+  mcpConnect: async (name: string) =>
+    post('/mcp/connect', { name }),
+
+  mcpDisconnect: async (name: string) =>
+    post('/mcp/disconnect', { name }),
+
+  mcpConnectAll: async () =>
+    post('/mcp/connectAll', {}),
+
+  mcpRegisterServer: async (config: Record<string, unknown>) =>
+    post('/mcp/register', config),
 };

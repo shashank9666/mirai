@@ -2,22 +2,22 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import PanelHeader from './PanelHeader';
+import ContextWindowBar from './ContextWindowBar';
+import TokenOptimizationTips from './TokenOptimizationTips';
 import { useAiStore } from '@/store/aiStore';
+import { useChatStore, ChatMessage } from '@/store/chatStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useEditorStore } from '@/store/editorStore';
 import { api } from '@/lib/api';
-import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, Paperclip, FileCode, TerminalSquare, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2 } from 'lucide-react';
+import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, Paperclip, FileCode, TerminalSquare, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, History, Compass } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  pendingChangeIds?: string[];
-}
+import { useSettingsStore } from '@/store/settingsStore';
+import { formatTokens, formatCost, estimateCost, getModelPricing } from '@/lib/agent/policies';
+import AgentPreferencesPanel from './AgentPreferencesPanel';
+import { DEFAULT_AGENT_PREFERENCES, AgentPreferences } from '@/lib/agent/policies';
 
 const DEFAULT_SYSTEM_PROMPT = `You are a coding agent integrated into the Mirai IDE.
 You can read, write, and modify files.
@@ -105,15 +105,36 @@ function PendingChangesWidget({ changeIds }: { changeIds: string[] }) {
   );
 }
 
+// Token count badge for messages
+function TokenBadge({ tokenCount, role }: { tokenCount?: number; role: string }) {
+  if (tokenCount === undefined) return null;
+  return (
+    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${
+      role === 'user' ? 'bg-white/5 text-white/30' : 'bg-white/5 text-white/30'
+    }`}>
+      ~{formatTokens(tokenCount)}
+    </span>
+  );
+}
+
 export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onClose, onDragStart }: ChatPanelProps) {
   const { aiProviders, activeAiProviderId, setActiveAiProvider, autoApproveSettings, setAutoApproveSettings } = useAiStore();
+  const {
+    messages: chatMessages,
+    addMessage,
+    updateMessage,
+    clearMessages,
+    getTokenBreakdown,
+    setSessionId,
+  } = useChatStore();
+  const { editorSettings } = useSettingsStore();
+
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
+  const [showAgentPrefs, setShowAgentPrefs] = useState(false);
 
-  // New states for voice, models, and actions
   const [isListening, setIsListening] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -149,12 +170,22 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+  useEffect(() => { scrollToBottom(); }, [chatMessages, scrollToBottom]);
 
   const stopGeneration = () => {
     abortRef.current?.abort();
     setIsStreaming(false);
   };
+
+  const handleCompact = useCallback(() => {
+    // Keep only the last 20 messages + any system prompts
+    const systemMsgs = chatMessages.filter(m => m.role === 'system');
+    const recentMsgs = chatMessages.filter(m => m.role !== 'system').slice(-20);
+    clearMessages();
+    for (const msg of [...systemMsgs, ...recentMsgs]) {
+      addMessage({ role: msg.role, content: msg.content, pendingChangeIds: msg.pendingChangeIds });
+    }
+  }, [chatMessages, addMessage, clearMessages]);
 
   const isListeningRef = useRef(false);
 
@@ -193,7 +224,6 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
       recognition.onend = () => {
         if (isListeningRef.current) {
-          // Add a small delay to prevent rapid failing loops
           setTimeout(() => {
             if (isListeningRef.current) {
               try {
@@ -211,9 +241,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onerror = (e: any) => {
-        // If no speech, it will trigger onend next, which will restart it after 500ms
         if (e.error === 'no-speech' && isListeningRef.current) return;
-        // For other errors like network or not-allowed, we should stop
         console.warn('Speech recognition error:', e.error);
         isListeningRef.current = false;
         setIsListening(false);
@@ -244,8 +272,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggingOver(false);
-    
-    // Check for custom mirai file path drop first
+
     const path = e.dataTransfer.getData('application/mirai-file-path');
     if (path) {
       setAttachedPaths(prev => {
@@ -272,11 +299,6 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     if (fileInputRef.current) fileInputRef.current.click();
   };
 
-  const handleAddContext = () => {
-    setShowActionMenu(false);
-    if (fileInputRef.current) fileInputRef.current.click();
-  };
-
   const handleAddActiveFile = () => {
     setShowActionMenu(false);
     const activeGroup = useEditorStore.getState().getActiveGroup();
@@ -295,14 +317,13 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
       if (!workspacePath) return;
       const sep = workspacePath.includes('\\') ? '\\' : '/';
       const absPath = filepath.startsWith('/') || filepath.match(/^[a-zA-Z]:[\\/]/) ? filepath : `${workspacePath}${sep}${filepath}`;
-      
-      // Try to read original content; if file doesn't exist, treat as new file
+
       let originalContent = '';
       try {
         const result = await api.readFile(absPath);
         originalContent = result.content;
       } catch {
-        originalContent = ''; // New file
+        originalContent = '';
       }
 
       const { proposePendingChange, openDiffForReview } = useEditorStore.getState();
@@ -316,7 +337,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const removeFile = (index: number) => {
     setAttachedFiles(prev => prev.filter((_, i) => i !== index));
   };
-  
+
   const removePath = (index: number) => {
     setAttachedPaths(prev => prev.filter((_, i) => i !== index));
   };
@@ -338,17 +359,14 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     if (attachedPaths.length > 0) {
       contentStr += `\n[Attached Project Files: ${attachedPaths.join(', ')}]`;
     }
-    
-    const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content: contentStr };
-    const newMessages: Message[] = [...messages, userMessage];
-    setMessages(newMessages);
+
+    // Store user message in persistent store
+    const userMsg = addMessage({ role: 'user', content: contentStr });
+    const assistantMsg = addMessage({ role: 'assistant', content: '' });
+
     setInput('');
     setAttachedFiles([]);
     setAttachedPaths([]);
-
-    const assistantId = crypto.randomUUID();
-    const assistantMessage: Message = { id: assistantId, role: 'assistant', content: '' };
-    setMessages([...newMessages, assistantMessage]);
     setIsStreaming(true);
 
     const controller = new AbortController();
@@ -358,13 +376,16 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
       const activeProvider = aiProviders.find(p => p.id === activeAiProviderId);
       const activeModelName = activeProvider?.model || 'gpt-4o';
 
+      // Build messages from chat store
+      const storeMessages = useChatStore.getState().messages;
+
       const res = await fetch('http://127.0.0.1:8000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [
             { role: 'system', content: DEFAULT_SYSTEM_PROMPT },
-            ...newMessages.map((m) => ({ role: m.role, content: m.content })),
+            ...storeMessages.map((m) => ({ role: m.role, content: m.content })),
           ],
           provider: activeProvider?.id || 'openai',
           model: activeModelName,
@@ -383,6 +404,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
       const decoder = new TextDecoder();
       let buffer = '';
+      let accumulatedContent = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -400,20 +422,18 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
           try {
             const event = JSON.parse(jsonStr);
-            console.log('SSE Event:', event);
             if (event.type === 'token' && event.content) {
-              assistantMessage.content += event.content;
-              setMessages((prev) => prev.map(m => m.id === assistantId ? { ...assistantMessage } : m));
+              accumulatedContent += event.content;
+              updateMessage(assistantMsg.id, { content: accumulatedContent });
             } else if (event.type === 'final') {
               if (typeof event.content === 'string' && event.content.trim()) {
-                assistantMessage.content = event.content;
-                setMessages((prev) => prev.map(m => m.id === assistantId ? { ...assistantMessage } : m));
+                accumulatedContent = event.content;
+                updateMessage(assistantMsg.id, { content: accumulatedContent });
               }
             } else if (event.type === 'error') {
               throw new Error(event.error || event.content || 'Unknown error from AI');
             }
           } catch (e) {
-            // Rethrow Error objects to be caught by the outer catch, but ignore JSON parse errors
             if (e instanceof Error && !(e instanceof SyntaxError)) {
               throw e;
             }
@@ -422,33 +442,35 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
       }
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        setMessages((prev) => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last.role === 'assistant' && !last.content) {
-            updated[updated.length - 1] = { ...last, content: '(Generation stopped)' };
-          }
-          return updated;
-        });
+        updateMessage(assistantMsg.id, { content: '(Generation stopped)' });
       } else {
         const msg = err instanceof Error ? err.message : 'Failed to connect to AI backend';
         setError(msg);
-        setMessages((prev) => prev.filter((_, i) => i < prev.length - 1));
+        useChatStore.getState().removeMessage(assistantMsg.id);
       }
     } finally {
       setIsStreaming(false);
       abortRef.current = null;
-      setMessages((prev) => {
-        if (!prev.length) return prev;
-        const updated = [...prev];
-        const last = updated[updated.length - 1];
-        if (last.role === 'assistant' && !last.content) {
-          return updated.slice(0, -1);
-        }
-        return prev;
-      });
+      // Remove empty assistant messages
+      const currentContent = useChatStore.getState().messages.find(m => m.id === assistantMsg.id)?.content;
+      if (!currentContent || !currentContent.trim()) {
+        useChatStore.getState().removeMessage(assistantMsg.id);
+      }
       inputRef.current?.focus();
     }
+  };
+
+  const handleClearChat = () => {
+    if (chatMessages.length === 0) return;
+    if (confirm('Clear all chat messages? This cannot be undone.')) {
+      clearMessages();
+    }
+  };
+
+  const handleNewChat = () => {
+    clearMessages();
+    setInput('');
+    inputRef.current?.focus();
   };
 
   const backendIndicator = backendAvailable === null
@@ -456,6 +478,9 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     : backendAvailable
       ? 'bg-green-500'
       : 'bg-red-500';
+
+  const activeProvider = aiProviders.find(p => p.id === activeAiProviderId);
+  const breakdown = getTokenBreakdown();
 
   return (
     <div
@@ -501,7 +526,30 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
       {!isMinimized && (
         <>
-          {/* Top Bar: Settings, Clear Chat, New Chat */}
+          {/* Agent Preferences Modal */}
+          <AnimatePresence>
+            {showAgentPrefs && (
+              <motion.div
+                initial={{ opacity: 0, x: 300 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 300 }}
+                transition={{ duration: 0.2 }}
+                className="absolute inset-0 z-40 bg-[var(--panel-bg)] backdrop-blur-[var(--panel-backdrop,blur(16px))]"
+              >
+                <AgentPreferencesPanel
+                  prefs={DEFAULT_AGENT_PREFERENCES}
+                  onSave={(prefs) => {
+                    console.log('Agent preferences saved:', prefs);
+                    setShowAgentPrefs(false);
+                  }}
+                  onClose={() => setShowAgentPrefs(false)}
+                  selectedModel={activeProvider?.model}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Top Bar */}
           <div className="flex px-2 py-1.5 gap-1 border-b border-white/5 shrink-0 overflow-visible justify-between items-center relative z-20">
             <div className="flex items-center gap-1">
               <div className="relative">
@@ -521,7 +569,17 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                       transition={{ duration: 0.15 }}
                       className="absolute top-full left-0 mt-1 w-[260px] bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl py-2 z-50 flex flex-col gap-1"
                     >
-                      <div className="px-3 pb-2 border-b border-white/5 mb-1 text-[11px] font-semibold text-white/80">
+                      <div className="px-3 pb-2 border-b border-white/5 mb-1 text-[11px] font-semibold text-white/80 text-center">
+                        Agent Settings
+                      </div>
+                      <button
+                        onClick={() => { setShowSettingsMenu(false); setShowAgentPrefs(true); }}
+                        className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+                      >
+                        Agent Preferences
+                      </button>
+                      <div className="border-t border-white/5 my-1" />
+                      <div className="px-3 pb-1 text-[11px] font-semibold text-white/60">
                         Auto-approve settings
                       </div>
                       {[
@@ -551,8 +609,9 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
               </div>
 
               <button
-                onClick={() => setMessages([])}
-                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                onClick={handleClearChat}
+                disabled={chatMessages.length === 0}
+                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-30"
                 title="Clear Chat"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -560,7 +619,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
               </button>
 
               <button
-                onClick={() => { setMessages([]); setInput(''); inputRef.current?.focus(); }}
+                onClick={handleNewChat}
                 className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono text-white/40 hover:text-green-400 hover:bg-green-500/10 transition-all"
                 title="New Chat"
               >
@@ -574,7 +633,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                 onClick={() => setShowModelMenu(!showModelMenu)}
                 className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono text-white/50 hover:text-white/80 hover:bg-white/5 transition-all"
               >
-                <span className="max-w-[80px] truncate">{aiProviders.find(p => p.id === activeAiProviderId)?.name || 'Model'}</span>
+                <span className="max-w-[80px] truncate">{activeProvider?.name || 'Model'}</span>
                 <ChevronDown className="w-3 h-3" />
               </button>
               <AnimatePresence>
@@ -601,9 +660,8 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
             </div>
           </div>
 
-
           {/* Backend offline banner */}
-          {backendAvailable === false && messages.length === 0 && (
+          {backendAvailable === false && chatMessages.length === 0 && (
             <div className="mx-3 mt-2 px-3 py-2 rounded-xl text-[10px] font-mono bg-red-500/10 text-red-400 border border-red-500/20 flex items-center gap-2">
               <WifiOff className="w-3 h-3 shrink-0" />
               <span>Backend server not available. AI features are disabled.</span>
@@ -612,8 +670,8 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
           {/* Content Area */}
           <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex flex-col gap-3">
-            {messages.length === 0 && !error && (
-              <div className="flex-1 flex items-center justify-center">
+            {chatMessages.length === 0 && !error && (
+              <div className="flex-1 flex items-center justify-center flex-col gap-2">
                 <p className="text-[11px] text-[var(--text-muted)] font-mono">
                   {backendAvailable === false
                     ? 'Backend offline. Start the server to chat.'
@@ -628,11 +686,12 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
               </div>
             )}
 
-            {messages.map((msg, i) => (
-              <div key={i} className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+            {chatMessages.map((msg, i) => (
+              <div key={msg.id} className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 {/* Message Header */}
                 <div className="flex items-center gap-2 px-1 opacity-60">
                   <span className="text-[10px] font-bold uppercase tracking-wider">{msg.role === 'user' ? 'You' : 'Mirai'}</span>
+                  <TokenBadge tokenCount={msg.tokenCount} role={msg.role} />
                 </div>
                 <div
                   className={`max-w-[90%] px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono ${msg.role === 'user'
@@ -647,7 +706,6 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
                           const { children, className, node: _node, ref: _ref, ...rest } = props as any;
                           const codeString = String(children).replace(/\n$/, '');
-                          // Match language:filepath OR just language
                           const match = /language-([a-zA-Z0-9_-]+)(?::(.+))?/.exec(className || '');
                           const lang = match ? match[1] : '';
                           const filepath = match && match[2] ? match[2] : '';
@@ -700,12 +758,11 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                       {msg.content}
                     </ReactMarkdown>
                   </div>
-                  {isStreaming && msg.role === 'assistant' && i === messages.length - 1 && (
+                  {isStreaming && msg.role === 'assistant' && i === chatMessages.length - 1 && (
                     <span className="inline-block w-1.5 h-3 bg-purple-400/70 rounded-sm ml-0.5 animate-pulse align-text-bottom" />
                   )}
                 </div>
 
-                {/* Pending Changes Status for this message */}
                 {msg.pendingChangeIds && msg.pendingChangeIds.length > 0 && (
                   <PendingChangesWidget changeIds={msg.pendingChangeIds} />
                 )}
@@ -714,7 +771,6 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
             <div ref={messagesEndRef} />
           </div>
-
 
           {/* Attached Files display */}
           {(attachedFiles.length > 0 || attachedPaths.length > 0) && (
@@ -740,6 +796,16 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
             </div>
           )}
 
+          {/* Context Window Bar */}
+          <ContextWindowBar
+            modelName={activeProvider?.model}
+            maxContextTokens={128000}
+            onCompact={handleCompact}
+          />
+
+          {/* Token Optimization Tips */}
+          <TokenOptimizationTips />
+
           {/* Input */}
           <div className="p-2 border-t border-white/5 shrink-0 relative">
             <AnimatePresence>
@@ -756,12 +822,6 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                   </button>
                   <button onClick={handleUploadMedia} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
                     <Paperclip className="w-3.5 h-3.5 text-white/40" /> Upload Media
-                  </button>
-                  <button onClick={handleAddContext} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
-                    <FileCode className="w-3.5 h-3.5 text-white/40" /> Add Context
-                  </button>
-                  <button onClick={() => setShowActionMenu(false)} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
-                    <TerminalSquare className="w-3.5 h-3.5 text-white/40" /> Action Commands
                   </button>
                 </motion.div>
               )}
