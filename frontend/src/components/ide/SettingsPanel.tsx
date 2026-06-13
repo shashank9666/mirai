@@ -113,8 +113,8 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
           <div className="space-y-6">
             <div className="space-y-4">
               <SectionTitle>Editor Theme</SectionTitle>
-              <div className="grid grid-cols-3 gap-3">
-                {['vs-dark', 'hc-black', 'vs'].map(t => (
+              <div className="grid grid-cols-1 gap-3 max-w-xs">
+                {['vs'].map(t => (
                   <button 
                     key={t}
                     onClick={() => setEditorSettings({ theme: t })}

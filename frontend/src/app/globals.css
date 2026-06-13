@@ -110,7 +110,13 @@
   .monaco-editor .margin {
     background-color: transparent !important;
   }
-  .xterm-viewport {
+  .monaco-editor .minimap, .monaco-editor .minimap-slider, .monaco-editor .minimap-slider .minimap-slider-horizontal {
+    background-color: transparent !important;
+  }
+  .monaco-editor .minimap-decorations-layer {
+    background-color: transparent !important;
+  }
+  .xterm, .xterm-screen, .xterm-viewport, .xterm-text-layer, .xterm-decoration-container {
     background-color: transparent !important;
   }
 }
