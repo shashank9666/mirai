@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import PanelHeader from './PanelHeader';
-import ContextWindowBar from './ContextWindowBar';
 import TokenOptimizationTips from './TokenOptimizationTips';
 import { useAiStore } from '@/store/aiStore';
 import { useChatStore } from '@/store/chatStore';
@@ -866,12 +865,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
             </div>
           )}
 
-          {/* Context Window Bar */}
-          <ContextWindowBar
-            modelName={activeProvider?.model}
-            maxContextTokens={128000}
-            onCompact={handleCompact}
-          />
+
 
           {/* Token Optimization Tips */}
           <TokenOptimizationTips />

@@ -4,10 +4,27 @@ import React, { useState, useEffect } from 'react';
 import { useEditorStore } from '@/store/editorStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { api } from '@/lib/api';
+import { useAiStore } from '@/store/aiStore';
+import { useChatStore } from '@/store/chatStore';
+import ContextWindowBar from './ContextWindowBar';
 
 export default function HyprStatusBar() {
   const { getActiveGroup, groups } = useEditorStore();
   const { editorSettings } = useSettingsStore();
+  const { aiProviders, activeAiProviderId } = useAiStore();
+  const { messages: chatMessages, clearMessages, addMessage } = useChatStore();
+
+  const activeProvider = aiProviders.find(p => p.id === activeAiProviderId);
+
+  const handleCompact = () => {
+    const systemMsgs = chatMessages.filter(m => m.role === 'system');
+    const recentMsgs = chatMessages.filter(m => m.role !== 'system').slice(-20);
+    clearMessages();
+    for (const msg of [...systemMsgs, ...recentMsgs]) {
+      addMessage({ role: msg.role, content: msg.content, pendingChangeIds: msg.pendingChangeIds });
+    }
+  };
+
   const group = getActiveGroup();
   const activeFile = group?.activeFile || null;
   const activeFileContent = group?.activeFileContent || '';
@@ -82,8 +99,11 @@ export default function HyprStatusBar() {
       </div>
 
       <div className="flex items-center h-full gap-3 text-white/70">
-
-
+        <ContextWindowBar
+          modelName={activeProvider?.model}
+          maxContextTokens={128000}
+          onCompact={handleCompact}
+        />
       </div>
     </div>
   );

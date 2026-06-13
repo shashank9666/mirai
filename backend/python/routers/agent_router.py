@@ -130,6 +130,10 @@ def agent_chat():
     while messages and messages[-1].get("role") == "assistant":
         messages.pop()
         
+    print(f"--- [DEBUG agent_router.py] Raw messages count={len(messages)}")
+    for idx, m in enumerate(messages):
+        print(f"  [{idx}] role={m.get('role')} content={repr(m.get('content'))[:100]}")
+
     provider = data.get("provider", "openai")
     model = data.get("model", "gpt-4o")
     api_key = data.get("apiKey", "")
@@ -139,16 +143,31 @@ def agent_chat():
         supported = ", ".join(sorted(SUPPORTED_PROVIDERS))
         return jsonify({"detail": f"Unsupported provider '{provider}'. Supported providers: {supported}"}), 400
 
-    # Convert payload to LangChain message types
+    # Convert payload to LangChain message types and merge consecutive messages of the same type
     lc_messages = []
     for msg in messages:
-        if msg.get("role") == "user":
-            lc_messages.append(HumanMessage(content=msg.get("content", "")))
-        elif msg.get("role") == "assistant":
-            lc_messages.append(AIMessage(content=msg.get("content", "")))
-        elif msg.get("role") == "system":
-            lc_messages.append(SystemMessage(content=msg.get("content", "")))
+        role = msg.get("role")
+        content = msg.get("content", "")
+        
+        new_msg = None
+        if role == "user":
+            new_msg = HumanMessage(content=content)
+        elif role == "assistant":
+            new_msg = AIMessage(content=content)
+        elif role == "system":
+            new_msg = SystemMessage(content=content)
             
+        if new_msg:
+            # Merge consecutive messages of the same type to prevent Mistral 400 errors
+            if lc_messages and type(lc_messages[-1]) == type(new_msg):
+                lc_messages[-1].content += "\n\n" + new_msg.content
+            else:
+                lc_messages.append(new_msg)
+
+    print(f"--- [DEBUG agent_router.py] Processed lc_messages count={len(lc_messages)}")
+    for idx, m in enumerate(lc_messages):
+        print(f"  [{idx}] type={type(m).__name__} content={repr(m.content)[:100]}")
+
     agent = MiraiAgent(
         provider=provider,
         model=model,

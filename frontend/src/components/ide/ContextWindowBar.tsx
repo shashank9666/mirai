@@ -43,9 +43,9 @@ export default function ContextWindowBar({
   const isCritical = usagePercent >= 95;
 
   return (
-    <div className={`px-3 py-1.5 border-t flex items-center gap-3 text-[10px] font-mono ${isCritical ? 'bg-red-500/10 border-red-500/30' :
-      isNearLimit ? 'bg-amber-500/5 border-amber-500/20' :
-        'border-white/5'
+    <div className={`flex items-center gap-3 text-[10px] font-mono h-full px-3 ${isCritical ? 'bg-red-500/10' :
+      isNearLimit ? 'bg-amber-500/5' :
+        ''
       }`}>
       <div className="flex items-center gap-1.5 flex-1 min-w-0">
         <Cpu className="w-3 h-3 text-white/40 shrink-0" />

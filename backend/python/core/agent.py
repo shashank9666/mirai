@@ -46,6 +46,9 @@ class MiraiAgent:
 
     async def _reason_node(self, state: AgentState):
         messages = state['messages']
+        print(f"--- [DEBUG agent.py] Calling llm.ainvoke with {len(messages)} messages:")
+        for idx, m in enumerate(messages):
+            print(f"  [{idx}] type={type(m).__name__} content={repr(m.content)[:100]}")
         response = await self.llm.ainvoke(messages)
         tool_call = self._parse_text_tool_call(response.content)
         if not response.tool_calls and tool_call:
