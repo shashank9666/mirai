@@ -383,10 +383,19 @@ export default function Home() {
     document.documentElement.style.setProperty('--bg-image', editorSettings.backgroundImage ? `url(${editorSettings.backgroundImage})` : 'none');
 
     const theme = editorSettings.appTheme || 'glass';
+    if (theme === 'light') {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+      document.documentElement.classList.add('dark');
+    }
+
     const blurVal = editorSettings.panelBlur ?? 16;
     let bg = `rgba(26, 26, 46, ${editorSettings.panelOpacity ?? 0.6})`;
     if (theme === 'solid') bg = '#1a1a2e';
     if (theme === 'dark') bg = '#050505';
+    if (theme === 'light') bg = '#f8fafc';
     document.documentElement.style.setProperty('--panel-bg', bg);
     document.documentElement.style.setProperty('--panel-backdrop', theme === 'glass' ? `blur(${blurVal}px)` : 'none');
 
@@ -413,7 +422,7 @@ export default function Home() {
     : `1fr${bottomVisible && !zenMode ? ' 5px ' + (terminalMinimized ? 36 : terminalHeight) + 'px' : ''}`;
 
   return (
-    <div className="shrink-0 overflow-hidden flex flex-col bg-[#050505] text-white/90 selection:bg-white/20 relative"
+    <div className="shrink-0 overflow-hidden flex flex-col relative bg-transparent text-[var(--foreground)] selection:bg-[var(--color-primary-accent)]/30"
       style={{
         backgroundImage: 'var(--bg-image, none)',
         backgroundSize: 'cover',
