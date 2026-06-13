@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useCallback, useRef, useState } from 'react';
-import Editor, { type OnMount, type OnChange, loader } from '@monaco-editor/react';
+import { createPortal } from 'react-dom';
+import Editor, { type OnMount, type OnChange, loader, DiffEditor as MonacoDiffEditor } from '@monaco-editor/react';
 import { X, ChevronRight, Pin } from 'lucide-react';
 import { type EditorGroup } from '@/store/ideStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -192,6 +193,8 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
   const editorRef = useRef<any>(null);
   const [cursorLine, setCursorLine] = useState(1);
   const [cursorColumn, setCursorColumn] = useState(1);
+  const zoneIdRef = useRef<string | null>(null);
+  const [zoneNode, setZoneNode] = useState<HTMLElement | null>(null);
 
   const handleEditorChange: OnChange = useCallback((value) => {
     if (value !== undefined && group.id === activeGroupId) {
@@ -271,6 +274,41 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
       window.__miraiEditor = editorRef.current;
     }
   }, [isActive]);
+
+  // Zone Widget for Inline Diff
+  useEffect(() => {
+    if (!editorRef.current) return;
+    const editor = editorRef.current;
+
+    if (activePendingChange) {
+      if (!zoneNode) {
+        const domNode = document.createElement('div');
+        domNode.id = 'inline-diff-container';
+        domNode.style.zIndex = '10';
+        domNode.style.borderTop = '1px solid rgba(124,58,237,0.3)';
+        domNode.style.borderBottom = '1px solid rgba(124,58,237,0.3)';
+        domNode.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
+        domNode.style.backgroundColor = 'rgba(0,0,0,0.95)';
+
+        editor.changeViewZones((accessor: any) => {
+          zoneIdRef.current = accessor.addZone({
+            afterLineNumber: 1, // Render at top of file
+            heightInLines: 16,
+            domNode: domNode,
+          });
+        });
+        setZoneNode(domNode);
+      }
+    } else {
+      if (zoneNode) {
+        editor.changeViewZones((accessor: any) => {
+          if (zoneIdRef.current) accessor.removeZone(zoneIdRef.current);
+        });
+        setZoneNode(null);
+        zoneIdRef.current = null;
+      }
+    }
+  }, [activePendingChange, editorRef.current]);
 
   // Save with format on save
   useEffect(() => {
@@ -391,13 +429,36 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
       {group.activeFile && <Breadcrumbs filePath={group.activeFile} />}
 
       <div className="flex-1 relative min-h-0">
-        {activePendingChange && (
-          <div className="absolute top-4 right-8 z-20 flex items-center gap-2 bg-black/80 backdrop-blur-md border border-[var(--color-primary-accent)]/50 px-3 py-1.5 rounded-lg shadow-2xl text-[11px] font-mono shadow-[0_0_20px_rgba(124,58,237,0.15)] animate-in slide-in-from-top-4 fade-in duration-200">
-            <span className="text-white/80">Pending AI Edit</span>
-            <button onClick={() => acceptChange(activePendingChange.id)} className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 ml-2 transition-colors border border-emerald-500/20">Accept <span className="text-emerald-400/50">Ctrl+Enter</span></button>
-            <button onClick={() => rejectChange(activePendingChange.id)} className="px-2 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors border border-red-500/20">Reject <span className="text-red-400/50">Ctrl+Del</span></button>
-          </div>
+        {zoneNode && activePendingChange && createPortal(
+          <div className="w-full h-full flex flex-col relative backdrop-blur-md">
+            <div className="flex-1 min-h-0">
+              <MonacoDiffEditor
+                height="100%"
+                language={group.tabs.find(t => t.path === group.activeFile)?.language}
+                original={activePendingChange.originalContent}
+                modified={activePendingChange.proposedContent}
+                theme={editorSettings.appTheme === 'light' ? 'mirai-glass-light' : 'mirai-glass-dark'}
+                options={{
+                  renderSideBySide: false, // Inline diff view
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  overviewRulerBorder: false,
+                  lineNumbersMinChars: 3,
+                  renderLineHighlight: 'none',
+                  padding: { top: 8, bottom: 8 }
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 p-2 border-t border-[var(--color-primary-accent)]/20 bg-black/40">
+              <span className="text-[11px] font-mono text-emerald-400/80 mr-auto flex items-center gap-2"><svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg> AI Suggested Edit</span>
+              <button onClick={() => rejectChange(activePendingChange.id)} className="px-3 py-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 text-[11px] font-mono border border-red-500/20 transition-colors flex items-center gap-1"><X className="w-3.5 h-3.5"/> Reject <span className="opacity-50 ml-1">Ctrl+Del</span></button>
+              <button onClick={() => acceptChange(activePendingChange.id)} className="px-3 py-1 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-[11px] font-mono border border-emerald-500/20 transition-colors flex items-center gap-1"><Check className="w-3.5 h-3.5"/> Accept <span className="opacity-50 ml-1">Ctrl+Enter</span></button>
+            </div>
+          </div>,
+          zoneNode
         )}
+
         {group.activeFile ? (
           <FileViewer
             filePath={group.activeFile}

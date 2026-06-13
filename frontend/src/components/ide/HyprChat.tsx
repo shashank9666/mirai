@@ -8,7 +8,7 @@ import { useChatStore } from '@/store/chatStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useEditorStore } from '@/store/editorStore';
 import { api } from '@/lib/api';
-import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, ChevronRight, Paperclip, FileCode, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, Headphones, Activity } from 'lucide-react';
+import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, ChevronRight, Paperclip, FileCode, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, Headphones, Activity, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import ShikiHighlighter from './ShikiHighlighter';
@@ -31,7 +31,8 @@ Example:
 ...
 \`\`\`
 
-Always provide the FULL file contents. Do not truncate. Explain your changes briefly before or after the code block.`;
+Always provide the FULL file contents. Do not truncate. Explain your changes briefly before or after the code block.
+You also have full access to a terminal, file system, web browser, and semantic search. You CAN run terminal commands on behalf of the user when requested. DO NOT say you cannot run commands.`;
 
 interface ChatPanelProps {
   isPinned: boolean;
@@ -182,7 +183,7 @@ function CodeBlockRenderer({ children, className, handleReviewChange, ...rest }:
 }
 
 export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onClose, onDragStart }: ChatPanelProps) {
-  const { aiProviders, activeAiProviderId, setActiveAiProvider, autoApproveSettings, setAutoApproveSettings } = useAiStore();
+  const { activeAiProviderId, aiProviders, autoApproveSettings, setAutoApproveSettings } = useAiStore();
   const {
     messages: chatMessages,
     addMessage,
@@ -198,7 +199,6 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const [showAgentPrefs, setShowAgentPrefs] = useState(false);
 
   const [isListening, setIsListening] = useState(false);
-  const [showModelMenu, setShowModelMenu] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [isConvoMode, setIsConvoMode] = useState(false);
@@ -240,17 +240,9 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     setIsStreaming(false);
   };
 
-  const handleCompact = useCallback(() => {
-    // Keep only the last 20 messages + any system prompts
-    const systemMsgs = chatMessages.filter(m => m.role === 'system');
-    const recentMsgs = chatMessages.filter(m => m.role !== 'system').slice(-20);
-    clearMessages();
-    for (const msg of [...systemMsgs, ...recentMsgs]) {
-      addMessage({ role: msg.role, content: msg.content, pendingChangeIds: msg.pendingChangeIds });
-    }
-  }, [chatMessages, addMessage, clearMessages]);
-
   const isListeningRef = useRef(false);
+
+  const sendMessageRef = useRef<() => void>(() => {});
 
   const toggleVoiceMode = useCallback(() => {
     if (isListeningRef.current) {
@@ -269,7 +261,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
     if (!recognitionRef.current) {
       const recognition = new SpeechRecognition();
-      recognition.continuous = true;
+      recognition.continuous = false;
       recognition.interimResults = true;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -281,24 +273,19 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
           }
         }
         if (finalTranscript) {
-          setInput(prev => prev + (prev ? ' ' : '') + finalTranscript);
+          setInput(prev => {
+            const nextVal = prev + (prev ? ' ' : '') + finalTranscript;
+            if (inputRef.current) inputRef.current.value = nextVal;
+            return nextVal;
+          });
         }
       };
 
       recognition.onend = () => {
-        if (isListeningRef.current) {
-          setTimeout(() => {
-            if (isListeningRef.current) {
-              try {
-                recognitionRef.current.start();
-              } catch {
-                isListeningRef.current = false;
-                setIsListening(false);
-              }
-            }
-          }, 500);
-        } else {
-          setIsListening(false);
+        isListeningRef.current = false;
+        setIsListening(false);
+        if (inputRef.current && inputRef.current.value.trim() !== '') {
+          sendMessageRef.current();
         }
       };
 
@@ -448,7 +435,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [
-            { role: 'system', content: DEFAULT_SYSTEM_PROMPT },
+            { role: 'system', content: DEFAULT_SYSTEM_PROMPT + (!autoApproveSettings.editProjectFiles ? '\n\nIMPORTANT: You do NOT have permission to edit files automatically. You MUST ask the user for permission and receive approval BEFORE providing any code edits in the ```language:filepath format.' : '') },
             ...storeMessages.map((m) => ({ role: m.role, content: m.content })),
           ],
           provider: activeProvider?.id || 'openai',
@@ -495,6 +482,24 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
                 accumulatedContent = event.content;
                 updateMessage(assistantMsg.id, { content: accumulatedContent });
               }
+            } else if (event.type === 'tool_start') {
+              const currentMsg = useChatStore.getState().messages.find(m => m.id === assistantMsg.id);
+              const toolCalls = currentMsg?.toolCalls || [];
+              updateMessage(assistantMsg.id, {
+                toolCalls: [...toolCalls, { id: crypto.randomUUID(), name: event.name, status: 'running', input: event.input }]
+              });
+            } else if (event.type === 'tool_end') {
+              const currentMsg = useChatStore.getState().messages.find(m => m.id === assistantMsg.id);
+              if (currentMsg?.toolCalls) {
+                const updatedToolCalls = [...currentMsg.toolCalls];
+                for (let i = updatedToolCalls.length - 1; i >= 0; i--) {
+                  if (updatedToolCalls[i].name === event.name && updatedToolCalls[i].status === 'running') {
+                    updatedToolCalls[i] = { ...updatedToolCalls[i], status: 'completed' };
+                    break;
+                  }
+                }
+                updateMessage(assistantMsg.id, { toolCalls: updatedToolCalls });
+              }
             } else if (event.type === 'error') {
               throw new Error(event.error || event.content || 'Unknown error from AI');
             }
@@ -524,6 +529,10 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
       inputRef.current?.focus();
     }
   };
+
+  useEffect(() => {
+    sendMessageRef.current = sendMessage;
+  }, [sendMessage]);
 
   const handleClearChat = () => {
     if (chatMessages.length === 0) return;
@@ -718,42 +727,64 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
           <SimpleBar className="flex-1 p-3 flex flex-col gap-3 relative min-h-0">
             {isConvoMode ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--panel-bg)] z-30">
-                <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="relative w-48 h-48 flex items-center justify-center mb-8"
-                >
-                  {/* Outer pulsing ring when AI is speaking */}
-                  {isStreaming && (
-                    <motion.div
-                      animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.7, 0.3] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                      className="absolute inset-0 rounded-full bg-purple-500/30 blur-2xl"
-                    />
-                  )}
-                  {/* Inner active ring when User is speaking */}
-                  {isListening && !isStreaming && (
-                    <motion.div
-                      animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.8, 0.4] }}
-                      transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                      className="absolute inset-4 rounded-full bg-emerald-500/20 blur-xl"
-                    />
-                  )}
-                  {/* Core orb */}
-                  <div className={`w-24 h-24 rounded-full shadow-[0_0_40px_rgba(124,58,237,0.4)] border border-white/10 flex items-center justify-center transition-colors duration-500 ${isStreaming ? 'bg-purple-500/20' : isListening ? 'bg-emerald-500/20' : 'bg-white/5'}`}>
-                    <Activity className={`w-8 h-8 ${isStreaming ? 'text-purple-400' : isListening ? 'text-emerald-400' : 'text-white/30'}`} />
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="relative w-48 h-48 flex items-center justify-center mb-8"
+                  >
+                    {/* High-tech rotating rings */}
+                    {isStreaming && (
+                      <>
+                        <motion.div
+                          animate={{ rotate: 360, scale: [1, 1.1, 1] }}
+                          transition={{ rotate: { duration: 8, repeat: Infinity, ease: "linear" }, scale: { duration: 2, repeat: Infinity, ease: "easeInOut" } }}
+                          className="absolute inset-2 border-[2px] border-purple-500/30 rounded-full border-t-purple-400"
+                        />
+                        <motion.div
+                          animate={{ rotate: -360, scale: [1, 1.2, 1] }}
+                          transition={{ rotate: { duration: 12, repeat: Infinity, ease: "linear" }, scale: { duration: 3, repeat: Infinity, ease: "easeInOut" } }}
+                          className="absolute inset-4 border-[1px] border-blue-500/20 rounded-full border-b-blue-400"
+                        />
+                      </>
+                    )}
+                    {/* Outer pulsing ring when AI is speaking */}
+                    {isStreaming && (
+                      <motion.div
+                        animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.7, 0.3] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                        className="absolute inset-0 rounded-full bg-purple-500/20 blur-2xl"
+                      />
+                    )}
+                    {/* Inner active ring when User is speaking */}
+                    {isListening && !isStreaming && (
+                      <>
+                        <motion.div
+                          animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.8, 0.4] }}
+                          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                          className="absolute inset-4 rounded-full bg-emerald-500/20 blur-xl"
+                        />
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                          className="absolute inset-6 border-[2px] border-emerald-500/30 rounded-full border-l-emerald-400 border-r-emerald-400 border-t-transparent border-b-transparent"
+                        />
+                      </>
+                    )}
+                    {/* Core orb */}
+                    <div className={`w-24 h-24 rounded-full shadow-[0_0_40px_rgba(124,58,237,0.4)] border border-white/10 flex items-center justify-center transition-colors duration-500 ${isStreaming ? 'bg-gradient-to-tr from-purple-500/30 to-blue-500/30' : isListening ? 'bg-gradient-to-tr from-emerald-500/30 to-teal-500/30' : 'bg-white/5'}`}>
+                      <Activity className={`w-8 h-8 ${isStreaming ? 'text-purple-400' : isListening ? 'text-emerald-400' : 'text-white/30'}`} />
+                    </div>
+                  </motion.div>
+                  <div className="font-mono text-[12px] text-white/50 tracking-widest uppercase text-center drop-shadow-md">
+                    {isStreaming ? 'Mirai-chan is speaking...' : isListening ? 'Listening...' : 'Convo Mode Paused'}
                   </div>
-                </motion.div>
-                <div className="font-mono text-[12px] text-white/50 tracking-widest uppercase">
-                  {isStreaming ? 'Mirai is speaking...' : isListening ? 'Listening...' : 'Convo Mode Paused'}
-                </div>
-                <div className="mt-8 px-8 text-center text-[11px] font-mono text-white/30 max-w-sm">
-                  {chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'user' ? (
-                     <span className="text-white/60">&quot;{chatMessages[chatMessages.length - 1].content}&quot;</span>
-                  ) : chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'assistant' ? (
-                     <span className="text-white/40 line-clamp-3">Mirai: {chatMessages[chatMessages.length - 1].content}</span>
-                  ) : 'Speak to interact with the Mirai AI.'}
-                </div>
+                  <div className="mt-8 px-8 text-center text-[11px] font-mono text-white/30 max-w-sm">
+                    {chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'user' ? (
+                       <span className="text-white/60">&quot;{chatMessages[chatMessages.length - 1].content}&quot;</span>
+                    ) : chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'assistant' ? (
+                       <span className="text-white/40 line-clamp-3">Mirai-chan: {chatMessages[chatMessages.length - 1].content}</span>
+                    ) : 'Speak to interact with Mirai-chan.'}
+                  </div>
               </div>
             ) : (
               <>
@@ -777,9 +808,23 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
               <div key={msg.id} className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 {/* Message Header */}
                 <div className="flex items-center gap-2 px-1 opacity-60">
-                  <span className="text-[10px] font-bold uppercase tracking-wider">{msg.role === 'user' ? 'You' : 'Mirai'}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">{msg.role === 'user' ? 'You' : 'Mirai-chan'}</span>
                   <TokenBadge tokenCount={msg.tokenCount} role={msg.role} />
                 </div>
+                {msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0 && (
+                  <div className="flex flex-col gap-1 mb-1 mt-1 max-w-[90%]">
+                    {msg.toolCalls.map(tc => (
+                      <div key={tc.id} className="flex items-center gap-2 px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] font-mono text-white/50 w-fit">
+                        {tc.status === 'running' ? (
+                          <div className="w-2.5 h-2.5 rounded-full border border-blue-400 border-t-transparent animate-spin shrink-0" />
+                        ) : (
+                          <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                        )}
+                        <span className="truncate max-w-[200px]">{tc.status === 'running' ? 'Running' : 'Completed'} <span className="text-white/70">{tc.name}</span></span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div
                   className={`max-w-[90%] overflow-x-auto px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono ${msg.role === 'user'
                       ? 'bg-[var(--color-primary-accent)]/20 text-[var(--text-active)] rounded-br-sm'

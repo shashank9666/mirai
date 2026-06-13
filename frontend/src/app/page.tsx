@@ -69,8 +69,6 @@ export default function Home() {
 
   // Poll backend health status
   useEffect(() => {
-    let checkInterval: ReturnType<typeof setInterval>;
-    
     const checkConnection = async () => {
       try {
         const res = await fetch('http://127.0.0.1:8000/health', { method: 'GET', signal: AbortSignal.timeout(2000) });
@@ -81,7 +79,7 @@ export default function Home() {
     };
 
     checkConnection();
-    checkInterval = setInterval(checkConnection, 5000);
+    const checkInterval = setInterval(checkConnection, 5000);
 
     return () => {
       clearInterval(checkInterval);

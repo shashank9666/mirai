@@ -6,6 +6,14 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { estimateTokenCount } from '@/lib/agent/policies';
 
+export interface ToolCall {
+  id: string;
+  name: string;
+  status: 'running' | 'completed';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  input?: any;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -14,6 +22,7 @@ export interface ChatMessage {
   tokenCount?: number;
   cost?: number;
   pendingChangeIds?: string[];
+  toolCalls?: ToolCall[];
 }
 
 interface ChatState {
