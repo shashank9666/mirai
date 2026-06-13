@@ -4,7 +4,7 @@ from flask_sock import Sock
 import os
 
 from routers import fs_router, web_router, tasks_router, git_router, agent_router, settings_router, workspace_router, mcp_router
-from services import terminal, watcher
+from services import terminal, watcher, notifications
 
 app = Flask("Mirai Backend")
 
@@ -30,6 +30,7 @@ app.register_blueprint(mcp_router.bp, url_prefix="/api/mcp")
 
 terminal.setup_terminal_websockets(sock)
 watcher.setup_watcher_websockets(sock)
+notifications.setup_notifications_websockets(sock)
 
 if __name__ == "__main__":
     # In a real production setup you might use waitress or gunicorn,

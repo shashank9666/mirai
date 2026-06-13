@@ -1,22 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { useWorkspaceStore } from '../../store/useWorkspaceStore';
-import { useWindowManagerStore } from '../../store/useWindowManagerStore';
-import { Folder, FolderOpen, FileCode, File, ChevronRight, ChevronDown, Edit2, Trash2, FilePlus, FolderPlus, RotateCw, AlertTriangle, Cpu } from 'lucide-react';
+import React, { useState } from 'react';
+import { useWorkspaceStore } from '@/store/workspaceStore';
+import { useEditorStore } from '@/store/editorStore';
+import { Folder, FolderOpen, FileCode, File, ChevronRight, ChevronDown, Edit2, Trash2, FilePlus, FolderPlus, RotateCw } from 'lucide-react';
 import { api, FileEntry, getWsBase } from '../../lib/api';
-import { cn } from '@/lib/utils';
+import { cn } from '../../lib/utils';
 
 // eslint-disable-next-line prefer-const
 let globalRevealPath: string | null = null;
 
-const getLanguageFromPath = (path: string) => {
-  if (path.endsWith('.ts') || path.endsWith('.tsx')) return 'typescript';
-  if (path.endsWith('.js') || path.endsWith('.jsx')) return 'javascript';
-  if (path.endsWith('.json')) return 'json';
-  if (path.endsWith('.html')) return 'html';
-  if (path.endsWith('.css')) return 'css';
-  if (path.endsWith('.md')) return 'markdown';
-  return 'plaintext';
-};
+
 
 export interface ContextMenuHandlers {
   startRename: () => void;
@@ -55,8 +47,7 @@ const FileTreeNode = ({
     return globalRevealPath === entry.path;
   });
   const [children, setChildren] = useState<FileEntry[]>([]);
-  const { openFile, renameOpenFiles, closeFileByPath } = useWorkspaceStore();
-  const { ensureWindow } = useWindowManagerStore();
+  const { setActiveFile, renameTab, closeTab } = useEditorStore();
 
   const [isHovered, setIsHovered] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
@@ -154,12 +145,14 @@ const FileTreeNode = ({
       setIsOpen(!isOpen);
     } else {
       try {
-        const content = await api.readFile(entry.path);
-        const language = getLanguageFromPath(entry.path);
-        openFile({ path: entry.path, content, language });
-        ensureWindow('editor', 'Code Editor');
-      } catch (error) {
-        console.error("Failed to read file", error);
+        const { content } = await api.readFile(entry.path);
+        setActiveFile(entry.path, entry.name, content);
+      } catch (err) {
+        if (err instanceof Error && err.message.includes('binary_file_not_supported')) {
+          setActiveFile(entry.path, entry.name, '');
+        } else {
+          console.error("Failed to read file", err);
+        }
       }
     }
   };
@@ -171,7 +164,7 @@ const FileTreeNode = ({
         const finalNewPath = entry.path.substring(0, entry.path.lastIndexOf(separator) + 1) + renameValue;
 
         await api.renameItem(entry.path, finalNewPath);
-        renameOpenFiles(entry.path, finalNewPath);
+        renameTab(entry.path, finalNewPath);
         setIsRenaming(false);
         onRefresh();
       } catch (err) {
@@ -190,8 +183,7 @@ const FileTreeNode = ({
         const newPath = entry.path + separator + createValue;
         if (isCreating === 'file') {
           await api.createFile(newPath);
-          openFile({ path: newPath, content: '', language: getLanguageFromPath(newPath) });
-          ensureWindow('editor', 'Code Editor');
+          setActiveFile(newPath, createValue, '');
         } else {
           await api.createDir(newPath);
         }
@@ -213,7 +205,7 @@ const FileTreeNode = ({
     if (confirm(`Are you sure you want to delete ${entry.name}?`)) {
       try {
         await api.deleteItem(entry.path);
-        closeFileByPath(entry.path);
+        closeTab(entry.path);
         onRefresh();
       } catch (err) {
         console.error(err);
@@ -330,14 +322,12 @@ const FileTreeNode = ({
 };
 
 export default function Explorer() {
-  const { workspacePath, fileTree, setWorkspacePath, setFileTree, openFile } = useWorkspaceStore();
-  const { ensureWindow } = useWindowManagerStore();
+  const { workspacePath, fileTree, setWorkspacePath, setFileTree } = useWorkspaceStore();
+  const { setActiveFile } = useEditorStore();
 
   const [isCreatingRoot, setIsCreatingRoot] = useState<'file' | 'folder' | null>(null);
   const [createRootValue, setCreateRootValue] = useState('');
-  const [backendAvailable, setBackendAvailable] = useState(true);
-  const [checkingBackend, setCheckingBackend] = useState(false);
-
+  
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -352,19 +342,15 @@ export default function Explorer() {
   }, []);
 
   const checkBackend = React.useCallback(async () => {
-    setCheckingBackend(true);
     try {
-      const available = await api.healthCheck();
-      setBackendAvailable(available);
+      await api.healthCheck();
     } catch {
-      setBackendAvailable(false);
-    } finally {
-      setCheckingBackend(false);
+      // Handle error
     }
   }, []);
 
   React.useEffect(() => {
-    checkBackend();
+    setTimeout(() => { void checkBackend(); }, 0);
     const interval = setInterval(checkBackend, 10000);
     return () => clearInterval(interval);
   }, [checkBackend]);
@@ -378,16 +364,14 @@ export default function Explorer() {
         setWorkspacePath(result.path);
       }
       setFileTree(result.entries);
-      setBackendAvailable(true);
     } catch (error) {
       console.error("Error reading root folder:", error);
-      setBackendAvailable(false);
     }
   }, [setWorkspacePath, setFileTree]);
 
   React.useEffect(() => {
     if (workspacePath) {
-      loadRoot(workspacePath);
+      setTimeout(() => { void loadRoot(workspacePath); }, 0);
     }
   }, [workspacePath, loadRoot]);
 
@@ -410,16 +394,15 @@ export default function Explorer() {
           window.dispatchEvent(new CustomEvent('workspace-fs-change', { detail: data }));
 
           if (data.path && (data.type === 'writeFile' || data.type === 'createFile')) {
-            const latestState = useWorkspaceStore.getState();
+            const editorState = useEditorStore.getState();
             const normalizePath = (p: string) => p ? p.replace(/[/\\]/g, '/').toLowerCase() : '';
             const normDataPath = normalizePath(data.path);
-            const isFileOpen = latestState.editorGroups.some(group => 
-              group.openFiles.some(file => normalizePath(file.path) === normDataPath)
+            const isFileOpen = editorState.groups.some(group => 
+              group.tabs.some(tab => normalizePath(tab.path) === normDataPath)
             );
             if (isFileOpen) {
               try {
-                const newContent = await api.readFile(data.path);
-                latestState.updateOpenFileContent(data.path, newContent);
+                await editorState.revertFile(data.path);
               } catch (err) {
                 console.error("Failed to read updated file content:", err);
               }
@@ -437,18 +420,9 @@ export default function Explorer() {
   }, [workspacePath, loadRoot]);
 
   const handleOpenFolder = async () => {
-    try {
-      const selectedPath = await api.openFolderPicker();
-      if (selectedPath) {
-        await loadRoot(selectedPath);
-      } else {
-        // Fallback for web
-        const result = await api.readDir();
-        setWorkspacePath(result.path);
-        setFileTree(result.entries);
-      }
-    } catch (error) {
-      console.error("Error opening folder:", error);
+    const p = prompt('Enter workspace path:');
+    if (p) {
+      await loadRoot(p);
     }
   };
 
@@ -467,8 +441,7 @@ export default function Explorer() {
         const newPath = workspacePath + separator + value;
         if (isCreatingRoot === 'file') {
           await api.createFile(newPath);
-          openFile({ path: newPath, content: '', language: getLanguageFromPath(newPath) });
-          ensureWindow('editor', 'Code Editor');
+          setActiveFile(newPath, value, '');
         } else {
           await api.createDir(newPath);
         }

@@ -5,6 +5,7 @@ import os
 import uuid
 import sys
 from services.workspace import workspace_manager
+from services.notifications import notify_user
 
 bp = Blueprint("tasks", __name__)
 
@@ -62,8 +63,16 @@ def execute_command():
 
         def wait_process(proc, tid):
             code = proc.wait()
-            tasks[tid]["status"] = "completed" if code == 0 else "failed"
+            status = "completed" if code == 0 else "failed"
+            tasks[tid]["status"] = status
             tasks[tid]["logs"] += f"\n[Process exited with code {code}]"
+            
+            # Send notification
+            command_preview = tasks[tid]["command"][:30] + ("..." if len(tasks[tid]["command"]) > 30 else "")
+            notify_user(
+                title=f"Task {status.capitalize()}",
+                message=f"Command '{command_preview}' exited with code {code}."
+            )
             
         threading.Thread(target=read_stream, args=(process.stdout, task_id), daemon=True).start()
         threading.Thread(target=read_stream, args=(process.stderr, task_id), daemon=True).start()

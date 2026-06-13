@@ -1,14 +1,18 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { FileEntry } from '@/lib/api';
 
 interface WorkspaceState {
   workspacePath: string | null;
   workspaceName: string | null;
   recentWorkspaces: string[];
+  fileTree: FileEntry[];
 
   setWorkspace: (path: string, name: string) => void;
+  setWorkspacePath: (path: string) => void;
   clearWorkspace: () => void;
   addRecentWorkspace: (path: string) => void;
+  setFileTree: (tree: FileEntry[]) => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -17,6 +21,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       workspacePath: null,
       workspaceName: null,
       recentWorkspaces: [],
+      fileTree: [],
 
       setWorkspace: (path, name) => {
         const state = get();
@@ -29,15 +34,20 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         } catch { }
       },
 
+      setWorkspacePath: (path) => set(() => ({ workspacePath: path })),
+
       clearWorkspace: () => set(() => ({
         workspacePath: null,
         workspaceName: null,
+        fileTree: []
       })),
 
       addRecentWorkspace: (path) => set((state) => {
         const recent = state.recentWorkspaces.filter(p => p !== path);
         return { recentWorkspaces: [path, ...recent].slice(0, 10) };
       }),
+
+      setFileTree: (tree) => set(() => ({ fileTree: tree })),
     }),
     {
       name: 'mirai-workspace-storage',

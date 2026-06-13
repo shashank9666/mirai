@@ -10,6 +10,12 @@ import {
   ZoomIn, ZoomOut, RefreshCw, Scissors,
 } from 'lucide-react';
 import { useEditorStore } from '@/store/editorStore';
+
+type MiraiEditor = {
+  getAction: (id: string) => { run: () => void } | null;
+  getOption: (id: number) => boolean;
+  updateOptions: (opts: Record<string, unknown>) => void;
+};
 import { useSettingsStore } from '@/store/settingsStore';
 
 
@@ -65,11 +71,11 @@ export default function CommandPalette() {
     { id: 'toggleStickyScroll', label: 'Toggle Sticky Scroll', category: 'Editor', icon: <Pin className="w-4 h-4" />, action: () => emit('toggleStickyScroll') },
     { id: 'toggleFolding', label: 'Toggle Code Folding', category: 'Editor', icon: <FoldVertical className="w-4 h-4" />, action: () => emit('toggleFolding') },
     { id: 'foldAll', label: 'Fold All', category: 'Editor', icon: <FoldVertical className="w-4 h-4" />, shortcut: 'Ctrl+Shift+O', action: () => {
-      const editor = (window as any).__miraiEditor;
+      const editor = (window as unknown as { __miraiEditor: MiraiEditor }).__miraiEditor;
       editor?.getAction('editor.foldAll')?.run();
     }},
     { id: 'unfoldAll', label: 'Unfold All', category: 'Editor', icon: <UnfoldVertical className="w-4 h-4" />, shortcut: 'Ctrl+Shift+J', action: () => {
-      const editor = (window as any).__miraiEditor;
+      const editor = (window as unknown as { __miraiEditor: MiraiEditor }).__miraiEditor;
       editor?.getAction('editor.unfoldAll')?.run();
     }},
 
@@ -77,11 +83,11 @@ export default function CommandPalette() {
     { id: 'toggleBracketColor', label: 'Toggle Bracket Pair Colorization', category: 'Editor', icon: <Braces className="w-4 h-4" />, action: () => emit('toggleBracketColorization') },
     { id: 'toggleFormatOnSave', label: 'Toggle Format on Save', category: 'Editor', icon: <Pilcrow className="w-4 h-4" />, action: () => emit('toggleFormatOnSave') },
     { id: 'formatDocument', label: 'Format Document', category: 'Editor', icon: <Pilcrow className="w-4 h-4 text-blue-400" />, shortcut: 'Shift+Alt+F', action: () => {
-      const editor = (window as any).__miraiEditor;
+      const editor = (window as unknown as { __miraiEditor: MiraiEditor }).__miraiEditor;
       editor?.getAction('editor.action.formatDocument')?.run();
     }},
     { id: 'formatSelection', label: 'Format Selection', category: 'Editor', icon: <Pilcrow className="w-4 h-4 text-green-400" />, shortcut: 'Ctrl+K Ctrl+F', action: () => {
-      const editor = (window as any).__miraiEditor;
+      const editor = (window as unknown as { __miraiEditor: MiraiEditor }).__miraiEditor;
       editor?.getAction('editor.action.formatSelection')?.run();
     }},
 
@@ -93,19 +99,19 @@ export default function CommandPalette() {
 
     // Editor - Cursor & Selection
     { id: 'addCursorAbove', label: 'Add Cursor Above', category: 'Editor', icon: <Scissors className="w-4 h-4" />, shortcut: 'Ctrl+Alt+Up', action: () => {
-      const editor = (window as any).__miraiEditor;
+      const editor = (window as unknown as { __miraiEditor: MiraiEditor }).__miraiEditor;
       editor?.getAction('editor.action.insertCursorAbove')?.run();
     }},
     { id: 'addCursorBelow', label: 'Add Cursor Below', category: 'Editor', icon: <Scissors className="w-4 h-4" />, shortcut: 'Ctrl+Alt+Down', action: () => {
-      const editor = (window as any).__miraiEditor;
+      const editor = (window as unknown as { __miraiEditor: MiraiEditor }).__miraiEditor;
       editor?.getAction('editor.action.insertCursorBelow')?.run();
     }},
     { id: 'selectAllOccurrences', label: 'Select All Occurrences', category: 'Editor', icon: <Scissors className="w-4 h-4 text-yellow-400" />, shortcut: 'Ctrl+Shift+L', action: () => {
-      const editor = (window as any).__miraiEditor;
+      const editor = (window as unknown as { __miraiEditor: MiraiEditor }).__miraiEditor;
       editor?.getAction('editor.action.selectHighlights')?.run();
     }},
     { id: 'multiCursorSelect', label: 'Column Selection Mode', category: 'Editor', icon: <Scissors className="w-4 h-4 text-purple-400" />, shortcut: 'Shift+Alt+Mouse', action: () => {
-      const editor = (window as any).__miraiEditor;
+      const editor = (window as unknown as { __miraiEditor: MiraiEditor }).__miraiEditor;
       if (editor) {
         const current = editor.getOption(117); // EditorOption.columnSelection
         editor.updateOptions({ columnSelection: !current });
@@ -114,31 +120,31 @@ export default function CommandPalette() {
 
     // Editor - Navigation
     { id: 'goToLine', label: 'Go to Line', category: 'Editor', icon: <Type className="w-4 h-4" />, shortcut: 'Ctrl+G', action: () => {
-      const editor = (window as any).__miraiEditor;
+      const editor = (window as unknown as { __miraiEditor: MiraiEditor }).__miraiEditor;
       editor?.getAction('editor.action.gotoLine')?.run();
     }},
     { id: 'goToDefinition', label: 'Go to Definition', category: 'Editor', icon: <Type className="w-4 h-4 text-blue-400" />, shortcut: 'F12', action: () => {
-      const editor = (window as any).__miraiEditor;
+      const editor = (window as unknown as { __miraiEditor: MiraiEditor }).__miraiEditor;
       editor?.getAction('editor.action.revealDefinition')?.run();
     }},
     { id: 'peekDefinition', label: 'Peek Definition', category: 'Editor', icon: <Type className="w-4 h-4 text-green-400" />, shortcut: 'Alt+F12', action: () => {
-      const editor = (window as any).__miraiEditor;
+      const editor = (window as unknown as { __miraiEditor: MiraiEditor }).__miraiEditor;
       editor?.getAction('editor.action.peekDefinition')?.run();
     }},
     { id: 'goToReferences', label: 'Go to References', category: 'Editor', icon: <Type className="w-4 h-4 text-orange-400" />, shortcut: 'Shift+F12', action: () => {
-      const editor = (window as any).__miraiEditor;
+      const editor = (window as unknown as { __miraiEditor: MiraiEditor }).__miraiEditor;
       editor?.getAction('editor.action.goToReferences')?.run();
     }},
     { id: 'findReferences', label: 'Find All References', category: 'Editor', icon: <SearchCode className="w-4 h-4 text-cyan-400" />, action: () => {
-      const editor = (window as any).__miraiEditor;
+      const editor = (window as unknown as { __miraiEditor: MiraiEditor }).__miraiEditor;
       editor?.getAction('editor.action.findReferences')?.run();
     }},
     { id: 'renameSymbol', label: 'Rename Symbol', category: 'Editor', icon: <Type className="w-4 h-4 text-pink-400" />, shortcut: 'F2', action: () => {
-      const editor = (window as any).__miraiEditor;
+      const editor = (window as unknown as { __miraiEditor: MiraiEditor }).__miraiEditor;
       editor?.getAction('editor.action.rename')?.run();
     }},
     { id: 'toggleParameterHints', label: 'Toggle Parameter Hints', category: 'Editor', icon: <Type className="w-4 h-4" />, shortcut: 'Ctrl+Shift+Space', action: () => {
-      const editor = (window as any).__miraiEditor;
+      const editor = (window as unknown as { __miraiEditor: MiraiEditor }).__miraiEditor;
       editor?.getAction('editor.action.triggerParameterHints')?.run();
     }},
 
@@ -157,27 +163,34 @@ export default function CommandPalette() {
     return commands.filter(c => c.label.toLowerCase().includes(q) || c.category.toLowerCase().includes(q));
   }, [commands, query]);
 
-  useEffect(() => { setSelectedIndex(0); }, [query]);
+
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key === 'k') {
         e.preventDefault();
-        setIsOpen((prev) => !prev);
+        setIsOpen((prev) => {
+          if (!prev) setQuery('');
+          return !prev;
+        });
       }
       if (e.key === 'Escape' && isOpen) {
         e.preventDefault();
         setIsOpen(false);
       }
     };
+    const handleOpen = () => { setIsOpen(true); setQuery(''); };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('mirai-command-palette', handleOpen);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('mirai-command-palette', handleOpen);
+    };
   }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
-      setQuery('');
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isOpen]);
@@ -218,7 +231,7 @@ export default function CommandPalette() {
               <input
                 ref={inputRef}
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => { setQuery(e.target.value); setSelectedIndex(0); }}
                 onKeyDown={handleKeyDown}
                 placeholder="Type a command or search..."
                 className="flex-1 bg-transparent border-none outline-none text-white text-lg placeholder:text-white/30"

@@ -8,6 +8,7 @@ const API_BASE = 'http://127.0.0.1:8000/api';
 const BACKEND_BASE = 'http://127.0.0.1:8000';
 
 const getApiBase = () => API_BASE;
+export const getWsBase = () => 'ws://127.0.0.1:8000';
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -159,4 +160,15 @@ export const api = {
   },
   workspaceListDirectory: async (path: string): Promise<{ path: string; entries: FileEntry[] }> =>
     post('/workspace/listDirectory', { path }),
+
+  registerApproval: async (callId: string, toolName: string, callArgs: string, oldContent?: string, newContent?: string): Promise<{ success: boolean }> =>
+    post('/agent/approval/register', { callId, toolName, callArgs, oldContent, newContent }),
+
+  replyApproval: async (callId: string, approved: boolean): Promise<{ success: boolean }> =>
+    post('/agent/approval/reply', { callId, approved }),
+
+  getApprovalStatus: async (callId: string): Promise<{ status: 'pending' | 'approved' | 'denied' }> => {
+    const res = await fetch(`${getApiBase()}/agent/approval/status?callId=${encodeURIComponent(callId)}`);
+    return res.json();
+  },
 };

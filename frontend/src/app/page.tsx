@@ -20,6 +20,7 @@ import { useIdeStore } from '@/store/ideStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useEditorStore } from '@/store/editorStore';
+import { NotificationManager } from '@/components/ide/NotificationManager';
 
 import { useThemeStore } from '@/store/themeStore';
 import { builtinThemes } from '@/lib/themes';
@@ -448,6 +449,7 @@ export default function Home() {
       )}
 
       <div className="relative z-10 flex flex-col w-full flex-1 min-h-0">
+        <NotificationManager />
         <CommandPalette />
         <QuickOpen />
 

@@ -1,4 +1,4 @@
-import { useApprovalStore } from '@/store/useApprovalStore';
+import { useApprovalStore } from '../../store/useApprovalStore';
 import { api } from '@/lib/api';
 
 export type PolicyAction = 'allow' | 'deny' | 'ask_user';

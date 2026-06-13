@@ -1,16 +1,23 @@
 import React from 'react';
 import { Search, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
-import { useWorkspaceStore } from '@/store/useWorkspaceStore';
-import { useSettingsStore } from '@/store/useSettingsStore';
-import { useWindowManagerStore } from "@/store/useWindowManagerStore";
+import { useWorkspaceStore } from '@/store/workspaceStore';
+import { useSettingsStore } from '@/store/settingsStore';
+import { useEditorStore } from '@/store/editorStore';
 import Image from "next/image";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuPortal } from '@radix-ui/react-dropdown-menu';
 import { api } from '@/lib/api';
 
 export default function TitleBar() {
-  const { setCommandPaletteOpen } = useWorkspaceStore();
+  const setCommandPaletteOpen = (val: boolean) => {
+    if (val) window.dispatchEvent(new CustomEvent('mirai-command-palette'));
+  };
   const { zoom, setZoom } = useSettingsStore();
-  const { spawnWindow } = useWindowManagerStore();
+
+  const spawnWindow = (type: string, title?: string, options?: unknown) => {
+    if (type === 'terminal') {
+      window.dispatchEvent(new CustomEvent('mirai-terminal-new', { detail: options }));
+    }
+  };
 
   const handleZoomIn = () => { console.log('Action: Zoom In'); setZoom(Math.min(2.0, (zoom || 1.0) + 0.1)); };
   const handleZoomOut = () => { console.log('Action: Zoom Out'); setZoom(Math.max(0.6, (zoom || 1.0) - 0.1)); };
@@ -29,15 +36,7 @@ export default function TitleBar() {
       const fullPath = workspacePath + '/' + name.replace(/^[/\\]/, '');
       try {
         await api.createFile(fullPath);
-        let language = 'plaintext';
-        if (fullPath.endsWith('.ts') || fullPath.endsWith('.tsx')) language = 'typescript';
-        else if (fullPath.endsWith('.js') || fullPath.endsWith('.jsx')) language = 'javascript';
-        else if (fullPath.endsWith('.json')) language = 'json';
-        else if (fullPath.endsWith('.css')) language = 'css';
-        else if (fullPath.endsWith('.html')) language = 'html';
-        else if (fullPath.endsWith('.md')) language = 'markdown';
-        
-        useWorkspaceStore.getState().openFile({ path: fullPath, content: '', language });
+        useEditorStore.getState().setActiveFile(fullPath, fullPath.split('/').pop() || '', '');
         spawnWindow('editor', 'Code Editor');
       } catch (err) {
         alert(`Failed to create file: ${err}`);
@@ -65,40 +64,12 @@ export default function TitleBar() {
 
   const handleSave = async () => {
     console.log('Action: Save File');
-    const workspaceState = useWorkspaceStore.getState();
-    const activeGroupId = workspaceState.activeGroupId;
-    const group = workspaceState.editorGroups.find(g => g.id === activeGroupId);
-    if (group && group.activeFileIndex >= 0 && group.activeFileIndex < group.openFiles.length) {
-      const activeFile = group.openFiles[group.activeFileIndex];
-      try {
-        await api.writeFile(activeFile.path, activeFile.content);
-        workspaceState.updateOpenFileContent(activeFile.path, activeFile.content);
-      } catch (err) {
-        alert(`Failed to save file: ${err}`);
-      }
-    } else {
-      alert('No active file to save.');
-    }
+    await useEditorStore.getState().saveFile();
   };
 
   const handleSaveAll = async () => {
-    const workspaceState = useWorkspaceStore.getState();
-    let count = 0;
-    for (const group of workspaceState.editorGroups) {
-      for (const file of group.openFiles) {
-        const isDirty = file.content !== (file.originalContent || '');
-        if (isDirty) {
-          try {
-            await api.writeFile(file.path, file.content);
-            workspaceState.updateOpenFileContent(file.path, file.content);
-            count++;
-          } catch (err) {
-            console.error(`Failed to save ${file.path}:`, err);
-          }
-        }
-      }
-    }
-    alert(`Saved ${count} modified file(s).`);
+    console.log('Action: Save All Files');
+    await useEditorStore.getState().saveAllFiles();
   };
 
   const handleUndo = () => {
@@ -114,17 +85,9 @@ export default function TitleBar() {
   };
 
   const handleGoToLine = () => {
-    const lineStr = prompt('Go to Line:');
-    if (lineStr) {
-      const line = parseInt(lineStr, 10);
-      if (!isNaN(line) && line > 0) {
-        const ws = useWorkspaceStore.getState();
-        const group = ws.editorGroups.find(g => g.id === ws.activeGroupId);
-        if (group && group.activeFileIndex >= 0) {
-          const file = group.openFiles[group.activeFileIndex];
-          ws.openFile({ ...file, scrollTargetLine: line });
-        }
-      }
+    const editor = (window as unknown as { __miraiEditor: { getAction: (id: string) => { run: () => void } | null } }).__miraiEditor;
+    if (editor) {
+      editor.getAction('editor.action.gotoLine')?.run();
     }
   };
 

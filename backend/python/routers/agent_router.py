@@ -9,6 +9,7 @@ import uuid
 from services.watcher import notify_change
 from core.agent import MiraiAgent
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from services.notifications import notify_user
 
 bp = Blueprint("agent", __name__)
 
@@ -175,8 +176,11 @@ def agent_chat():
                 await event_bus.publish(session_id, {"type": "final", "content": content})
             except Exception as e:
                 await event_bus.publish(session_id, {"type": "error", "error": str(e)})
+                notify_user("Agent Error", f"Failed: {str(e)[:50]}...")
             finally:
                 await event_bus.publish(session_id, {"type": "done"})
+                if "result" in locals():
+                    notify_user("Agent Finished", "Your AI assistant has responded.")
 
         loop.run_until_complete(asyncio.gather(_run(), forward_task))
         event_bus.unsubscribe(session_id, async_q)
