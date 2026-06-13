@@ -3,34 +3,36 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
 import Editor, { type OnMount, type OnChange, loader } from '@monaco-editor/react';
 import { X, ChevronRight, Pin } from 'lucide-react';
-import { useIdeStore, type EditorGroup } from '@/store/ideStore';
+import { type EditorGroup } from '@/store/ideStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useEditorStore } from '@/store/editorStore';
 
 import DiffEditorPanel from './DiffEditor';
 import PanelHeader from './PanelHeader';
 
-loader.config({ paths: { vs: '/vs' } });
-loader.init().then(monaco => {
-  monaco.editor.defineTheme('mirai-glass-dark', {
-    base: 'vs-dark',
-    inherit: true,
-    rules: [],
-    colors: {
-      'editor.background': '#00000000',
-      'minimap.background': '#00000000',
-    }
+if (typeof window !== 'undefined') {
+  loader.config({ paths: { vs: '/vs' } });
+  loader.init().then(monaco => {
+    monaco.editor.defineTheme('mirai-glass-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#00000000',
+        'minimap.background': '#00000000',
+      }
+    });
+    monaco.editor.defineTheme('mirai-glass-light', {
+      base: 'vs',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#00000000',
+        'minimap.background': '#00000000',
+      }
+    });
   });
-  monaco.editor.defineTheme('mirai-glass-light', {
-    base: 'vs',
-    inherit: true,
-    rules: [],
-    colors: {
-      'editor.background': '#00000000',
-      'minimap.background': '#00000000',
-    }
-  });
-});
+}
 const isImage = (path: string) => /\.(png|jpe?g|gif|webp|svg|ico)$/i.test(path);
 const isPdf = (path: string) => /\.pdf$/i.test(path);
 const isVideo = (path: string) => /\.(mp4|webm|ogg)$/i.test(path);
