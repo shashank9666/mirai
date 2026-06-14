@@ -8,16 +8,15 @@ import { useChatStore } from '@/store/chatStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useEditorStore } from '@/store/editorStore';
 
-import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronDown, ChevronRight, Paperclip, FileCode, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, Headphones, Activity, Check } from 'lucide-react';
+import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronRight, Paperclip, FileCode, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, Headphones, Activity, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
-import ShikiHighlighter from './ShikiHighlighter';
 import SimpleBar from 'simplebar-react';
 import { formatTokens } from '@/lib/agent/policies';
 import AgentPreferencesPanel from './AgentPreferencesPanel';
 import { DEFAULT_AGENT_PREFERENCES } from '@/lib/agent/policies';
-import VoiceOrb from './VoiceOrb';
 import { useVoiceStore } from '@/store/voiceStore';
+import VoiceOrb from './VoiceOrb';
 
 const DEFAULT_SYSTEM_PROMPT = `You are Mirai, an autonomous software engineering agent inside Mirai IDE.
 
@@ -164,7 +163,7 @@ return (
 );
 }
 
-function CodeBlockRenderer({ children, className, handleReviewChange, ...rest }: { children?: React.ReactNode; className?: string; handleReviewChange: (filepath: string, code: string) => void;[key: string]: unknown }) {
+function CodeBlockRenderer({ children, className, handleReviewChange }: { children?: React.ReactNode; className?: string; handleReviewChange: (filepath: string, code: string) => void;[key: string]: unknown }) {
   const codeString = String(children).replace(/\n$/, '');
   const match = /language-([a-zA-Z0-9_-]+)(?::(.+))?/.exec(className || '');
   const lang = match ? match[1] : '';
@@ -212,6 +211,18 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [attachedPaths, setAttachedPaths] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (isStreaming) {
+      useVoiceStore.getState().setState('speaking');
+    } else if (isListening) {
+      useVoiceStore.getState().setState('listening');
+    } else if (hasPendingChanges) {
+      useVoiceStore.getState().setState('thinking');
+    } else {
+      useVoiceStore.getState().setState('idle');
+    }
+  }, [isStreaming, isListening, hasPendingChanges]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
@@ -510,6 +521,15 @@ Use this information before asking the user for files.`;
                 accumulatedContent = event.content;
                 updateMessage(assistantMsg.id, { content: accumulatedContent });
 
+                if (useVoiceStore.getState().autoTts || isConvoMode) {
+                  import('@/lib/api').then(({ voiceTTS }) => {
+                    voiceTTS(accumulatedContent).then((blob: Blob) => {
+                      const url = URL.createObjectURL(blob);
+                      useVoiceStore.getState().playAudio(url);
+                    }).catch(console.error);
+                  });
+                }
+
                 // Auto-parse file edits and create pending changes
                 const fileRegex = /```[a-zA-Z0-9_-]+:([^\n]+)\n([\s\S]*?)```/g;
                 let match;
@@ -777,56 +797,16 @@ Use this information before asking the user for files.`;
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  className="relative w-48 h-48 flex items-center justify-center mb-8"
+                  className="relative flex items-center justify-center mb-8"
                 >
-                  {/* High-tech rotating rings */}
-                  {isStreaming && (
-                    <>
-                      <motion.div
-                        animate={{ rotate: 360, scale: [1, 1.1, 1] }}
-                        transition={{ rotate: { duration: 8, repeat: Infinity, ease: "linear" }, scale: { duration: 2, repeat: Infinity, ease: "easeInOut" } }}
-                        className="absolute inset-2 border-[2px] border-purple-500/30 rounded-full border-t-purple-400"
-                      />
-                      <motion.div animate={{ rotate: -360, scale: [1, 1.2, 1] }}
-                        transition={{ rotate: { duration: 12, repeat: Infinity, ease: "linear" }, scale: { duration: 3, repeat: Infinity, ease: "easeInOut" } }}
-                        className="absolute inset-4 border-[1px] border-blue-500/20 rounded-full border-b-blue-400"
-                      />
-                    </>
-                  )}
-                  {/* Outer pulsing ring when AI is speaking */}
-                  {isStreaming && (
-                    <motion.div
-                      animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.7, 0.3] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                      className="absolute inset-0 rounded-full bg-purple-500/20 blur-2xl"
-                    />
-                  )}
-                  {/* Inner active ring when User is speaking */}
-                  {isListening && !isStreaming && (
-                    <>
-                      <motion.div
-                        animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.8, 0.4] }}
-                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                        className="absolute inset-4 rounded-full bg-emerald-500/20 blur-xl"
-                      />
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                        className="absolute inset-6 border-[2px] border-emerald-500/30 rounded-full border-l-emerald-400 border-r-emerald-400 border-t-transparent border-b-transparent"
-                      />
-                    </>
-                  )}
-                  {/* Core orb */}
-                  <div className={`w-24 h-24 rounded-full shadow-[0_0_40px_rgba(124,58,237,0.4)] border border-white/10 flex items-center justify-center transition-colors duration-500 ${isStreaming ? 'bg-gradient-to-tr from-purple-500/30 to-blue-500/30' : isListening ? 'bg-gradient-to-tr from-emerald-500/30 to-teal-500/30' : 'bg-white/5'}`}>
-                    <Activity className={`w-8 h-8 ${isStreaming ? 'text-purple-400' : isListening ? 'text-emerald-400' : 'text-white/30'}`} />
-                  </div>
+                  <VoiceOrb size={200} showControls={false} showLabel={false} />
                 </motion.div>
                 <div className="font-mono text-[12px] text-white/50 tracking-widest uppercase text-center drop-shadow-md">
                   {isStreaming ? 'Mirai is speaking...' : isListening ? 'Listening...' : 'Convo Mode Paused'}
                 </div>
                 <div className="mt-8 px-8 text-center text-[11px] font-mono text-white/30 max-w-sm">
                   {chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'user' ? (
-                    <span className="text-white/60">"{chatMessages[chatMessages.length - 1].content}"</span>
+                    <span className="text-white/60">&quot;{chatMessages[chatMessages.length - 1].content}&quot;</span>
                   ) : chatMessages.length > 0 && chatMessages[chatMessages.length - 1].role === 'assistant' ? (
                     <span className="text-white/40 line-clamp-3">Mirai: {chatMessages[chatMessages.length - 1].content}</span>
                   ) : 'Speak to interact with Mirai.'}
@@ -976,18 +956,12 @@ Use this information before asking the user for files.`;
         className="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--text-active)] placeholder:text-[var(--text-muted)] font-mono disabled:opacity-40"
       />
 
-      {/* Voice Orb - Replaces the simple mic button */}
-      <div className="flex items-center gap-2">
-        <VoiceOrb
-          size={40}
-          showControls={false}
-          showLabel={false}
-          onVoiceMessage={(text) => {
-            setInput(prev => prev + (prev ? ' ' : '') + text);
-            sendMessage();
-          }}
-        />
-      </div>
+      <button
+        onClick={toggleVoiceMode}
+        className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-colors ${isListening ? 'text-red-400 bg-red-500/10' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
+      >
+        {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+      </button>
 
       {isStreaming ? (
         <button

@@ -9,13 +9,7 @@ import { useThemeStore } from '@/store/themeStore';
 
 import { api } from '@/lib/api';
 
-const WALLPAPER_PRESETS = [
-  { id: 'none', name: 'None', url: '' },
-  { id: 'anime-cityscape', name: 'Sunset Cityscape', url: '/wallpapers/anime-cityscape.png' },
-  { id: 'anime-nature', name: 'Ghibli Nature', url: '/wallpapers/anime-nature.png' },
-  { id: 'anime-space', name: 'Sci-Fi Space', url: '/wallpapers/anime-space.png' },
-  { id: 'anime-cyberpunk', name: 'Neon Cyberpunk', url: '/wallpapers/anime-cyberpunk.png' },
-];
+
 
 type SettingsTab = 'editor' | 'theme' | 'ai' | 'extensions' | 'mcp' | 'general';
 
@@ -26,6 +20,18 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('editor');
   const [settingsJson, setSettingsJson] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+  const [wallpaperPresets, setWallpaperPresets] = useState<{id: string, name: string, url: string}[]>([{ id: 'none', name: 'None', url: '' }]);
+
+  useEffect(() => {
+    fetch('/api/wallpapers')
+      .then(res => res.json())
+      .then(data => {
+        if (data.wallpapers) {
+          setWallpaperPresets([{ id: 'none', name: 'None', url: '' }, ...data.wallpapers]);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   const uploadImage = async (file: File) => {
     const formData = new FormData();
@@ -175,7 +181,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                     <span className="text-[12px] font-mono text-white/80">Wallpaper Presets</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    {WALLPAPER_PRESETS.map((wallpaper) => (
+                    {wallpaperPresets.map((wallpaper) => (
                       <button
                         key={wallpaper.id}
                         onClick={() => setEditorSettings({ wallpaperPreset: wallpaper.id, backgroundImage: wallpaper.url || null })}
