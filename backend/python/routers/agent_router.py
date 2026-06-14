@@ -28,9 +28,11 @@ def load_approvals():
     try:
         if os.path.exists(APPROVALS_FILE):
             with open(APPROVALS_FILE, 'r', encoding='utf-8') as f:
-                approvals = json.load(f)
+                data = json.load(f)
+                approvals.clear()
+                approvals.update(data)
     except Exception:
-        approvals = {}
+        approvals.clear()
 
 def save_approvals():
     try:
@@ -74,6 +76,7 @@ def reply_approval():
     if not req_id:
         return jsonify({"detail": "id/callId is required"}), 400
 
+    load_approvals()
     if req_id not in approvals:
         return jsonify({"detail": "Approval request not found"}), 404
         
@@ -83,12 +86,14 @@ def reply_approval():
 
 @bp.route("/approvals/status/<id>", methods=["GET"])
 def get_approval_status(id):
+    load_approvals()
     if id not in approvals:
         return jsonify({"detail": "Approval request not found"}), 404
     return jsonify(approvals[id])
 
 @bp.route("/approvals/pending", methods=["GET"])
 def get_pending_approvals():
+    load_approvals()
     pending = next((a for a in approvals.values() if a["status"] == "pending"), None)
     return jsonify({"pending": pending})
 

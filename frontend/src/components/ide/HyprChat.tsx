@@ -7,7 +7,7 @@ import { useChatStore } from '@/store/chatStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useEditorStore } from '@/store/editorStore';
 
-import { WifiOff, Mic, MicOff, Plus, ChevronRight, Paperclip, FileCode, X, GitCompareArrows, FilePlus2, Check, RotateCcw, ChevronDown, Clock, BookOpen, CheckSquare } from 'lucide-react';
+import { WifiOff, Mic, MicOff, Plus, ChevronRight, Paperclip, FileCode, X, GitCompareArrows, FilePlus2, Check, RotateCcw, Clock, BookOpen, CheckSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import SimpleBar from 'simplebar-react';
@@ -205,6 +205,14 @@ function CodeBlockRenderer({ children, className, handleReviewChange }: { childr
 
   const filename = filepath.split(/[/\\]/).pop() || filepath;
 
+  if (!filepath) {
+    return (
+      <pre className="my-2 border border-white/10 rounded-md bg-black/40 p-3 overflow-x-auto text-[11px] font-mono text-white/90">
+        <code className={className}>{codeString}</code>
+      </pre>
+    );
+  }
+
   return (
     <div className="my-2 border border-white/10 rounded-md bg-black/40 px-3 py-2 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors">
       <div className="flex items-center gap-2">
@@ -224,16 +232,7 @@ function CodeBlockRenderer({ children, className, handleReviewChange }: { childr
   );
 }
 
-const MODELS_LIST = [
-  { id: 'gemini-3.5-flash-medium', name: 'Gemini 3.5 Flash (Medium)', providerId: 'gemini', model: 'gemini-1.5-flash', speedBadge: 'Fast' },
-  { id: 'gemini-3.5-flash-high', name: 'Gemini 3.5 Flash (High)', providerId: 'gemini', model: 'gemini-1.5-flash', speedBadge: 'Fast' },
-  { id: 'gemini-3.5-flash-low', name: 'Gemini 3.5 Flash (Low)', providerId: 'gemini', model: 'gemini-1.5-flash', speedBadge: 'Fast' },
-  { id: 'gemini-3.1-pro-low', name: 'Gemini 3.1 Pro (Low)', providerId: 'gemini', model: 'gemini-1.5-pro' },
-  { id: 'gemini-3.1-pro-high', name: 'Gemini 3.1 Pro (High)', providerId: 'gemini', model: 'gemini-1.5-pro' },
-  { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', providerId: 'anthropic', model: 'claude-3-5-sonnet-20240620' },
-  { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', providerId: 'anthropic', model: 'claude-3-opus-20240229' },
-  { id: 'gpt-oss-120b-medium', name: 'GPT-OSS 120B (Medium)', providerId: 'openai', model: 'gpt-4o' }
-];
+
 
 function StepItem({ step }: { step: import('@/store/chatStore').AgentStep }) {
   const [expanded, setExpanded] = useState(step.status === 'running');
@@ -517,9 +516,8 @@ const normalizeProposal = (value: unknown): AgentFileProposal | null => {
 };
 
 export default function HyprChat({ isMinimized, onClose, onDragStart }: ChatPanelProps) {
-  const { activeAiProviderId, aiProviders, autoApproveSettings, setAutoApproveSettings, setActiveAiProvider } = useAiStore();
-  const activeModelId = useAiStore(s => (s as any).activeModelId) || 'gemini-3.1-pro-low';
-  const currentModel = MODELS_LIST.find(m => m.id === activeModelId) || MODELS_LIST[3];
+  const { activeAiProviderId, aiProviders, autoApproveSettings, setAutoApproveSettings } = useAiStore();
+
   const {
     messages: chatMessages,
     addMessage,
@@ -538,7 +536,7 @@ export default function HyprChat({ isMinimized, onClose, onDragStart }: ChatPane
   const [customizationsTab, setCustomizationsTab] = useState<'rules' | 'workflows' | 'preferences'>('rules');
   const [showHistory, setShowHistory] = useState(false);
   const [showCustomizations, setShowCustomizations] = useState(false);
-  const [showModelDropdown, setShowModelDropdown] = useState(false);
+
 
   const [isListening, setIsListening] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -996,9 +994,8 @@ export default function HyprChat({ isMinimized, onClose, onDragStart }: ChatPane
     abortRef.current = controller;
 
     try {
-      const currentModel = MODELS_LIST.find(m => m.id === (useAiStore.getState() as any).activeModelId) || MODELS_LIST[3];
-      const activeProvider = aiProviders.find(p => p.id === currentModel.providerId);
-      const activeModelName = currentModel.model;
+      const activeProvider = aiProviders.find(p => p.id === activeAiProviderId);
+      const activeModelName = activeProvider?.model || 'gpt-4o';
 
       // Build messages from chat store
       const storeMessages = useChatStore.getState().messages;
@@ -1216,7 +1213,6 @@ Use this information before asking the user for files.${projectInstructions}`;
       ? 'bg-green-500'
       : 'bg-red-500';
 
-  const activeProvider = aiProviders.find(p => p.id === activeAiProviderId);
   const pendingChangeCount = useEditorStore(state => state.pendingChanges.filter(c => c.status === 'pending').length);
 
 
@@ -1565,9 +1561,9 @@ Use this information before asking the user for files.${projectInstructions}`;
                             }}
                             className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 font-semibold underline decoration-dotted cursor-pointer"
                           >
-                            {isWalkthrough && <span className="mr-0.5">📖</span>}
-                            {isTask && <span className="mr-0.5">☑️</span>}
-                            {isImplementation && <span className="mr-0.5">📋</span>}
+                            {isWalkthrough && <BookOpen className="w-3.5 h-3.5 text-purple-400" />}
+                            {isTask && <CheckSquare className="w-3.5 h-3.5 text-purple-400" />}
+                            {isImplementation && <Check className="w-3.5 h-3.5 text-purple-400" />}
                             {text}
                           </a>
                         );
@@ -1718,60 +1714,7 @@ Use this information before asking the user for files.${projectInstructions}`;
     </div>
 
     {/* Footer row with model selector & disclaimers */}
-    <div className="flex items-center justify-between px-1.5 relative z-20">
-      <div className="relative">
-        <button
-          onClick={() => setShowModelDropdown(!showModelDropdown)}
-          className="flex items-center gap-1.5 px-2 py-0.5 bg-white/[0.04] hover:bg-white/[0.08] text-[9px] text-white/55 hover:text-white/80 rounded-md border border-white/5 transition-all font-mono"
-        >
-          <span className="text-purple-400 font-bold font-sans">+</span>
-          <span>{currentModel.name}</span>
-          <ChevronDown className="w-2.5 h-2.5 text-white/40" />
-        </button>
-
-        {/* Model dropdown */}
-        <AnimatePresence>
-          {showModelDropdown && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 5 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 5 }}
-              transition={{ duration: 0.12 }}
-              className="absolute bottom-full left-0 mb-1.5 w-64 bg-black/95 border border-white/10 rounded-xl shadow-2xl py-2 z-50 flex flex-col gap-0.5 max-h-[240px] overflow-y-auto custom-scrollbar"
-            >
-              <div className="px-3 pb-1.5 border-b border-white/5 mb-1 text-[9px] font-bold text-white/45 uppercase tracking-wider font-mono">
-                Model
-              </div>
-
-              {MODELS_LIST.map((model) => {
-                const isSelected = model.id === activeModelId;
-                return (
-                  <button
-                    key={model.id}
-                    onClick={() => {
-                      (useAiStore.getState() as any).setActiveModelId(model.id);
-                      setShowModelDropdown(false);
-                    }}
-                    className={`w-full text-left px-3 py-1.5 text-[10px] font-mono flex items-center justify-between transition-colors ${
-                      isSelected
-                        ? 'bg-purple-500/10 text-white'
-                        : 'text-white/60 hover:bg-white/5 hover:text-white'
-                    }`}
-                  >
-                    <span className={`${isSelected ? 'font-semibold' : ''}`}>{model.name}</span>
-                    {model.speedBadge && (
-                      <span className="text-[8px] px-1.5 py-0.5 rounded border font-semibold font-sans scale-90 bg-green-500/10 text-green-400 border-green-500/20">
-                        {model.speedBadge} (i)
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
+    <div className="flex items-center justify-end px-1.5 relative z-20">
       {/* "AI may make mistakes" disclaimer text */}
       <span className="text-[9px] text-white/25 font-mono select-none">
         AI may make mistakes. Check all generated code.

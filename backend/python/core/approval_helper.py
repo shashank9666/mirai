@@ -19,6 +19,8 @@ def request_and_wait_for_approval(tool_name: str, arguments: dict) -> bool:
     
     while True:
         time.sleep(0.5)
+        from routers.agent_router import load_approvals
+        load_approvals()
         status = approvals.get(req_id, {}).get("status", "pending")
         if status == "approved":
             return True
