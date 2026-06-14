@@ -8,7 +8,7 @@ import { useChatStore } from '@/store/chatStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useEditorStore } from '@/store/editorStore';
 
-import { WifiOff, Mic, MicOff, Plus, ChevronRight, Paperclip, FileCode, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, Headphones, Check, ListChecks, RotateCcw, CircleDashed, Clock } from 'lucide-react';
+import { WifiOff, Mic, MicOff, Plus, ChevronRight, Paperclip, FileCode, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, Headphones, Check, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import SimpleBar from 'simplebar-react';
@@ -18,6 +18,7 @@ import { DEFAULT_AGENT_PREFERENCES } from '@/lib/agent/policies';
 import { useVoiceStore } from '@/store/voiceStore';
 import VoiceOrb from './VoiceOrb';
 import AgentReviewPanel from './AgentReviewPanel';
+import PermissionModal from './PermissionModal';
 
 const DEFAULT_SYSTEM_PROMPT = `You are Mirai, an autonomous software engineering agent inside Mirai IDE.
 
@@ -202,21 +203,22 @@ function AgentSteps({ steps }: { steps?: import('@/store/chatStore').AgentStep[]
   if (!steps || steps.length === 0) return null;
 
   return (
-    <div className="mt-1 flex max-w-[90%] flex-col gap-1 rounded-lg border border-white/10 bg-black/20 p-2">
+    <div className="my-2 flex flex-col gap-3 px-1">
       {steps.map((step) => (
-        <div key={step.id} className="flex items-center gap-2 text-[10px] font-mono text-white/55">
-          {step.status === 'running' ? (
-            <CircleDashed className="h-3 w-3 animate-spin text-blue-300" />
-          ) : step.status === 'waiting_approval' ? (
-            <Clock className="h-3 w-3 text-amber-300" />
-          ) : step.status === 'failed' ? (
-            <X className="h-3 w-3 text-red-300" />
-          ) : (
-            <Check className="h-3 w-3 text-emerald-300" />
-          )}
-          <span className={step.status === 'waiting_approval' ? 'text-amber-200/80' : ''}>{step.title}</span>
+        <div key={step.id} className="flex flex-col gap-1">
+          <div className="flex items-center text-[12px] font-mono tracking-wide text-white/80">
+            <div className="flex items-center gap-2">
+              <span className={step.status === 'running' ? 'text-blue-300' : step.status === 'waiting_approval' ? 'text-amber-300' : 'text-white/80'}>
+                {step.title}
+              </span>
+            </div>
+            {step.status === 'running' && <span className="ml-2 text-[10px] text-white/30 uppercase tracking-widest animate-pulse">Working...</span>}
+            <ChevronRight className="w-3.5 h-3.5 text-white/30 ml-auto" />
+          </div>
           {step.detail && typeof step.detail === 'string' && (
-            <span className="truncate text-white/25">{step.detail}</span>
+            <div className="text-[11px] font-mono text-white/40 truncate max-w-[90%] opacity-70">
+              {step.detail}
+            </div>
           )}
         </div>
       ))}
@@ -315,7 +317,6 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const [isListening, setIsListening] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
-  const [activeChatTab, setActiveChatTab] = useState<'chat' | 'changes'>('chat');
   const [isConvoMode, setIsConvoMode] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
@@ -643,7 +644,6 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
         (change) => change.status === 'pending' && change.filePath === absPath && change.proposedContent === codeString
       );
       if (existing) {
-        setActiveChatTab('changes');
         openDiffForReview(existing.id);
         return;
       }
@@ -656,7 +656,6 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
         const fileName = absPath.split(/[/\\]/).pop() || absPath;
         setActiveFile(absPath, fileName, originalContent);
         openDiffForReview(changeId);
-        setActiveChatTab('changes');
       }
     } catch (err) {
       console.error('Failed to open review:', err);
@@ -1125,35 +1124,7 @@ Use this information before asking the user for files.${projectInstructions}`;
 
           </div>
 
-          <div className="flex border-b border-white/5 bg-black/10 px-2 py-1">
-            <button
-              type="button"
-              onClick={() => setActiveChatTab('chat')}
-              className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-mono transition-colors ${
-                activeChatTab === 'chat' ? 'bg-white/10 text-white/85' : 'text-white/35 hover:bg-white/5 hover:text-white/70'
-              }`}
-            >
-              <MessageSquarePlus className="h-3.5 w-3.5" />
-              Chat
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveChatTab('changes')}
-              className={`ml-1 flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-mono transition-colors ${
-                activeChatTab === 'changes' || pendingChangeCount > 0
-                  ? 'bg-emerald-500/15 text-emerald-300'
-                  : 'text-white/35 hover:bg-white/5 hover:text-white/70'
-              }`}
-            >
-              <ListChecks className="h-3.5 w-3.5" />
-              Changes
-              {pendingChangeCount > 0 && (
-                <span className="rounded-full bg-emerald-400/20 px-1.5 py-0.5 text-[9px] text-emerald-200">
-                  {pendingChangeCount}
-                </span>
-              )}
-            </button>
-          </div>
+          
 
           {/* Backend offline banner */}
           {backendAvailable === false && chatMessages.length === 0 && (
@@ -1164,11 +1135,6 @@ Use this information before asking the user for files.${projectInstructions}`;
           )}
 
           {/* Content Area */}
-          {activeChatTab === 'changes' ? (
-            <div className="flex-1 min-h-0">
-              <AgentReviewPanel />
-            </div>
-          ) : (
           <SimpleBar className="flex-1 p-3 flex flex-col gap-3 relative min-h-0">
             {isConvoMode ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--panel-bg)] z-30">
@@ -1272,8 +1238,13 @@ Use this information before asking the user for files.${projectInstructions}`;
         <div ref={messagesEndRef} className="h-4 w-full shrink-0" />
       </>
             )}
-    </SimpleBar>
-          )}
+      </SimpleBar>
+
+    {pendingChangeCount > 0 && (
+      <div className="shrink-0 border-t border-white/5 bg-[#1E1E1E]/95 backdrop-blur-md max-h-[40%] flex flex-col z-40 relative">
+        <AgentReviewPanel />
+      </div>
+    )}
 
           {/* Attached Files display */ }
   {
@@ -1374,6 +1345,8 @@ Use this information before asking the user for files.${projectInstructions}`;
         </button>
       )}
     </div>
+
+    <PermissionModal />
   </div>
         </>
       )

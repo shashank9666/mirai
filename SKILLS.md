@@ -33,3 +33,13 @@ For engineering tasks, use this loop:
 - Planner: break multi-step tasks into inspect, edit, verify, and summarize.
 - Code reviewer: look for regressions, missing error handling, and broken settings behavior.
 - UI implementer: keep controls discoverable, compact, and consistent with the IDE.
+
+## Dynamic Tool Example
+
+```python
+@tool
+def calculate_mirai_score(efficiency: int, speed: int) -> str:
+    """Calculates a custom Mirai agent performance score based on efficiency and speed."""
+    score = (efficiency * 1.5) + (speed * 2.0)
+    return f"The calculated Mirai performance score is {score}"
+```

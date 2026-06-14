@@ -97,7 +97,7 @@ class MiraiAgent:
         stripped = text.lstrip()
         return stripped.startswith("{") or stripped.startswith("```")
 
-    async def run(self, messages: List[BaseMessage], session_id: str = "agent_stream", auto_approve_settings: dict = None):
+    async def run(self, messages: List[BaseMessage], session_id: str = "agent_stream", auto_approve_settings: dict = None, workspace_path: str = None):
         if auto_approve_settings is None:
             auto_approve_settings = {}
         token = auto_approve_settings_var.set(auto_approve_settings)
@@ -113,6 +113,21 @@ class MiraiAgent:
                 "status": "running",
                 "detail": "Understanding the request and selecting tools."
             })
+            
+            # Load dynamic skills
+            if workspace_path:
+                from core.dynamic_skills import load_dynamic_tools
+                try:
+                    dynamic_tools = load_dynamic_tools(workspace_path)
+                    if dynamic_tools:
+                        # Append and re-bind tools
+                        self.tools.extend(dynamic_tools)
+                        self.tool_names = {t.name for t in self.tools}
+                        self.llm = self.llm.bind_tools(self.tools)
+                        # Rebuild graph to include new tools
+                        self.graph = self._build_graph()
+                except Exception as e:
+                    print(f"Error loading dynamic skills: {e}")
             
             final_messages = []
             stream_buffer = ""

@@ -201,7 +201,8 @@ def agent_chat():
         async def _run():
             try:
                 auto_approve_settings = data.get("autoApproveSettings", {})
-                result = await agent.run(lc_messages, session_id=session_id, auto_approve_settings=auto_approve_settings)
+                workspace_path = data.get("workspacePath")
+                result = await agent.run(lc_messages, session_id=session_id, auto_approve_settings=auto_approve_settings, workspace_path=workspace_path)
                 content = ""
                 for msg in reversed(result["messages"]):
                     if isinstance(msg, AIMessage):
