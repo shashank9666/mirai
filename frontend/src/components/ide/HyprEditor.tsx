@@ -204,6 +204,7 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
 
   const handleEditorMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
+    editor.focus();
 
     editor.onDidChangeCursorPosition((e) => {
       setCursorLine(e.position.lineNumber);
@@ -319,20 +320,54 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePendingChange]);
 
-  // Save with format on save
+  // Save, Accept, Reject, Navigate with shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
-      if (mod && e.key === 'Enter' && activePendingChange && isActive) {
+      
+      // Ctrl+Enter or Alt+Enter to Accept
+      if (((mod && e.key === 'Enter') || (e.altKey && e.key === 'Enter')) && activePendingChange && isActive) {
         e.preventDefault();
         acceptChange(activePendingChange.id);
         return;
       }
-      if (mod && (e.key === 'Backspace' || e.key === 'Delete') && activePendingChange && isActive) {
+      
+      // Ctrl+Backspace, Ctrl+Delete or Shift+Alt+Backspace to Reject
+      const isRejectKey = (mod && (e.key === 'Backspace' || e.key === 'Delete')) ||
+                          (e.altKey && e.shiftKey && e.key === 'Backspace');
+      if (isRejectKey && activePendingChange && isActive) {
         e.preventDefault();
         rejectChange(activePendingChange.id);
         return;
       }
+
+      // Alt+K / Alt+J to navigate edited files
+      if (e.altKey && e.key.toLowerCase() === 'k' && isActive) {
+        e.preventDefault();
+        const pendingList = pendingChanges.filter(c => c.status === 'pending');
+        if (pendingList.length > 1) {
+          const activeIndex = pendingList.findIndex(c => c.filePath === group.activeFile);
+          const prevIndex = (activeIndex - 1 + pendingList.length) % pendingList.length;
+          const target = pendingList[prevIndex];
+          const fileName = target.filePath.split(/[/\\]/).pop() || target.filePath;
+          useEditorStore.getState().setActiveFile(target.filePath, fileName, target.proposedContent);
+        }
+        return;
+      }
+      if (e.altKey && e.key.toLowerCase() === 'j' && isActive) {
+        e.preventDefault();
+        const pendingList = pendingChanges.filter(c => c.status === 'pending');
+        if (pendingList.length > 1) {
+          const activeIndex = pendingList.findIndex(c => c.filePath === group.activeFile);
+          const nextIndex = (activeIndex + 1) % pendingList.length;
+          const target = pendingList[nextIndex];
+          const fileName = target.filePath.split(/[/\\]/).pop() || target.filePath;
+          useEditorStore.getState().setActiveFile(target.filePath, fileName, target.proposedContent);
+        }
+        return;
+      }
+
+      // Ctrl+S to save
       if (mod && e.key === 's' && isActive) {
         e.preventDefault();
         if (editorSettings.formatOnSave && editorRef.current) {
@@ -346,7 +381,7 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isActive, editorSettings.formatOnSave, saveFile, activePendingChange, acceptChange, rejectChange]);
+  }, [isActive, editorSettings.formatOnSave, saveFile, activePendingChange, acceptChange, rejectChange, pendingChanges, group.activeFile]);
 
   // Handle revealing a specific line
   useEffect(() => {
@@ -364,6 +399,15 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
     window.addEventListener('editor:revealLine', handleRevealLine as EventListener);
     return () => window.removeEventListener('editor:revealLine', handleRevealLine as EventListener);
   }, [isActive, group.activeFile]);
+
+  // Focus the editor when the active file changes
+  useEffect(() => {
+    if (editorRef.current && isActive && group.activeFile) {
+      setTimeout(() => {
+        editorRef.current.focus();
+      }, 50);
+    }
+  }, [group.activeFile, isActive]);
 
   const opts = editorSettings;
 
@@ -469,18 +513,100 @@ function EditorGroupPanel({ group }: { group: EditorGroup }) {
         )}
 
         {group.activeFile ? (
-          <FileViewer
-            filePath={group.activeFile}
-            content={group.activeFileContent}
-            monacoProps={{
-              theme: editorSettings.appTheme === 'light' ? 'mirai-glass-light' : 'mirai-glass-dark',
-              path: group.id + ':' + group.activeFile,
-              language: group.tabs.find(t => t.path === group.activeFile)?.language,
-              onChange: handleEditorChange,
-              onMount: handleEditorMount,
-              options: monacoOptions
-            }}
-          />
+          <>
+            <FileViewer
+              filePath={group.activeFile}
+              content={group.activeFileContent}
+              monacoProps={{
+                theme: editorSettings.appTheme === 'light' ? 'mirai-glass-light' : 'mirai-glass-dark',
+                path: group.id + ':' + group.activeFile,
+                language: group.tabs.find(t => t.path === group.activeFile)?.language,
+                onChange: handleEditorChange,
+                onMount: handleEditorMount,
+                options: monacoOptions
+              }}
+            />
+
+            {/* Floating review panels */}
+            {activePendingChange && (
+              <>
+                {/* Top-Right Floating Bar */}
+                <div className="absolute top-4 right-4 z-40 flex items-center gap-1 bg-[#1a1a1a]/95 border border-white/10 rounded-lg shadow-lg px-2.5 py-1 text-[11px] font-mono text-white/90 backdrop-blur-md">
+                  <button
+                    onClick={() => acceptChange(activePendingChange.id)}
+                    className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded transition-colors text-[10px]"
+                  >
+                    Accept <span className="opacity-60 text-[9px]">Alt+↵</span>
+                  </button>
+                  <button
+                    onClick={() => rejectChange(activePendingChange.id)}
+                    className="hover:bg-white/5 text-white/60 hover:text-white px-2 py-0.5 rounded transition-all text-[10px]"
+                  >
+                    Reject <span className="opacity-60 text-[9px]">Shift+Alt+⌫</span>
+                  </button>
+                  <div className="w-[1px] h-3 bg-white/10 mx-1" />
+                  <button className="text-white/30 hover:text-white/70">
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                  </button>
+                </div>
+
+                {/* Bottom Floating Bar */}
+                <div className="absolute bottom-4 right-4 z-40 flex items-center gap-3.5 bg-[#1a1a1a]/95 border border-white/10 rounded-xl shadow-2xl px-3.5 py-1.5 text-[11px] font-mono text-white/90 backdrop-blur-md">
+                  <button
+                    onClick={() => acceptChange(activePendingChange.id)}
+                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg font-semibold text-[11px] transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                    Accept Changes <span className="opacity-60 text-[9px]">Ctrl+↵</span>
+                  </button>
+                  <button
+                    onClick={() => rejectChange(activePendingChange.id)}
+                    className="hover:bg-white/5 text-white/70 px-2 py-1 rounded-md transition-colors"
+                  >
+                    Reject <span className="opacity-60 text-[9px]">Ctrl+⌫</span>
+                  </button>
+                  <span className="text-white/20 select-none">|</span>
+                  <span className="text-white/30 text-[10px]">↑ Alt+K ↓ Alt+J</span>
+                  {(() => {
+                    const pendingList = pendingChanges.filter(c => c.status === 'pending');
+                    const totalChanges = pendingList.length;
+                    const activeIndex = pendingList.findIndex(c => c.filePath === group.activeFile);
+                    if (totalChanges <= 0) return null;
+                    return (
+                      <>
+                        <span className="text-white/20 select-none">|</span>
+                        <div className="flex items-center gap-1 text-[10px]">
+                          <button
+                            onClick={() => {
+                              const prevIndex = (activeIndex - 1 + totalChanges) % totalChanges;
+                              const target = pendingList[prevIndex];
+                              const name = target.filePath.split(/[/\\]/).pop() || target.filePath;
+                              useEditorStore.getState().setActiveFile(target.filePath, name, target.proposedContent);
+                            }}
+                            className="p-1 hover:bg-white/5 rounded text-white/50 hover:text-white"
+                          >
+                            &lt;
+                          </button>
+                          <span className="text-white/60">Edited files {activeIndex + 1}/{totalChanges}</span>
+                          <button
+                            onClick={() => {
+                              const nextIndex = (activeIndex + 1) % totalChanges;
+                              const target = pendingList[nextIndex];
+                              const name = target.filePath.split(/[/\\]/).pop() || target.filePath;
+                              useEditorStore.getState().setActiveFile(target.filePath, name, target.proposedContent);
+                            }}
+                            className="p-1 hover:bg-white/5 rounded text-white/50 hover:text-white"
+                          >
+                            &gt;
+                          </button>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </>
+            )}
+          </>
         ) : (
           <div className="w-full h-full flex items-center justify-center relative">
             {groups.length > 1 && (

@@ -51,14 +51,14 @@ def execute_command(command: str, cwd: str = "") -> str:
         )
 
         if not can_execute:
-            return json.dumps({
-                "approval_required": True,
-                "tool": "execute_command",
+            from core.approval_helper import request_and_wait_for_approval
+            approved = request_and_wait_for_approval("execute_command", {
                 "command": command,
                 "cwd": workspace_manager.get_relative_path(target_cwd),
-                "safe": is_safe,
-                "message": "Command execution is blocked by agent settings. Ask the user to approve before running it."
+                "safe": is_safe
             })
+            if not approved:
+                return f"Error: Command execution '{command}' denied by user."
 
         shell = "powershell.exe" if sys.platform == "win32" else "bash"
         shell_args = ["-Command", command] if sys.platform == "win32" else ["-c", command]

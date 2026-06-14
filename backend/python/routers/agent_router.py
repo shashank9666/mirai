@@ -238,6 +238,11 @@ def agent_chat():
         while True:
             event = q.get()
             safe_event = _json_safe(event)
+            ev_type = event.get("type")
+            if ev_type == "token":
+                time.sleep(0.02)  # Smooth typewriter pacing
+            elif ev_type in ("workflow_step", "tool_start", "tool_end"):
+                time.sleep(0.6)   # Paced activity state transitions
             yield f"data: {json.dumps(safe_event, default=str)}\n\n"
             if event.get("type") == "done":
                 break

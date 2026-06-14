@@ -13,6 +13,15 @@ def list_directory(path: str = "") -> str:
     """List the contents of a directory. Returns a list of files and folders."""
     try:
         abs_path = _get_absolute_path(path)
+        
+        from core.agent import auto_approve_settings_var
+        settings = auto_approve_settings_var.get()
+        if not settings.get("readProjectFiles", False):
+            from core.approval_helper import request_and_wait_for_approval
+            approved = request_and_wait_for_approval("list_directory", {"path": path})
+            if not approved:
+                return f"Error: Permission denied by user to list directory {path}."
+
         if not os.path.exists(abs_path):
             return f"Error: Directory {path} does not exist."
         if not os.path.isdir(abs_path):
@@ -28,6 +37,15 @@ def read_file(path: str) -> str:
     """Read the contents of a file. Use this to inspect code or text files."""
     try:
         abs_path = _get_absolute_path(path)
+        
+        from core.agent import auto_approve_settings_var
+        settings = auto_approve_settings_var.get()
+        if not settings.get("readProjectFiles", False):
+            from core.approval_helper import request_and_wait_for_approval
+            approved = request_and_wait_for_approval("read_file", {"path": path})
+            if not approved:
+                return f"Error: Permission denied by user to read file {path}."
+
         if not os.path.exists(abs_path):
             return f"Error: File {path} does not exist."
         if not os.path.isfile(abs_path):

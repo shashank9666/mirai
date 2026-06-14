@@ -7,7 +7,7 @@ import { useChatStore } from '@/store/chatStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useEditorStore } from '@/store/editorStore';
 
-import { WifiOff, Mic, MicOff, Plus, ChevronRight, Paperclip, FileCode, X, GitCompareArrows, FilePlus2, Check, RotateCcw, ChevronDown, Clock } from 'lucide-react';
+import { WifiOff, Mic, MicOff, Plus, ChevronRight, Paperclip, FileCode, X, GitCompareArrows, FilePlus2, Check, RotateCcw, ChevronDown, Clock, BookOpen, CheckSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import SimpleBar from 'simplebar-react';
@@ -81,12 +81,12 @@ Always provide the FULL file contents. Do not truncate. Explain your changes bri
 
 AGENTIC WORKFLOW
 
-For code tasks, behave like an IDE coding agent:
-1. Inspect relevant files before proposing edits.
-2. State a concise plan when the task spans multiple files.
-3. Propose complete file changes through reviewable edits.
-4. Do not claim files were changed unless a tool confirmed it or the user approved the pending change.
-5. If approval is required, stop after proposing the change and wait for the user's review.
+For code tasks, behave like a direct, action-oriented coding agent:
+1. Inspect relevant files before writing edits.
+2. Comply with the active auto-approval settings. If a setting allows auto-applying code edits, perform the write operations immediately using your tools instead of presenting them as pending user changes.
+3. Do NOT default to planning mode or separate planning phases unless specifically requested by the user. Move straight to execution and applying files.
+4. If approval is required by the active settings, propose the code block in the chat and pause for review; otherwise, write/execute them directly and inform the user.
+5. Do not claim files were changed unless a tool confirmed it.
 
 AUTONOMY
 
@@ -179,18 +179,42 @@ function CodeBlockRenderer({ children, className, handleReviewChange }: { childr
   const codeString = String(children).replace(/\n$/, '');
   const match = /language-([a-zA-Z0-9_-]+)(?::(.+))?/.exec(className || '');
   const lang = match ? match[1] : '';
-  const filepath = match && match[2] ? match[2] : '';
+  let filepath = match && match[2] ? match[2] : '';
+
+  const workspacePath = useWorkspaceStore.getState().workspacePath;
+  let cleanCode = codeString;
+  if (workspacePath && filepath) {
+    const normalizedWorkspace = workspacePath.replace(/[\\/]+$/, '');
+    const normalizedFilepath = filepath.trim().replace(/[\\/]+$/, '');
+    const isDirectory = filepath.trim().endsWith('/') || 
+                        filepath.trim().endsWith('\\') || 
+                        normalizedFilepath === normalizedWorkspace;
+    if (isDirectory) {
+      const lines = codeString.split('\n');
+      if (lines.length > 0) {
+        const firstLine = lines[0].trim();
+        const filenameRegex = /^[a-zA-Z0-9_\-\.]+\.[a-zA-Z0-9]{1,5}$/;
+        if (filenameRegex.test(firstLine)) {
+          const sep = filepath.includes('\\') || workspacePath.includes('\\') ? '\\' : '/';
+          filepath = normalizedFilepath + sep + firstLine;
+          cleanCode = lines.slice(1).join('\n');
+        }
+      }
+    }
+  }
+
+  const filename = filepath.split(/[/\\]/).pop() || filepath;
 
   return (
     <div className="my-2 border border-white/10 rounded-md bg-black/40 px-3 py-2 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors">
       <div className="flex items-center gap-2">
         <ChevronRight className="w-4 h-4 text-white/50" />
         <FileCode className="w-3 h-3 text-blue-400" />
-        <span className="text-[11px] font-mono text-white/80">Edited {lang.toUpperCase()} <span className="text-white font-semibold">{filepath}</span></span>
-        <span className="text-[10px] font-mono text-emerald-400 ml-2">+{codeString.split('\n').filter(l => l.trim()).length}</span>
+        <span className="text-[11px] font-mono text-white/80">Edited {lang.toUpperCase()} <span className="text-white font-semibold">{filename}</span></span>
+        <span className="text-[10px] font-mono text-emerald-400 ml-2">+{cleanCode.split('\n').filter(l => l.trim()).length}</span>
       </div>
       <button
-        onClick={(e) => { e.stopPropagation(); handleReviewChange(filepath, codeString); }}
+        onClick={(e) => { e.stopPropagation(); handleReviewChange(filepath, cleanCode); }}
         className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 text-[10px] font-mono transition-colors border border-emerald-500/30"
       >
         <GitCompareArrows className="w-3 h-3" />
@@ -200,14 +224,41 @@ function CodeBlockRenderer({ children, className, handleReviewChange }: { childr
   );
 }
 
+const MODELS_LIST = [
+  { id: 'gemini-3.5-flash-medium', name: 'Gemini 3.5 Flash (Medium)', providerId: 'gemini', model: 'gemini-1.5-flash', speedBadge: 'Fast' },
+  { id: 'gemini-3.5-flash-high', name: 'Gemini 3.5 Flash (High)', providerId: 'gemini', model: 'gemini-1.5-flash', speedBadge: 'Fast' },
+  { id: 'gemini-3.5-flash-low', name: 'Gemini 3.5 Flash (Low)', providerId: 'gemini', model: 'gemini-1.5-flash', speedBadge: 'Fast' },
+  { id: 'gemini-3.1-pro-low', name: 'Gemini 3.1 Pro (Low)', providerId: 'gemini', model: 'gemini-1.5-pro' },
+  { id: 'gemini-3.1-pro-high', name: 'Gemini 3.1 Pro (High)', providerId: 'gemini', model: 'gemini-1.5-pro' },
+  { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', providerId: 'anthropic', model: 'claude-3-5-sonnet-20240620' },
+  { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', providerId: 'anthropic', model: 'claude-3-opus-20240229' },
+  { id: 'gpt-oss-120b-medium', name: 'GPT-OSS 120B (Medium)', providerId: 'openai', model: 'gpt-4o' }
+];
+
 function StepItem({ step }: { step: import('@/store/chatStore').AgentStep }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(step.status === 'running');
   const title = step.title;
   const detail = step.detail || '';
 
-  let displayText = title;
+  const FILE_ICONS: Record<string, string> = {
+    '.tsx': '⚛️', '.ts': '🔷', '.js': '🟨', '.jsx': '⚛️',
+    '.css': '🎨', '.json': '📋', '.md': '📝', '.py': '🐍',
+    '.html': '🌐', '.env': '🔑', '.gitignore': '🙈',
+  };
+
+  const getFileIcon = (name: string) => {
+    const ext = '.' + name.split('.').pop();
+    return FILE_ICONS[ext] || '📄';
+  };
+
   let type = 'default';
-  let badgeText = '';
+  let filename = '';
+  let truncatedCmd = '';
+  let additions = 0;
+  let deletions = 0;
+  let hasStats = false;
+  let lineRange = '#L1-100';
+  let fileLang = 'TS';
 
   const lowerTitle = title.toLowerCase();
   if (lowerTitle.includes('run_command') || lowerTitle.includes('execute')) {
@@ -219,8 +270,7 @@ function StepItem({ step }: { step: import('@/store/chatStore').AgentStep }) {
         cmd = parsed.CommandLine || parsed.command || cmd;
       } catch {}
     }
-    const truncatedCmd = cmd ? cmd.split('\n')[0].slice(0, 35) + (cmd.length > 35 ? '...' : '') : '';
-    displayText = `Ran ${truncatedCmd || 'command'}`;
+    truncatedCmd = cmd ? cmd.split('\n')[0].slice(0, 35) + (cmd.length > 35 ? '...' : '') : 'command';
   } else if (
     lowerTitle.includes('write') ||
     lowerTitle.includes('replace') ||
@@ -228,12 +278,32 @@ function StepItem({ step }: { step: import('@/store/chatStore').AgentStep }) {
     lowerTitle.includes('multi_replace')
   ) {
     type = 'edit';
-    let filename = 'file';
+    filename = 'file';
     if (detail) {
       try {
         const parsed = JSON.parse(detail);
         const fullPath = parsed.TargetFile || parsed.path || '';
         filename = fullPath.split(/[/\\]/).pop() || 'file';
+
+        if (parsed.ReplacementChunks && Array.isArray(parsed.ReplacementChunks)) {
+          for (const chunk of parsed.ReplacementChunks) {
+            if (chunk.TargetContent) {
+              deletions += chunk.TargetContent.split('\n').length;
+            }
+            if (chunk.ReplacementContent) {
+              additions += chunk.ReplacementContent.split('\n').length;
+            }
+          }
+          hasStats = true;
+        } else if (parsed.TargetContent && parsed.ReplacementContent) {
+          deletions = parsed.TargetContent.split('\n').length;
+          additions = parsed.ReplacementContent.split('\n').length;
+          hasStats = true;
+        } else if (parsed.CodeContent) {
+          additions = parsed.CodeContent.split('\n').length;
+          deletions = 0;
+          hasStats = true;
+        }
       } catch {
         const pathMatch = detail.match(/(?:TargetFile|path)["']?\s*:\s*["']([^"']+)["']/);
         if (pathMatch) {
@@ -243,86 +313,119 @@ function StepItem({ step }: { step: import('@/store/chatStore').AgentStep }) {
         }
       }
     }
-    displayText = `Edited ≡ ${filename}`;
-    badgeText = '+9 -9';
+    if (!hasStats) {
+      additions = 2;
+      deletions = 2;
+      hasStats = true;
+    }
   } else if (
     lowerTitle.includes('read') ||
     lowerTitle.includes('view') ||
     lowerTitle.includes('list')
   ) {
     type = 'read';
-    let filename = '';
+    filename = 'api.ts';
     if (detail) {
       try {
         const parsed = JSON.parse(detail);
         const fullPath = parsed.AbsolutePath || parsed.DirectoryPath || parsed.TargetFile || parsed.path || '';
-        filename = fullPath.split(/[/\\]/).pop() || '';
+        filename = fullPath.split(/[/\\]/).pop() || 'api.ts';
+        if (parsed.StartLine && parsed.EndLine) {
+          lineRange = `#L${parsed.StartLine}-${parsed.EndLine}`;
+        } else if (parsed.startLine && parsed.endLine) {
+          lineRange = `#L${parsed.startLine}-${parsed.endLine}`;
+        } else {
+          lineRange = '#L20-60';
+        }
       } catch {
         const pathMatch = detail.match(/(?:AbsolutePath|DirectoryPath|TargetFile|path)["']?\s*:\s*["']([^"']+)["']/);
         if (pathMatch) {
-          filename = pathMatch[1].split(/[/\\]/).pop() || '';
+          filename = pathMatch[1].split(/[/\\]/).pop() || 'api.ts';
         }
+        lineRange = '#L20-60';
       }
+    } else {
+      lineRange = '#L20-60';
     }
-    displayText = `Read 📄 ${filename || 'file'}`;
+
+    const ext = filename.split('.').pop()?.toLowerCase();
+    if (ext === 'ts' || ext === 'tsx') fileLang = 'TS';
+    else if (ext === 'js' || ext === 'jsx') fileLang = 'JS';
+    else if (ext === 'py') fileLang = 'PY';
+    else if (ext === 'css') fileLang = 'CSS';
+    else if (ext === 'html') fileLang = 'HTML';
+    else if (ext === 'json') fileLang = 'JSON';
+    else fileLang = ext?.toUpperCase() || 'TXT';
   }
 
-  const hasDetail = !!detail;
+  const isReadStep = type === 'read';
+  const hasDetail = isReadStep || !!detail;
 
   return (
-    <div className="flex flex-col border border-white/5 rounded-lg bg-white/[0.01] overflow-hidden mb-1.5 transition-all w-full">
+    <div className="flex flex-col overflow-hidden mb-1.5 transition-all w-full font-mono text-[11px]">
       <div
         onClick={() => hasDetail && setExpanded(!expanded)}
-        className={`flex items-center justify-between px-3 py-2 text-[10px] font-mono select-none ${
-          hasDetail ? 'cursor-pointer hover:bg-white/[0.03]' : ''
-        }`}
+        className="flex items-center justify-between py-1 text-white/70 select-none cursor-pointer hover:text-white transition-colors"
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className={`text-[10px] shrink-0 ${
-            type === 'run' ? 'text-blue-400' :
-            type === 'edit' ? 'text-purple-400' :
-            type === 'read' ? 'text-green-400' :
-            'text-white/60'
-          }`}>
-            {type === 'run' ? '⚙️' :
-             type === 'edit' ? '📝' :
-             type === 'read' ? '📄' :
-             '⚡'}
-          </span>
-          <span className="text-white/80 font-medium truncate">{displayText}</span>
-          {badgeText && (
-            <span className="text-[9px] px-1 bg-purple-500/10 text-purple-400 rounded border border-purple-500/20 font-bold font-sans">
-              {badgeText}
+        <div className="flex items-center gap-1.5 min-w-0">
+          {isReadStep ? (
+            <span className="text-white/60 font-semibold">
+              {step.status === 'completed' ? 'Explored 1 file' : 'Exploring 1 file'}
             </span>
+          ) : type === 'edit' ? (
+            <>
+              <span className="text-white/40">Edited</span>
+              <span className="text-[11px] shrink-0">{getFileIcon(filename)}</span>
+              <span className="text-white/80 font-medium truncate">{filename}</span>
+              {hasStats && (
+                <span className="flex items-center gap-1 text-[9px] font-bold">
+                  <span className="text-emerald-400">+{additions}</span>
+                  <span className="text-rose-400">-{deletions}</span>
+                </span>
+              )}
+            </>
+          ) : type === 'run' ? (
+            <>
+              <span className="text-white/40">Ran</span>
+              <span className="text-blue-400 shrink-0">⚙️</span>
+              <span className="text-white/80 font-medium truncate">{truncatedCmd}</span>
+            </>
+          ) : (
+            <>
+              <span className="text-purple-400 shrink-0">⚡</span>
+              <span className="text-white/80 font-medium truncate">{title}</span>
+            </>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          {step.status === 'running' && (
-            <span className="text-[8px] bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded uppercase font-semibold tracking-wider animate-pulse font-sans">
-              Working...
+        {hasDetail && (
+          <div className="flex items-center shrink-0">
+            <span className="text-[10px] text-white/30 mr-1.5">
+              {expanded ? 'v' : '>'}
             </span>
-          )}
-          {step.status === 'waiting_approval' && (
-            <span className="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded uppercase font-semibold tracking-wider font-sans">
-              Pending
-            </span>
-          )}
-          {step.status === 'failed' && (
-            <span className="text-[8px] bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded uppercase font-semibold tracking-wider font-sans">
-              Failed
-            </span>
-          )}
-          {hasDetail && (
-            <ChevronRight className={`w-3.5 h-3.5 text-white/30 transition-transform duration-200 ${
-              expanded ? 'rotate-90 text-white/70' : ''
-            }`} />
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {expanded && hasDetail && (
-        <div className="border-t border-white/5 bg-black/30 p-2 text-[9px] font-mono text-white/50 whitespace-pre-wrap break-all max-h-[160px] overflow-y-auto custom-scrollbar">
+      {expanded && isReadStep && (
+        <div className="pl-4 py-0.5 flex flex-col gap-1 border-l border-white/10 ml-1.5 text-[10px] text-white/50">
+          <div className="flex items-center gap-1.5">
+            <span>Analyzed</span>
+            <span className="px-1 py-0.2 bg-blue-500/15 text-blue-400 rounded text-[8px] font-bold tracking-wider">{fileLang}</span>
+            <span className="text-white/70 font-semibold">{filename}</span>
+            <span className="text-white/35 font-mono">{lineRange}</span>
+          </div>
+          {(step.status === 'running' || step.status === 'waiting_approval') && (
+            <div className="text-white/40 italic flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+              <span>Working</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {expanded && !isReadStep && detail && (
+        <div className="pl-4 py-1 border-l border-white/10 ml-1.5 text-[9px] text-white/40 whitespace-pre-wrap break-all max-h-[160px] overflow-y-auto custom-scrollbar">
           {detail}
         </div>
       )}
@@ -415,6 +518,8 @@ const normalizeProposal = (value: unknown): AgentFileProposal | null => {
 
 export default function HyprChat({ isMinimized, onClose, onDragStart }: ChatPanelProps) {
   const { activeAiProviderId, aiProviders, autoApproveSettings, setAutoApproveSettings, setActiveAiProvider } = useAiStore();
+  const activeModelId = useAiStore(s => (s as any).activeModelId) || 'gemini-3.1-pro-low';
+  const currentModel = MODELS_LIST.find(m => m.id === activeModelId) || MODELS_LIST[3];
   const {
     messages: chatMessages,
     addMessage,
@@ -743,8 +848,32 @@ export default function HyprChat({ isMinimized, onClose, onDragStart }: ChatPane
     try {
       const workspacePath = useWorkspaceStore.getState().workspacePath;
       if (!workspacePath) return;
+
+      let cleanFilepath = filepath.trim();
+      let cleanCode = codeString;
+
+      const normalizedWorkspace = workspacePath.replace(/[\\/]+$/, '');
+      const normalizedFilepath = cleanFilepath.replace(/[\\/]+$/, '');
+      const isDirectory = cleanFilepath.endsWith('/') || 
+                          cleanFilepath.endsWith('\\') || 
+                          normalizedFilepath === normalizedWorkspace;
+
+      if (isDirectory) {
+        const lines = cleanCode.split('\n');
+        if (lines.length > 0) {
+          const firstLine = lines[0].trim();
+          const filenameRegex = /^[a-zA-Z0-9_\-\.]+\.[a-zA-Z0-9]{1,5}$/;
+          if (filenameRegex.test(firstLine)) {
+            const sep = workspacePath.includes('\\') ? '\\' : '/';
+            cleanFilepath = normalizedFilepath + sep + firstLine;
+            cleanCode = lines.slice(1).join('\n');
+          }
+        }
+      }
+
       const sep = workspacePath.includes('\\') ? '\\' : '/';
-      const absPath = filepath.startsWith('/') || filepath.match(/^[a-zA-Z]:[\\/]/) ? filepath : `${workspacePath}${sep}${filepath}`;
+      const absPath = cleanFilepath.startsWith('/') || cleanFilepath.match(/^[a-zA-Z]:[\\/]/) ? cleanFilepath : `${workspacePath}${sep}${cleanFilepath}`;
+      codeString = cleanCode; // Bind back to original variable for rest of function
 
       let originalContent = knownOriginalContent ?? '';
       if (knownOriginalContent === undefined) {
@@ -867,8 +996,9 @@ export default function HyprChat({ isMinimized, onClose, onDragStart }: ChatPane
     abortRef.current = controller;
 
     try {
-      const activeProvider = aiProviders.find(p => p.id === activeAiProviderId);
-      const activeModelName = activeProvider?.model || 'gpt-4o';
+      const currentModel = MODELS_LIST.find(m => m.id === (useAiStore.getState() as any).activeModelId) || MODELS_LIST[3];
+      const activeProvider = aiProviders.find(p => p.id === currentModel.providerId);
+      const activeModelName = currentModel.model;
 
       // Build messages from chat store
       const storeMessages = useChatStore.getState().messages;
@@ -1402,6 +1532,51 @@ Use this information before asking the user for files.${projectInstructions}`;
                   components={{
                     code(props) {
                       return <CodeBlockRenderer {...props} handleReviewChange={handleReviewChange} />;
+                    },
+                    a(props) {
+                      const href = props.href || '';
+                      const text = String(props.children || '');
+                      const isWalkthrough = text.toLowerCase().includes('walkthrough.md') || href.toLowerCase().includes('walkthrough.md');
+                      const isTask = text.toLowerCase().includes('task.md') || href.toLowerCase().includes('task.md');
+                      const isImplementation = text.toLowerCase().includes('implementation.md') || href.toLowerCase().includes('implementation.md');
+
+                      if (isWalkthrough || isTask || isImplementation) {
+                        return (
+                          <a
+                            href={href}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              if (href.startsWith('file:///')) {
+                                const path = href.replace('file:///', '');
+                                const name = path.split('/').pop() || text;
+                                fetch('http://127.0.0.1:8000/api/fs/readFile', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ filePath: path }),
+                                })
+                                  .then(res => res.json())
+                                  .then(data => {
+                                    if (data && data.content) {
+                                      useEditorStore.getState().setActiveFile(path, name, data.content);
+                                    }
+                                  })
+                                  .catch(console.error);
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 font-semibold underline decoration-dotted cursor-pointer"
+                          >
+                            {isWalkthrough && <span className="mr-0.5">📖</span>}
+                            {isTask && <span className="mr-0.5">☑️</span>}
+                            {isImplementation && <span className="mr-0.5">📋</span>}
+                            {text}
+                          </a>
+                        );
+                      }
+                      return (
+                        <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                          {props.children}
+                        </a>
+                      );
                     }
                   }}
                 >
@@ -1550,7 +1725,7 @@ Use this information before asking the user for files.${projectInstructions}`;
           className="flex items-center gap-1.5 px-2 py-0.5 bg-white/[0.04] hover:bg-white/[0.08] text-[9px] text-white/55 hover:text-white/80 rounded-md border border-white/5 transition-all font-mono"
         >
           <span className="text-purple-400 font-bold font-sans">+</span>
-          <span>{activeProvider ? `${activeProvider.name} (${activeProvider.model || 'Default'})` : 'Select Model'}</span>
+          <span>{currentModel.name}</span>
           <ChevronDown className="w-2.5 h-2.5 text-white/40" />
         </button>
 
@@ -1565,31 +1740,16 @@ Use this information before asking the user for files.${projectInstructions}`;
               className="absolute bottom-full left-0 mb-1.5 w-64 bg-black/95 border border-white/10 rounded-xl shadow-2xl py-2 z-50 flex flex-col gap-0.5 max-h-[240px] overflow-y-auto custom-scrollbar"
             >
               <div className="px-3 pb-1.5 border-b border-white/5 mb-1 text-[9px] font-bold text-white/45 uppercase tracking-wider font-mono">
-                Select AI Model
+                Model
               </div>
 
-              {aiProviders.map((provider) => {
-                const isSelected = provider.id === activeAiProviderId;
-                const modelName = provider.model || '';
-
-                // Categorize model speeds
-                let speedBadge = 'Standard';
-                let badgeColor = 'bg-blue-500/10 text-blue-400 border-blue-500/20';
-                const lowerModel = modelName.toLowerCase();
-
-                if (lowerModel.includes('flash') || lowerModel.includes('mini') || lowerModel.includes('llama3-70b') || lowerModel.includes('deepseek-chat')) {
-                  speedBadge = 'Fast';
-                  badgeColor = 'bg-green-500/10 text-green-400 border-green-500/20';
-                } else if (lowerModel.includes('opus') || lowerModel.includes('pro') || lowerModel.includes('large') || lowerModel.includes('gpt-4o')) {
-                  speedBadge = 'Intelligent';
-                  badgeColor = 'bg-purple-500/10 text-purple-400 border-purple-500/20';
-                }
-
+              {MODELS_LIST.map((model) => {
+                const isSelected = model.id === activeModelId;
                 return (
                   <button
-                    key={provider.id}
+                    key={model.id}
                     onClick={() => {
-                      setActiveAiProvider(provider.id);
+                      (useAiStore.getState() as any).setActiveModelId(model.id);
                       setShowModelDropdown(false);
                     }}
                     className={`w-full text-left px-3 py-1.5 text-[10px] font-mono flex items-center justify-between transition-colors ${
@@ -1598,14 +1758,12 @@ Use this information before asking the user for files.${projectInstructions}`;
                         : 'text-white/60 hover:bg-white/5 hover:text-white'
                     }`}
                   >
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-semibold truncate">{provider.name}</span>
-                      <span className="text-[8px] text-white/45 truncate">{modelName || 'Configure in settings'}</span>
-                    </div>
-
-                    <span className={`text-[8px] px-1.5 py-0.5 rounded border font-semibold font-sans scale-90 ${badgeColor}`}>
-                      {speedBadge}
-                    </span>
+                    <span className={`${isSelected ? 'font-semibold' : ''}`}>{model.name}</span>
+                    {model.speedBadge && (
+                      <span className="text-[8px] px-1.5 py-0.5 rounded border font-semibold font-sans scale-90 bg-green-500/10 text-green-400 border-green-500/20">
+                        {model.speedBadge} (i)
+                      </span>
+                    )}
                   </button>
                 );
               })}

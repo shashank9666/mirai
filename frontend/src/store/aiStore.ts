@@ -6,10 +6,12 @@ interface AiState {
   aiProviders: AIProviderConfig[];
   activeAiProviderId: string | null;
   autoApproveSettings: AutoApproveSettings;
+  activeModelId: string;
 
   setAiProviderConfig: (id: string, config: Partial<AIProviderConfig>) => void;
   setActiveAiProvider: (id: string) => void;
   setAutoApproveSettings: (settings: Partial<AutoApproveSettings>) => void;
+  setActiveModelId: (id: string) => void;
 }
 
 const DEFAULT_AI_PROVIDERS: AIProviderConfig[] = [
@@ -34,7 +36,8 @@ export const useAiStore = create<AiState>()(
   persist(
     (set, get) => ({
       aiProviders: DEFAULT_AI_PROVIDERS,
-      activeAiProviderId: 'openai',
+      activeAiProviderId: 'gemini',
+      activeModelId: 'gemini-3.1-pro-low',
       autoApproveSettings: {
         readProjectFiles: true,
         readAllFiles: false,
@@ -54,12 +57,15 @@ export const useAiStore = create<AiState>()(
       setAutoApproveSettings: (settings) => set((state) => ({
         autoApproveSettings: { ...state.autoApproveSettings, ...settings }
       })),
+
+      setActiveModelId: (id) => set(() => ({ activeModelId: id })),
     }),
     {
       name: 'mirai-ai-storage',
       partialize: (state) => ({
         aiProviders: state.aiProviders,
         activeAiProviderId: state.activeAiProviderId,
+        activeModelId: state.activeModelId,
         autoApproveSettings: state.autoApproveSettings,
       }),
     }
