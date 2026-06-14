@@ -2,8 +2,16 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import { Search } from 'lucide-react';
-import { api, SearchResult } from '@/lib/api';
+import { api } from '@/lib/api';
 import { useEditorStore } from '@/store/editorStore';
+
+interface SearchResult {
+  path: string;
+  matches: {
+    line: number;
+    text: string;
+  }[];
+}
 
 const FILE_ICONS: Record<string, string> = {
   '.tsx': '⚛️', '.ts': '🔷', '.js': '🟨', '.jsx': '⚛️',
@@ -145,7 +153,7 @@ export default function HyprSearch() {
                     <span className="flex-1 truncate">{name}</span>
                     <span className="text-[10px] text-white/25 shrink-0 group-hover:text-white/40 truncate">{dir}</span>
                   </button>
-                  {result.matches.slice(0, 5).map((m) => (
+                  {result.matches.slice(0, 5).map((m: { line: number; text: string }) => (
                     <button
                       key={`${result.path}:${m.line}`}
                       className="w-full flex items-center gap-2 px-4 py-0.5 text-[11px] font-mono text-white/40 hover:bg-white/5 hover:text-white/70 transition-colors text-left"

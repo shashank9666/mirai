@@ -35,9 +35,11 @@ export interface FileEntry {
 /**
  * Voice API - Speech to Text
  */
-export const voiceSTT = async (audioBlob: Blob): Promise<string> => {
+export const voiceSTT = async (audioBlob: Blob, apiKey?: string, provider?: string): Promise<string> => {
   const formData = new FormData();
   formData.append('audio', audioBlob, 'recording.webm');
+  if (apiKey) formData.append('api_key', apiKey);
+  if (provider) formData.append('provider', provider);
 
   try {
     const response = await fetch(`${getBackendBase()}/api/voice/transcribe`, {
@@ -57,14 +59,18 @@ export const voiceSTT = async (audioBlob: Blob): Promise<string> => {
 /**
  * Voice API - Text to Speech
  */
-export const voiceTTS = async (text: string): Promise<Blob> => {
+export const voiceTTS = async (text: string, apiKey?: string, provider?: string): Promise<Blob> => {
   try {
     const response = await fetch(`${getBackendBase()}/api/voice/synthesize`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ 
+        text,
+        api_key: apiKey,
+        provider: provider,
+      }),
     });
     if (!response.ok) throw new Error(await response.text());
     const data = await response.json();
@@ -84,9 +90,6 @@ export const voiceTTS = async (text: string): Promise<Blob> => {
   }
 };
 
-/**
- * Memory API - Save memory
- */
 export const saveMemory = async (key: string, value: unknown): Promise<void> => {
   try {
     await fetch(`${getBackendBase()}/api/memory`, {
@@ -101,9 +104,6 @@ export const saveMemory = async (key: string, value: unknown): Promise<void> => 
   }
 };
 
-/**
- * Memory API - Get memory
- */
 export const getMemory = async (key: string): Promise<unknown> => {
   try {
     const response = await fetch(`${getBackendBase()}/api/memory/${key}`);
@@ -115,9 +115,6 @@ export const getMemory = async (key: string): Promise<unknown> => {
   }
 };
 
-/**
- * Memory API - Get all memory
- */
 export const getAllMemory = async (): Promise<Record<string, unknown>> => {
   try {
     const response = await fetch(`${getBackendBase()}/api/memory`);

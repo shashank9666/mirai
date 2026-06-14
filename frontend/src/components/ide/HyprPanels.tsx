@@ -56,7 +56,7 @@ export function HyprAgent() {
 
   useEffect(() => {
     api.listTasks().then((res) => {
-      setSessions(res.tasks.map((t) => ({ id: t.id, name: t.command })));
+      setSessions(res.tasks.map((t: { id: string; command: string }) => ({ id: t.id, name: t.command })));
     }).catch(() => {});
   }, []);
 

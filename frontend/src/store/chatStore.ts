@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { estimateTokenCount } from '@/lib/agent/policies';
+import { useWorkspaceStore } from './workspaceStore';
 
 export interface ToolCall {
   id: string;
@@ -34,12 +35,24 @@ export interface ChatMessage {
   steps?: AgentStep[];
 }
 
+export interface Conversation {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  workspaceName: string;
+  status: 'running' | 'blocked' | 'completed';
+  createdAt: number;
+  updatedAt: number;
+}
+
 interface ChatState {
   messages: ChatMessage[];
   sessionId: string | null;
   totalInputTokens: number;
   totalOutputTokens: number;
   totalCost: number;
+  conversations: Conversation[];
+  activeConversationId: string | null;
 
   addMessage: (msg: Omit<ChatMessage, 'id' | 'timestamp' | 'tokenCount'>) => ChatMessage;
   updateMessage: (id: string, updates: Partial<ChatMessage>) => void;
@@ -48,6 +61,13 @@ interface ChatState {
   setSessionId: (id: string) => void;
   getContextMessages: (maxTokens: number) => ChatMessage[];
   getTokenBreakdown: () => { input: number; output: number; total: number; cost: number };
+
+  createConversation: (workspaceName?: string) => string;
+  switchConversation: (id: string) => void;
+  deleteConversation: (id: string) => void;
+  updateConversationStatus: (id: string, status: Conversation['status']) => void;
+  updateConversationTitle: (id: string, title: string) => void;
+  migrateLegacyMessages: () => void;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -58,8 +78,36 @@ export const useChatStore = create<ChatState>()(
       totalInputTokens: 0,
       totalOutputTokens: 0,
       totalCost: 0,
+      conversations: [],
+      activeConversationId: null,
+
+      migrateLegacyMessages: () => {
+        const { messages, conversations } = get();
+        if (messages.length > 0 && (!conversations || conversations.length === 0)) {
+          const wName = useWorkspaceStore.getState().workspaceName || 'Unknown Workspace';
+          const firstUserMsg = messages.find((m) => m.role === 'user')?.content;
+          const title = firstUserMsg ? firstUserMsg.slice(0, 45) : 'Previous Chat';
+          const now = Date.now();
+          const legacyConvo: Conversation = {
+            id: crypto.randomUUID(),
+            title,
+            messages,
+            workspaceName: wName,
+            status: 'completed',
+            createdAt: now,
+            updatedAt: now,
+          };
+          set({
+            conversations: [legacyConvo],
+            activeConversationId: legacyConvo.id,
+          });
+        }
+      },
 
       addMessage: (msg) => {
+        // Run migration if needed
+        get().migrateLegacyMessages();
+
         const now = Date.now();
         const tokenCount = estimateTokenCount(msg.content);
         const newMsg: ChatMessage = {
@@ -69,14 +117,56 @@ export const useChatStore = create<ChatState>()(
           tokenCount,
         };
         set((state) => {
+          let conversations = [...(state.conversations || [])];
+          let activeId = state.activeConversationId;
+
+          // Ensure active conversation exists
+          if (conversations.length === 0 || !activeId) {
+            const wName = useWorkspaceStore.getState().workspaceName || 'Unknown Workspace';
+            const newConvo: Conversation = {
+              id: crypto.randomUUID(),
+              title: msg.role === 'user' ? (msg.content.slice(0, 40) || 'New Chat') : 'New Chat',
+              messages: [],
+              workspaceName: wName,
+              status: 'completed',
+              createdAt: now,
+              updatedAt: now,
+            };
+            conversations.push(newConvo);
+            activeId = newConvo.id;
+          }
+
+          const updatedMessages = [...state.messages, newMsg];
+
+          // Find active conversation and update it
+          conversations = conversations.map((c) => {
+            if (c.id === activeId) {
+              let nextTitle = c.title;
+              if ((c.title === 'New Chat' || c.title === '') && msg.role === 'user') {
+                nextTitle = msg.content.slice(0, 40) || 'New Chat';
+              }
+              return {
+                ...c,
+                messages: updatedMessages,
+                title: nextTitle,
+                updatedAt: now,
+              };
+            }
+            return c;
+          });
+
           const updates: Partial<ChatState> = {
-            messages: [...state.messages, newMsg],
+            messages: updatedMessages,
+            conversations,
+            activeConversationId: activeId,
           };
+
           if (msg.role === 'user') {
             updates.totalInputTokens = state.totalInputTokens + tokenCount;
           } else if (msg.role === 'assistant') {
             updates.totalOutputTokens = state.totalOutputTokens + tokenCount;
           }
+
           return updates;
         });
         return newMsg;
@@ -101,8 +191,24 @@ export const useChatStore = create<ChatState>()(
           });
 
           const diff = newTokenCount - oldTokenCount;
+
+          let conversations = [...(state.conversations || [])];
+          if (state.activeConversationId) {
+            conversations = conversations.map((c) => {
+              if (c.id === state.activeConversationId) {
+                return {
+                  ...c,
+                  messages: newMessages,
+                  updatedAt: Date.now(),
+                };
+              }
+              return c;
+            });
+          }
+
           const storeUpdates: Partial<ChatState> = {
             messages: newMessages,
+            conversations,
           };
 
           if (diff !== 0) {
@@ -117,19 +223,52 @@ export const useChatStore = create<ChatState>()(
         }),
 
       clearMessages: () =>
-        set({
-          messages: [],
-          totalInputTokens: 0,
-          totalOutputTokens: 0,
-          totalCost: 0,
+        set((state) => {
+          let conversations = [...(state.conversations || [])];
+          if (state.activeConversationId) {
+            conversations = conversations.map((c) => {
+              if (c.id === state.activeConversationId) {
+                return {
+                  ...c,
+                  messages: [],
+                  updatedAt: Date.now(),
+                };
+              }
+              return c;
+            });
+          }
+          return {
+            messages: [],
+            totalInputTokens: 0,
+            totalOutputTokens: 0,
+            totalCost: 0,
+            conversations,
+          };
         }),
 
       removeMessage: (id) =>
         set((state) => {
           const msg = state.messages.find((m) => m.id === id);
           if (!msg) return {};
+          const newMessages = state.messages.filter((m) => m.id !== id);
+
+          let conversations = [...(state.conversations || [])];
+          if (state.activeConversationId) {
+            conversations = conversations.map((c) => {
+              if (c.id === state.activeConversationId) {
+                return {
+                  ...c,
+                  messages: newMessages,
+                  updatedAt: Date.now(),
+                };
+              }
+              return c;
+            });
+          }
+
           return {
-            messages: state.messages.filter((m) => m.id !== id),
+            messages: newMessages,
+            conversations,
             totalInputTokens: state.totalInputTokens - (msg.role === 'user' ? (msg.tokenCount || 0) : 0),
             totalOutputTokens: state.totalOutputTokens - (msg.role === 'assistant' ? (msg.tokenCount || 0) : 0),
           };
@@ -166,6 +305,111 @@ export const useChatStore = create<ChatState>()(
           cost: totalCost,
         };
       },
+
+      createConversation: (workspaceName) => {
+        const now = Date.now();
+        const wName = workspaceName || useWorkspaceStore.getState().workspaceName || 'Unknown Workspace';
+        const newConvo: Conversation = {
+          id: crypto.randomUUID(),
+          title: 'New Chat',
+          messages: [],
+          workspaceName: wName,
+          status: 'completed',
+          createdAt: now,
+          updatedAt: now,
+        };
+        set((state) => ({
+          conversations: [newConvo, ...(state.conversations || [])],
+          activeConversationId: newConvo.id,
+          messages: [],
+          totalInputTokens: 0,
+          totalOutputTokens: 0,
+          totalCost: 0,
+        }));
+        return newConvo.id;
+      },
+
+      switchConversation: (id) => {
+        set((state) => {
+          const conversations = state.conversations || [];
+          const convo = conversations.find((c) => c.id === id);
+          if (!convo) return {};
+
+          let totalInputTokens = 0;
+          let totalOutputTokens = 0;
+          convo.messages.forEach((m) => {
+            const count = m.tokenCount || 0;
+            if (m.role === 'user') totalInputTokens += count;
+            else if (m.role === 'assistant') totalOutputTokens += count;
+          });
+
+          return {
+            activeConversationId: id,
+            messages: convo.messages,
+            totalInputTokens,
+            totalOutputTokens,
+            totalCost: 0,
+          };
+        });
+      },
+
+      deleteConversation: (id) => {
+        set((state) => {
+          const conversations = (state.conversations || []).filter((c) => c.id !== id);
+          let activeId = state.activeConversationId;
+          let messages = state.messages;
+          let totalInputTokens = state.totalInputTokens;
+          let totalOutputTokens = state.totalOutputTokens;
+          let totalCost = state.totalCost;
+
+          if (activeId === id) {
+            if (conversations.length > 0) {
+              activeId = conversations[0].id;
+              const nextConvo = conversations[0];
+              messages = nextConvo.messages;
+              totalInputTokens = 0;
+              totalOutputTokens = 0;
+              nextConvo.messages.forEach((m) => {
+                const count = m.tokenCount || 0;
+                if (m.role === 'user') totalInputTokens += count;
+                else if (m.role === 'assistant') totalOutputTokens += count;
+              });
+              totalCost = 0;
+            } else {
+              activeId = null;
+              messages = [];
+              totalInputTokens = 0;
+              totalOutputTokens = 0;
+              totalCost = 0;
+            }
+          }
+
+          return {
+            conversations,
+            activeConversationId: activeId,
+            messages,
+            totalInputTokens,
+            totalOutputTokens,
+            totalCost,
+          };
+        });
+      },
+
+      updateConversationStatus: (id, status) => {
+        set((state) => ({
+          conversations: (state.conversations || []).map((c) =>
+            c.id === id ? { ...c, status, updatedAt: Date.now() } : c
+          ),
+        }));
+      },
+
+      updateConversationTitle: (id, title) => {
+        set((state) => ({
+          conversations: (state.conversations || []).map((c) =>
+            c.id === id ? { ...c, title, updatedAt: Date.now() } : c
+          ),
+        }));
+      },
     }),
     {
       name: 'mirai-chat-storage',
@@ -175,6 +419,8 @@ export const useChatStore = create<ChatState>()(
         totalInputTokens: state.totalInputTokens,
         totalOutputTokens: state.totalOutputTokens,
         totalCost: state.totalCost,
+        conversations: state.conversations,
+        activeConversationId: state.activeConversationId,
       }),
     }
   )

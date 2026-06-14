@@ -46,15 +46,21 @@ def transcribe():
     """
     audio_bytes = None
     language = None
+    provider = None
+    api_key = None
 
     if request.content_type and "multipart" in request.content_type:
         audio_file = request.files.get("audio")
         language = request.form.get("language")
+        provider = request.form.get("provider")
+        api_key = request.form.get("api_key")
         if audio_file:
             audio_bytes = audio_file.read()
     else:
         data = request.get_json(silent=True) or {}
         language = data.get("language")
+        provider = data.get("provider")
+        api_key = data.get("api_key")
         audio_b64 = data.get("audio_base64")
         if audio_b64:
             audio_bytes = base64.b64decode(audio_b64)
@@ -65,8 +71,8 @@ def transcribe():
     settings = _voice_settings
     result = transcribe_audio(
         audio_bytes,
-        provider=settings["stt_provider"],
-        api_key=settings["openai_api_key"],
+        provider=provider or settings["stt_provider"],
+        api_key=api_key or settings["openai_api_key"],
         model=settings["whisper_model"],
         language=language,
     )

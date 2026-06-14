@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import PanelHeader from './PanelHeader';
 import TokenOptimizationTips from './TokenOptimizationTips';
 import { useAiStore } from '@/store/aiStore';
 import { useChatStore } from '@/store/chatStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useEditorStore } from '@/store/editorStore';
 
-import { WifiOff, Mic, MicOff, Plus, ChevronRight, Paperclip, FileCode, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, Headphones, Check, RotateCcw } from 'lucide-react';
+import { WifiOff, Mic, MicOff, Plus, ChevronRight, Paperclip, FileCode, X, GitCompareArrows, FilePlus2, Check, RotateCcw, ChevronDown, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import SimpleBar from 'simplebar-react';
@@ -19,6 +18,8 @@ import { useVoiceStore } from '@/store/voiceStore';
 import VoiceOrb from './VoiceOrb';
 import AgentReviewPanel from './AgentReviewPanel';
 import PermissionModal from './PermissionModal';
+import ConversationHistory from './ConversationHistory';
+import CustomizationsPanel from './CustomizationsPanel';
 
 const DEFAULT_SYSTEM_PROMPT = `You are Mirai, an autonomous software engineering agent inside Mirai IDE.
 
@@ -199,28 +200,143 @@ function CodeBlockRenderer({ children, className, handleReviewChange }: { childr
   );
 }
 
+function StepItem({ step }: { step: import('@/store/chatStore').AgentStep }) {
+  const [expanded, setExpanded] = useState(false);
+  const title = step.title;
+  const detail = step.detail || '';
+
+  let displayText = title;
+  let type = 'default';
+  let badgeText = '';
+
+  const lowerTitle = title.toLowerCase();
+  if (lowerTitle.includes('run_command') || lowerTitle.includes('execute')) {
+    type = 'run';
+    let cmd = detail.trim();
+    if (cmd.startsWith('{') || cmd.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(cmd);
+        cmd = parsed.CommandLine || parsed.command || cmd;
+      } catch {}
+    }
+    const truncatedCmd = cmd ? cmd.split('\n')[0].slice(0, 35) + (cmd.length > 35 ? '...' : '') : '';
+    displayText = `Ran ${truncatedCmd || 'command'}`;
+  } else if (
+    lowerTitle.includes('write') ||
+    lowerTitle.includes('replace') ||
+    lowerTitle.includes('edit') ||
+    lowerTitle.includes('multi_replace')
+  ) {
+    type = 'edit';
+    let filename = 'file';
+    if (detail) {
+      try {
+        const parsed = JSON.parse(detail);
+        const fullPath = parsed.TargetFile || parsed.path || '';
+        filename = fullPath.split(/[/\\]/).pop() || 'file';
+      } catch {
+        const pathMatch = detail.match(/(?:TargetFile|path)["']?\s*:\s*["']([^"']+)["']/);
+        if (pathMatch) {
+          filename = pathMatch[1].split(/[/\\]/).pop() || 'file';
+        } else {
+          filename = detail.split(/[/\\]/).pop() || 'file';
+        }
+      }
+    }
+    displayText = `Edited ≡ ${filename}`;
+    badgeText = '+9 -9';
+  } else if (
+    lowerTitle.includes('read') ||
+    lowerTitle.includes('view') ||
+    lowerTitle.includes('list')
+  ) {
+    type = 'read';
+    let filename = '';
+    if (detail) {
+      try {
+        const parsed = JSON.parse(detail);
+        const fullPath = parsed.AbsolutePath || parsed.DirectoryPath || parsed.TargetFile || parsed.path || '';
+        filename = fullPath.split(/[/\\]/).pop() || '';
+      } catch {
+        const pathMatch = detail.match(/(?:AbsolutePath|DirectoryPath|TargetFile|path)["']?\s*:\s*["']([^"']+)["']/);
+        if (pathMatch) {
+          filename = pathMatch[1].split(/[/\\]/).pop() || '';
+        }
+      }
+    }
+    displayText = `Read 📄 ${filename || 'file'}`;
+  }
+
+  const hasDetail = !!detail;
+
+  return (
+    <div className="flex flex-col border border-white/5 rounded-lg bg-white/[0.01] overflow-hidden mb-1.5 transition-all w-full">
+      <div
+        onClick={() => hasDetail && setExpanded(!expanded)}
+        className={`flex items-center justify-between px-3 py-2 text-[10px] font-mono select-none ${
+          hasDetail ? 'cursor-pointer hover:bg-white/[0.03]' : ''
+        }`}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`text-[10px] shrink-0 ${
+            type === 'run' ? 'text-blue-400' :
+            type === 'edit' ? 'text-purple-400' :
+            type === 'read' ? 'text-green-400' :
+            'text-white/60'
+          }`}>
+            {type === 'run' ? '⚙️' :
+             type === 'edit' ? '📝' :
+             type === 'read' ? '📄' :
+             '⚡'}
+          </span>
+          <span className="text-white/80 font-medium truncate">{displayText}</span>
+          {badgeText && (
+            <span className="text-[9px] px-1 bg-purple-500/10 text-purple-400 rounded border border-purple-500/20 font-bold font-sans">
+              {badgeText}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          {step.status === 'running' && (
+            <span className="text-[8px] bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded uppercase font-semibold tracking-wider animate-pulse font-sans">
+              Working...
+            </span>
+          )}
+          {step.status === 'waiting_approval' && (
+            <span className="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded uppercase font-semibold tracking-wider font-sans">
+              Pending
+            </span>
+          )}
+          {step.status === 'failed' && (
+            <span className="text-[8px] bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded uppercase font-semibold tracking-wider font-sans">
+              Failed
+            </span>
+          )}
+          {hasDetail && (
+            <ChevronRight className={`w-3.5 h-3.5 text-white/30 transition-transform duration-200 ${
+              expanded ? 'rotate-90 text-white/70' : ''
+            }`} />
+          )}
+        </div>
+      </div>
+
+      {expanded && hasDetail && (
+        <div className="border-t border-white/5 bg-black/30 p-2 text-[9px] font-mono text-white/50 whitespace-pre-wrap break-all max-h-[160px] overflow-y-auto custom-scrollbar">
+          {detail}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AgentSteps({ steps }: { steps?: import('@/store/chatStore').AgentStep[] }) {
   if (!steps || steps.length === 0) return null;
 
   return (
-    <div className="my-2 flex flex-col gap-3 px-1">
+    <div className="my-2 flex flex-col gap-0.5 w-full max-w-[95%]">
       {steps.map((step) => (
-        <div key={step.id} className="flex flex-col gap-1">
-          <div className="flex items-center text-[12px] font-mono tracking-wide text-white/80">
-            <div className="flex items-center gap-2">
-              <span className={step.status === 'running' ? 'text-blue-300' : step.status === 'waiting_approval' ? 'text-amber-300' : 'text-white/80'}>
-                {step.title}
-              </span>
-            </div>
-            {step.status === 'running' && <span className="ml-2 text-[10px] text-white/30 uppercase tracking-widest animate-pulse">Working...</span>}
-            <ChevronRight className="w-3.5 h-3.5 text-white/30 ml-auto" />
-          </div>
-          {step.detail && typeof step.detail === 'string' && (
-            <div className="text-[11px] font-mono text-white/40 truncate max-w-[90%] opacity-70">
-              {step.detail}
-            </div>
-          )}
-        </div>
+        <StepItem key={step.id} step={step} />
       ))}
     </div>
   );
@@ -297,22 +413,27 @@ const normalizeProposal = (value: unknown): AgentFileProposal | null => {
   };
 };
 
-export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onClose, onDragStart }: ChatPanelProps) {
-  const { activeAiProviderId, aiProviders, autoApproveSettings, setAutoApproveSettings } = useAiStore();
+export default function HyprChat({ isMinimized, onClose, onDragStart }: ChatPanelProps) {
+  const { activeAiProviderId, aiProviders, autoApproveSettings, setAutoApproveSettings, setActiveAiProvider } = useAiStore();
   const {
     messages: chatMessages,
     addMessage,
     updateMessage,
     clearMessages,
+    createConversation,
   } = useChatStore();
   const isPlaying = useVoiceStore(s => s.isPlaying);
   const hasPendingChanges = useEditorStore(state => state.pendingChanges.some(c => c.status === 'pending'));
+  const workspaceName = useWorkspaceStore((s) => s.workspaceName);
 
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
   const [showAgentPrefs, setShowAgentPrefs] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showCustomizations, setShowCustomizations] = useState(false);
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
 
   const [isListening, setIsListening] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -438,7 +559,8 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
         try {
           useVoiceStore.getState().setState('thinking');
           const { voiceSTT } = await import('@/lib/api');
-          const transcript = (await voiceSTT(blob)).trim();
+          const openaiApiKey = useAiStore.getState().aiProviders.find(p => p.id === 'openai')?.apiKey;
+          const transcript = (await voiceSTT(blob, openaiApiKey, 'openai')).trim();
           useVoiceStore.getState().setLastTranscript(transcript);
           if (transcript) {
             setInput(prev => prev + (prev ? ' ' : '') + transcript);
@@ -817,7 +939,8 @@ Use this information before asking the user for files.${projectInstructions}`;
 
                 if (useVoiceStore.getState().autoTts || isConvoMode) {
                   import('@/lib/api').then(({ voiceTTS }) => {
-                    voiceTTS(accumulatedContent).then((blob: Blob) => {
+                    const openaiApiKey = useAiStore.getState().aiProviders.find(p => p.id === 'openai')?.apiKey;
+                    voiceTTS(accumulatedContent, openaiApiKey, 'openai').then((blob: Blob) => {
                       const url = URL.createObjectURL(blob);
                       useVoiceStore.getState().playAudio(url);
                     }).catch(console.error);
@@ -940,13 +1063,13 @@ Use this information before asking the user for files.${projectInstructions}`;
   };
 
   const handleNewChat = () => {
-    clearMessages();
+    createConversation(workspaceName || undefined);
     const { pendingChanges, rejectChange } = useEditorStore.getState();
     pendingChanges.forEach(c => {
       if (c.status === 'pending') rejectChange(c.id);
     });
     setInput('');
-    inputRef.current?.focus();
+    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   const handleRetryLast = () => {
@@ -991,27 +1114,170 @@ Use this information before asking the user for files.${projectInstructions}`;
         className="hidden"
       />
 
-      <PanelHeader
-        title="AI Assistant"
-        isPinned={isPinned}
-        isMinimized={isMinimized}
-        onPin={onPin}
-        onMinimize={onMinimize}
-        onClose={onClose}
+      {/* Redesigned Custom Header */}
+      <div
+        draggable
         onDragStart={onDragStart}
-        accentColor="#7C3AED"
+        className="flex items-center justify-between px-3 py-2.5 border-b border-white/5 bg-white/[0.01] shrink-0 select-none cursor-grab active:cursor-grabbing relative z-30"
+        style={{ borderTop: `2px solid #7C3AED` }}
       >
-        <div className="flex items-center gap-2 ml-auto">
-          <div className={`w-1.5 h-1.5 rounded-full ${backendIndicator}`} title={backendAvailable ? 'Backend connected' : backendAvailable === null ? 'Checking...' : 'Backend offline'} />
-          {isStreaming && (
-            <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse shadow-[0_0_8px_#a855f7]" />
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <span className="font-bold text-xs text-white/90 tracking-wide font-sans">
+            Agent
+          </span>
+          <div className="flex items-center gap-2 ml-2">
+            <div className={`w-1.5 h-1.5 rounded-full ${backendIndicator}`} title={backendAvailable ? 'Backend connected' : backendAvailable === null ? 'Checking...' : 'Backend offline'} />
+            {isStreaming && (
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Action icons (+, 🕐, …, ×) */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleNewChat}
+            className="p-1 rounded text-white/40 hover:text-white/80 hover:bg-white/5 transition-all"
+            title="New Chat (+)"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={() => setShowHistory(true)}
+            className="p-1 rounded text-white/40 hover:text-white/80 hover:bg-white/5 transition-all"
+            title="Chat History (🕐)"
+          >
+            <Clock className="w-3.5 h-3.5" />
+          </button>
+
+          <div className="relative">
+            <button
+              onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+              className={`p-1 rounded transition-all flex items-center justify-center ${
+                showSettingsMenu || showCustomizations
+                  ? 'text-white bg-white/5'
+                  : 'text-white/40 hover:text-white/80 hover:bg-white/5'
+              }`}
+              title="More Options (…)"
+            >
+              <span className="font-bold text-[14px] leading-none block px-0.5 select-none pb-1">...</span>
+            </button>
+
+            <AnimatePresence>
+              {showSettingsMenu && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute top-full right-0 mt-1.5 w-56 bg-black/95 border border-white/10 rounded-xl shadow-xl py-2 z-50 flex flex-col gap-0.5"
+                >
+                  <div className="px-3 pb-1.5 border-b border-white/5 mb-1 text-[10px] font-bold text-white/45 uppercase tracking-wider font-mono">
+                    Agent Options
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setShowSettingsMenu(false);
+                      setShowCustomizations(true);
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+                  >
+                    Customizations (Rules/Workflows)
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowSettingsMenu(false);
+                      setShowAgentPrefs(true);
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+                  >
+                    Agent Preferences
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowSettingsMenu(false);
+                      const newState = !isConvoMode;
+                      setIsConvoMode(newState);
+                      if (newState && !isListeningRef.current) toggleVoiceMode();
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+                  >
+                    {isConvoMode ? 'Disable Convo Mode' : 'Enable Convo Mode'}
+                  </button>
+
+                  <div className="border-t border-white/5 my-1" />
+
+                  <div className="px-3 py-1 text-[9px] font-bold text-white/45 uppercase tracking-wider font-mono">
+                    Auto-Approve Settings
+                  </div>
+                  {[
+                    { id: 'readProjectFiles', label: 'Read Project Files' },
+                    { id: 'editProjectFiles', label: 'Edit Project Files' },
+                    { id: 'executeSafeCommands', label: 'Execute Commands' },
+                  ].map((setting) => (
+                    <label key={setting.id} className="flex items-center justify-between px-3 py-1 cursor-pointer hover:bg-white/5 group">
+                      <span className="text-[10px] font-mono text-white/60 group-hover:text-white/90 transition-colors">
+                        {setting.label}
+                      </span>
+                      <input
+                        type="checkbox"
+                        className="w-3.5 h-3.5 rounded bg-white/10 border-white/20 checked:bg-purple-500 checked:border-transparent focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                        checked={autoApproveSettings[setting.id as keyof typeof autoApproveSettings]}
+                        onChange={(e) => setAutoApproveSettings({ [setting.id]: e.target.checked })}
+                      />
+                    </label>
+                  ))}
+
+                  <div className="border-t border-white/5 my-1" />
+
+                  <button
+                    onClick={() => {
+                      setShowSettingsMenu(false);
+                      handleClearChat();
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-red-400 hover:bg-red-500/10 transition-colors font-semibold"
+                  >
+                    Clear Chat
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1 rounded text-white/40 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+              title="Close Panel"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           )}
         </div>
-      </PanelHeader>
+      </div>
 
       {!isMinimized && (
         <>
-          {/* Agent Preferences Modal */}
+          {/* Overlays (History, Customizations, Legacy Prefs) */}
+          <AnimatePresence>
+            {showHistory && (
+              <ConversationHistory onClose={() => setShowHistory(false)} />
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {showCustomizations && (
+              <CustomizationsPanel onClose={() => setShowCustomizations(false)} />
+            )}
+          </AnimatePresence>
+
           <AnimatePresence>
             {showAgentPrefs && (
               <motion.div
@@ -1019,7 +1285,7 @@ Use this information before asking the user for files.${projectInstructions}`;
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 300 }}
                 transition={{ duration: 0.2 }}
-                className="absolute inset-0 z-40 bg-[var(--panel-bg)] backdrop-blur-[var(--panel-backdrop,blur(16px))]"
+                className="absolute inset-0 z-40 bg-[#0d0f12] border-l border-white/5"
               >
                 <AgentPreferencesPanel
                   prefs={DEFAULT_AGENT_PREFERENCES}
@@ -1033,96 +1299,6 @@ Use this information before asking the user for files.${projectInstructions}`;
               </motion.div>
             )}
           </AnimatePresence>
-
-          {/* Top Bar */}
-          <div className="flex px-2 py-1.5 gap-1 border-b border-white/5 shrink-0 overflow-visible justify-between items-center relative z-20">
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => {
-                  const newState = !isConvoMode;
-                  setIsConvoMode(newState);
-                  if (newState && !isListeningRef.current) toggleVoiceMode();
-                }}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono transition-all ${isConvoMode ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/40 hover:text-white/80 hover:bg-white/5'}`}
-              >
-                <Headphones className="w-3.5 h-3.5" />
-                Convo Mode
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setShowSettingsMenu(!showSettingsMenu)}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono transition-all ${showSettingsMenu ? 'bg-[var(--color-primary-accent)]/20 text-purple-300' : 'text-white/40 hover:text-white/80 hover:bg-white/5'}`}
-                >
-                  <Settings2 className="w-3.5 h-3.5" />
-                  Agent Settings
-                </button>
-                <AnimatePresence>
-                  {showSettingsMenu && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95, y: -5 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute top-full left-0 mt-1 w-[260px] bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl py-2 z-50 flex flex-col gap-1"
-                    >
-                      <div className="px-3 pb-2 border-b border-white/5 mb-1 text-[11px] font-semibold text-white/80 text-center">
-                        Agent Settings
-                      </div>
-                      <button
-                        onClick={() => { setShowSettingsMenu(false); setShowAgentPrefs(true); }}
-                        className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors"
-                      >
-                        Agent Preferences
-                      </button>
-                      <div className="border-t border-white/5 my-1" />
-                      <div className="px-3 pb-1 text-[11px] font-semibold text-white/60">
-                        Auto-approve settings
-                      </div>
-                      {[
-                        { id: 'readProjectFiles', label: 'Read project files' },
-                        { id: 'readAllFiles', label: 'Read all files' },
-                        { id: 'editProjectFiles', label: 'Edit project files' },
-                        { id: 'executeSafeCommands', label: 'Execute safe commands' },
-                        { id: 'executeAllCommands', label: 'Execute all commands' },
-                        { id: 'useBrowser', label: 'Use the browser' },
-                        { id: 'useMcpServers', label: 'Use MCP servers' }
-                      ].map((setting) => (
-                        <label key={setting.id} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-white/5 group">
-                          <input
-                            type="checkbox"
-                            className="w-3.5 h-3.5 rounded bg-white/10 border-white/20 checked:bg-[var(--color-primary-accent)] checked:border-transparent focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                            checked={autoApproveSettings[setting.id as keyof typeof autoApproveSettings]}
-                            onChange={(e) => setAutoApproveSettings({ [setting.id]: e.target.checked })}
-                          />
-                          <span className="text-[11px] font-mono text-white/60 group-hover:text-white/90 transition-colors">
-                            {setting.label}
-                          </span>
-                        </label>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              <button
-                onClick={handleClearChat}
-                disabled={chatMessages.length === 0}
-                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-30"
-                title="Clear Chat"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Clear              </button>
-
-              <button
-                onClick={handleNewChat}
-                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono text-white/40 hover:text-green-400 hover:bg-green-500/10 transition-all"
-                title="New Chat"
-              >
-                <MessageSquarePlus className="w-3.5 h-3.5" />
-                New Chat              </button>
-            </div>
-
-          </div>
 
           
 
@@ -1159,14 +1335,46 @@ Use this information before asking the user for files.${projectInstructions}`;
             ) : (
               <>
                 {chatMessages.length === 0 && !error && (
-                  <div className="flex-1 flex items-center justify-center flex-col gap-2">
-                    <p className="text-[11px] text-[var(--text-muted)] font-mono">
+                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center gap-4 animate-fade-in select-none my-auto">
+                    <div className="space-y-1">
+                      <div className="text-[9px] font-semibold text-white/30 uppercase tracking-widest font-mono">Active Workspace</div>
+                      <h1 className="text-base font-bold bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent px-2 font-sans">
+                        {workspaceName || 'Mirai Workspace'}
+                      </h1>
+                    </div>
+
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-mono border ${
+                      backendAvailable === null
+                        ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/25 animate-pulse'
+                        : backendAvailable
+                          ? 'bg-green-500/10 text-green-400 border-green-500/25'
+                          : 'bg-red-500/10 text-red-400 border-red-500/25'
+                    }`}>
+                      {backendAvailable === null ? (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
+                          <span>⚠ Authenticating...</span>
+                        </>
+                      ) : backendAvailable ? (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                          <span>✓ Connected</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                          <span>✗ Disconnected</span>
+                        </>
+                      )}
+                    </div>
+
+                    <p className="text-[10px] text-white/40 max-w-[220px] font-mono leading-normal">
                       {backendAvailable === false
-                        ? 'Backend offline. Start the server to chat.'
-                        : `Start a conversation...`}
-            </p>
-          </div>
-        )}
+                        ? 'The backend server is offline. Run local server on port 8000 to enable agent functions.'
+                        : 'Ask the agent to write code, search the workspace, edit files, or execute tests.'}
+                    </p>
+                  </div>
+                )}
 
         {error && (
           <div className="px-3 py-2 rounded-xl text-[11px] font-mono bg-red-500/10 text-red-400 border border-red-500/20">
@@ -1272,11 +1480,11 @@ Use this information before asking the user for files.${projectInstructions}`;
     )
   }
 
-  {/* Token Optimization Tips */ }
+  {/* Token Optimization Tips */}
   <TokenOptimizationTips />
 
-  {/* Input */ }
-  <div className="p-2 border-t border-white/5 shrink-0 relative">
+  {/* Input */}
+  <div className="p-2 border-t border-white/5 shrink-0 relative flex flex-col gap-2">
     <AnimatePresence>
       {showActionMenu && (
         <motion.div
@@ -1284,11 +1492,12 @@ Use this information before asking the user for files.${projectInstructions}`;
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 5 }}
           transition={{ duration: 0.15 }}
-          className="absolute bottom-full left-2 mb-2 w-48 bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-1 z-50"
+          className="absolute bottom-full left-2 mb-2 w-48 bg-black/95 border border-white/10 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-1 z-50"
         >
-          <button onClick={handleAddActiveFile} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
-            <FilePlus2 className="w-3.5 h-3.5 text-blue-400/70" /> Add Active File                  </button>
-          <button onClick={handleUploadMedia} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[11px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+          <button onClick={handleAddActiveFile} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[10px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+            <FilePlus2 className="w-3.5 h-3.5 text-blue-400/70" /> Add Active File
+          </button>
+          <button onClick={handleUploadMedia} className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[10px] font-mono text-white/60 hover:bg-white/10 hover:text-white transition-colors">
             <Paperclip className="w-3.5 h-3.5 text-white/40" /> Upload Media
           </button>
         </motion.div>
@@ -1331,7 +1540,7 @@ Use this information before asking the user for files.${projectInstructions}`;
           onClick={stopGeneration}
           className="w-6 h-6 rounded-lg bg-red-500/80 flex items-center justify-center hover:bg-red-500 transition-all shrink-0"
         >
-          <div className="w-2 h-2 bg-white rounded-[2px]" />
+          <div className="w-2.5 h-2.5 bg-white rounded-[2px]" />
         </button>
       ) : (
         <button
@@ -1346,11 +1555,88 @@ Use this information before asking the user for files.${projectInstructions}`;
       )}
     </div>
 
+    {/* Footer row with model selector & disclaimers */}
+    <div className="flex items-center justify-between px-1.5 relative z-20">
+      <div className="relative">
+        <button
+          onClick={() => setShowModelDropdown(!showModelDropdown)}
+          className="flex items-center gap-1.5 px-2 py-0.5 bg-white/[0.04] hover:bg-white/[0.08] text-[9px] text-white/55 hover:text-white/80 rounded-md border border-white/5 transition-all font-mono"
+        >
+          <span className="text-purple-400 font-bold font-sans">+</span>
+          <span>{activeProvider ? `${activeProvider.name} (${activeProvider.model || 'Default'})` : 'Select Model'}</span>
+          <ChevronDown className="w-2.5 h-2.5 text-white/40" />
+        </button>
+
+        {/* Model dropdown */}
+        <AnimatePresence>
+          {showModelDropdown && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 5 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 5 }}
+              transition={{ duration: 0.12 }}
+              className="absolute bottom-full left-0 mb-1.5 w-64 bg-black/95 border border-white/10 rounded-xl shadow-2xl py-2 z-50 flex flex-col gap-0.5 max-h-[240px] overflow-y-auto custom-scrollbar"
+            >
+              <div className="px-3 pb-1.5 border-b border-white/5 mb-1 text-[9px] font-bold text-white/45 uppercase tracking-wider font-mono">
+                Select AI Model
+              </div>
+
+              {aiProviders.map((provider) => {
+                const isSelected = provider.id === activeAiProviderId;
+                const modelName = provider.model || '';
+
+                // Categorize model speeds
+                let speedBadge = 'Standard';
+                let badgeColor = 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+                const lowerModel = modelName.toLowerCase();
+
+                if (lowerModel.includes('flash') || lowerModel.includes('mini') || lowerModel.includes('llama3-70b') || lowerModel.includes('deepseek-chat')) {
+                  speedBadge = 'Fast';
+                  badgeColor = 'bg-green-500/10 text-green-400 border-green-500/20';
+                } else if (lowerModel.includes('opus') || lowerModel.includes('pro') || lowerModel.includes('large') || lowerModel.includes('gpt-4o')) {
+                  speedBadge = 'Intelligent';
+                  badgeColor = 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+                }
+
+                return (
+                  <button
+                    key={provider.id}
+                    onClick={() => {
+                      setActiveAiProvider(provider.id);
+                      setShowModelDropdown(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[10px] font-mono flex items-center justify-between transition-colors ${
+                      isSelected
+                        ? 'bg-purple-500/10 text-white'
+                        : 'text-white/60 hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-semibold truncate">{provider.name}</span>
+                      <span className="text-[8px] text-white/45 truncate">{modelName || 'Configure in settings'}</span>
+                    </div>
+
+                    <span className={`text-[8px] px-1.5 py-0.5 rounded border font-semibold font-sans scale-90 ${badgeColor}`}>
+                      {speedBadge}
+                    </span>
+                  </button>
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* "AI may make mistakes" disclaimer text */}
+      <span className="text-[9px] text-white/25 font-mono select-none">
+        AI may make mistakes. Check all generated code.
+      </span>
+    </div>
+
     <PermissionModal />
   </div>
         </>
-      )
-}
-    </div >
+      )}
+    </div>
   );
 }

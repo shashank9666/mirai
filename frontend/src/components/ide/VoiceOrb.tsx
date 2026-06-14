@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Loader2, Mic, MicOff, Volume2, VolumeX, Waves } from 'lucide-react';
 import { voiceSTT } from '@/lib/api';
 import { useVoiceStore, VoiceState } from '@/store/voiceStore';
+import { useAiStore } from '@/store/aiStore';
 
 type WindowWithWebkitAudio = Window & typeof globalThis & {
   webkitAudioContext?: typeof AudioContext;
@@ -195,7 +196,8 @@ export default function VoiceOrb({
 
         try {
           useVoiceStore.getState().setState('thinking');
-          const text = (await voiceSTT(blob)).trim();
+          const openaiApiKey = useAiStore.getState().aiProviders.find(p => p.id === 'openai')?.apiKey;
+          const text = (await voiceSTT(blob, openaiApiKey, 'openai')).trim();
           useVoiceStore.getState().setLastTranscript(text);
           if (text) onVoiceMessage?.(text);
           useVoiceStore.getState().setState('idle');
