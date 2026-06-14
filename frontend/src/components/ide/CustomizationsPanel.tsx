@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, RefreshCw, Plus, Play, Search, Trash2, Check, AlertCircle } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Plus, Play, Search, Trash2, Check, AlertCircle, Brain, Cpu, Shield, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAgentPrefsStore } from '@/store/agentPrefsStore';
 
 interface CustomizationsPanelProps {
   onClose: () => void;
+  defaultTab?: 'rules' | 'workflows' | 'preferences';
 }
 
 interface Rule {
@@ -23,10 +25,11 @@ interface Workflow {
   active: boolean;
 }
 
-export default function CustomizationsPanel({ onClose }: CustomizationsPanelProps) {
-  const [activeTab, setActiveTab] = useState<'rules' | 'workflows'>('rules');
+export default function CustomizationsPanel({ onClose, defaultTab = 'rules' }: CustomizationsPanelProps) {
+  const [activeTab, setActiveTab] = useState<'rules' | 'workflows' | 'preferences'>(defaultTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { prefs, updatePrefs, resetPrefs } = useAgentPrefsStore();
 
   // Initial Rules
   const [rules, setRules] = useState<Rule[]>([
@@ -143,29 +146,45 @@ export default function CustomizationsPanel({ onClose }: CustomizationsPanelProp
             />
           )}
         </button>
+        <button
+          onClick={() => setActiveTab('preferences')}
+          className={`pb-2 text-xs font-semibold relative transition-all ${
+            activeTab === 'preferences' ? 'text-white/95' : 'text-white/40 hover:text-white/70'
+          }`}
+        >
+          Preferences
+          {activeTab === 'preferences' && (
+            <motion.div
+              layoutId="customizations-tab-line"
+              className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"
+            />
+          )}
+        </button>
       </div>
 
       {/* Filter and controls bar */}
-      <div className="px-4 py-3 flex gap-2 border-b border-white/5 items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-2 w-3.5 h-3.5 top-1/2 -translate-y-1/2 text-white/30" />
-          <input
-            type="text"
-            placeholder={activeTab === 'rules' ? 'Filter rules...' : 'Filter workflows...'}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-7 pr-3 py-1 bg-white/[0.02] border border-white/5 rounded text-[11px] text-white placeholder-white/30 focus:outline-none focus:border-white/10"
-          />
-        </div>
+      {activeTab !== 'preferences' && (
+        <div className="px-4 py-3 flex gap-2 border-b border-white/5 items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-2 w-3.5 h-3.5 top-1/2 -translate-y-1/2 text-white/30" />
+            <input
+              type="text"
+              placeholder={activeTab === 'rules' ? 'Filter rules...' : 'Filter workflows...'}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-7 pr-3 py-1 bg-white/[0.02] border border-white/5 rounded text-[11px] text-white placeholder-white/30 focus:outline-none focus:border-white/10"
+            />
+          </div>
 
-        <button
-          onClick={handleRefresh}
-          className="p-1.5 bg-white/[0.02] border border-white/5 rounded text-white/50 hover:text-white hover:bg-white/5 transition-all"
-          title="Refresh view"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-blue-400' : ''}`} />
-        </button>
-      </div>
+          <button
+            onClick={handleRefresh}
+            className="p-1.5 bg-white/[0.02] border border-white/5 rounded text-white/50 hover:text-white hover:bg-white/5 transition-all"
+            title="Refresh view"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-blue-400' : ''}`} />
+          </button>
+        </div>
+      )}
 
       {/* Scrollable list */}
       <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-4">
@@ -246,7 +265,7 @@ export default function CustomizationsPanel({ onClose }: CustomizationsPanelProp
               )}
             </div>
           </div>
-        ) : (
+        ) : activeTab === 'workflows' ? (
           <div className="space-y-3">
             {/* Workflows items */}
             {filteredWorkflows.length === 0 ? (
@@ -302,8 +321,183 @@ export default function CustomizationsPanel({ onClose }: CustomizationsPanelProp
               </div>
             </div>
           </div>
+        ) : (
+          <div className="space-y-5">
+            {/* Header / Actions */}
+            <div className="flex items-center justify-between pb-2 border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <Brain className="w-4 h-4 text-purple-400" />
+                <span className="text-xs font-semibold text-white/90">Agent Preferences</span>
+              </div>
+              <button
+                onClick={resetPrefs}
+                className="px-2 py-1 rounded bg-white/[0.04] border border-white/5 hover:bg-white/[0.08] text-white/50 hover:text-white/80 transition-colors text-[9px] font-mono"
+              >
+                Reset Defaults
+              </button>
+            </div>
+
+            {/* Context Window Settings */}
+            <div className="space-y-3 p-3 rounded-lg border border-white/5 bg-white/[0.01]">
+              <div className="flex items-center gap-1.5 text-white/70 font-semibold font-mono text-[10px]">
+                <Cpu className="w-3.5 h-3.5 text-blue-400" />
+                Context Window
+              </div>
+              <div className="space-y-3 pl-1 font-mono text-[10px]">
+                <div className="flex items-center justify-between">
+                  <span className="text-white/50">Max Context Tokens</span>
+                  <select
+                    className="bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 rounded px-2.5 py-1 text-white/80 text-[10px] focus:outline-none focus:border-blue-500/50"
+                    value={prefs.maxContextTokens}
+                    onChange={(e) => updatePrefs({ maxContextTokens: parseInt(e.target.value) })}
+                  >
+                    <option value={32000}>32K</option>
+                    <option value={64000}>64K</option>
+                    <option value={128000}>128K</option>
+                    <option value={256000}>256K</option>
+                    <option value={512000}>512K</option>
+                    <option value={1000000}>1M</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-white/50">Warning Threshold</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={0.3}
+                      max={0.95}
+                      step={0.05}
+                      value={prefs.contextWarningThreshold}
+                      onChange={(e) => updatePrefs({ contextWarningThreshold: parseFloat(e.target.value) })}
+                      className="w-20 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                    <span className="text-white/80 w-8 text-right">{Math.round(prefs.contextWarningThreshold * 100)}%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Token Management Settings */}
+            <div className="space-y-3 p-3 rounded-lg border border-white/5 bg-white/[0.01]">
+              <div className="flex items-center gap-1.5 text-white/70 font-semibold font-mono text-[10px]">
+                <RefreshCw className="w-3.5 h-3.5 text-purple-400" />
+                Token Management
+              </div>
+              <div className="space-y-3.5 pl-1">
+                <PreferenceToggleRow
+                  label="Auto-compact context"
+                  desc="Automatically compact old messages when nearing limit"
+                  checked={prefs.autoCompact}
+                  onChange={(v) => updatePrefs({ autoCompact: v })}
+                />
+                <PreferenceToggleRow
+                  label="Smart pruning"
+                  desc="Remove redundant context instead of oldest messages"
+                  checked={prefs.smartPruning}
+                  onChange={(v) => updatePrefs({ smartPruning: v })}
+                />
+                <PreferenceToggleRow
+                  label="Use compact summaries"
+                  desc="Summarize old messages to save tokens"
+                  checked={prefs.useCompactSummaries}
+                  onChange={(v) => updatePrefs({ useCompactSummaries: v })}
+                />
+                <PreferenceToggleRow
+                  label="Always include system prompt"
+                  desc="Keep the system instructions in the request"
+                  checked={prefs.alwaysIncludeSystemPrompt}
+                  onChange={(v) => updatePrefs({ alwaysIncludeSystemPrompt: v })}
+                />
+              </div>
+            </div>
+
+            {/* Display Options */}
+            <div className="space-y-3 p-3 rounded-lg border border-white/5 bg-white/[0.01]">
+              <div className="flex items-center gap-1.5 text-white/70 font-semibold font-mono text-[10px]">
+                <Zap className="w-3.5 h-3.5 text-yellow-400" />
+                Display Options
+              </div>
+              <div className="space-y-3.5 pl-1">
+                <PreferenceToggleRow
+                  label="Show token usage"
+                  desc="Display token counts per message"
+                  checked={prefs.showTokenUsage}
+                  onChange={(v) => updatePrefs({ showTokenUsage: v })}
+                />
+                <PreferenceToggleRow
+                  label="Show estimated cost"
+                  desc="Calculate price of current session"
+                  checked={prefs.showCost}
+                  onChange={(v) => updatePrefs({ showCost: v })}
+                />
+              </div>
+            </div>
+
+            {/* Limits Settings */}
+            <div className="space-y-3 p-3 rounded-lg border border-white/5 bg-white/[0.01]">
+              <div className="flex items-center gap-1.5 text-white/70 font-semibold font-mono text-[10px]">
+                <Shield className="w-3.5 h-3.5 text-red-400" />
+                Limits
+              </div>
+              <div className="space-y-3 pl-1 font-mono text-[10px]">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-white/50">Max messages before compact</span>
+                    <div className="text-white/30 text-[8px] font-sans mt-0.5">Auto-compact when this many messages accumulate</div>
+                  </div>
+                  <select
+                    className="bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 rounded px-2.5 py-1 text-white/80 text-[10px] focus:outline-none focus:border-blue-500/50"
+                    value={prefs.maxMessagesBeforeCompact}
+                    onChange={(e) => updatePrefs({ maxMessagesBeforeCompact: parseInt(e.target.value) })}
+                  >
+                    <option value={20}>20</option>
+                    <option value={30}>30</option>
+                    <option value={50}>50</option>
+                    <option value={75}>75</option>
+                    <option value={100}>100</option>
+                    <option value={200}>200</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </motion.div>
+  );
+}
+
+function PreferenceToggleRow({
+  label,
+  desc,
+  checked,
+  onChange,
+}: {
+  label: string;
+  desc?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between cursor-pointer group select-none">
+      <div className="min-w-0 pr-2">
+        <div className="text-white/50 group-hover:text-white/70 transition-colors font-mono text-[10px]">{label}</div>
+        {desc && <div className="text-white/30 text-[8px] mt-0.5 leading-normal">{desc}</div>}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+          checked ? 'bg-blue-500' : 'bg-white/10'
+        }`}
+      >
+        <span
+          className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+            checked ? 'translate-x-3.5' : 'translate-x-0'
+          }`}
+        />
+      </button>
+    </div>
   );
 }

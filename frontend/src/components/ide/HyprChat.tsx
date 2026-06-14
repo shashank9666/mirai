@@ -12,8 +12,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import SimpleBar from 'simplebar-react';
 import { formatTokens } from '@/lib/agent/policies';
-import AgentPreferencesPanel from './AgentPreferencesPanel';
-import { DEFAULT_AGENT_PREFERENCES } from '@/lib/agent/policies';
+// Removed AgentPreferencesPanel import
+// Removed DEFAULT_AGENT_PREFERENCES import
 import { useVoiceStore } from '@/store/voiceStore';
 import VoiceOrb from './VoiceOrb';
 import AgentReviewPanel from './AgentReviewPanel';
@@ -430,7 +430,7 @@ export default function HyprChat({ isMinimized, onClose, onDragStart }: ChatPane
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
-  const [showAgentPrefs, setShowAgentPrefs] = useState(false);
+  const [customizationsTab, setCustomizationsTab] = useState<'rules' | 'workflows' | 'preferences'>('rules');
   const [showHistory, setShowHistory] = useState(false);
   const [showCustomizations, setShowCustomizations] = useState(false);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
@@ -1183,6 +1183,7 @@ Use this information before asking the user for files.${projectInstructions}`;
                   <button
                     onClick={() => {
                       setShowSettingsMenu(false);
+                      setCustomizationsTab('rules');
                       setShowCustomizations(true);
                     }}
                     className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-white/70 hover:bg-white/10 hover:text-white transition-colors"
@@ -1193,7 +1194,8 @@ Use this information before asking the user for files.${projectInstructions}`;
                   <button
                     onClick={() => {
                       setShowSettingsMenu(false);
-                      setShowAgentPrefs(true);
+                      setCustomizationsTab('preferences');
+                      setShowCustomizations(true);
                     }}
                     className="w-full text-left px-3 py-1.5 text-[10px] font-mono text-white/70 hover:bg-white/10 hover:text-white transition-colors"
                   >
@@ -1274,30 +1276,15 @@ Use this information before asking the user for files.${projectInstructions}`;
 
           <AnimatePresence>
             {showCustomizations && (
-              <CustomizationsPanel onClose={() => setShowCustomizations(false)} />
+              <CustomizationsPanel
+                defaultTab={customizationsTab}
+                onClose={() => setShowCustomizations(false)}
+              />
             )}
           </AnimatePresence>
 
           <AnimatePresence>
-            {showAgentPrefs && (
-              <motion.div
-                initial={{ opacity: 0, x: 300 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 300 }}
-                transition={{ duration: 0.2 }}
-                className="absolute inset-0 z-40 bg-[#0d0f12] border-l border-white/5"
-              >
-                <AgentPreferencesPanel
-                  prefs={DEFAULT_AGENT_PREFERENCES}
-                  onSave={(prefs) => {
-                    console.log('Agent preferences saved:', prefs);
-                    setShowAgentPrefs(false);
-                  }}
-                  onClose={() => setShowAgentPrefs(false)}
-                  selectedModel={activeProvider?.model}
-                />
-              </motion.div>
-            )}
+            {/* Agent Preferences moved to CustomizationsPanel */}
           </AnimatePresence>
 
           

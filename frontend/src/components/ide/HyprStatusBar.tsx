@@ -7,12 +7,14 @@ import { api } from '@/lib/api';
 import { useAiStore } from '@/store/aiStore';
 import { useChatStore } from '@/store/chatStore';
 import ContextWindowBar from './ContextWindowBar';
+import { useAgentPrefsStore } from '@/store/agentPrefsStore';
 
 export default function HyprStatusBar() {
   const { getActiveGroup, groups } = useEditorStore();
   const { editorSettings } = useSettingsStore();
   const { aiProviders, activeAiProviderId } = useAiStore();
   const { messages: chatMessages, clearMessages, addMessage } = useChatStore();
+  const { prefs } = useAgentPrefsStore();
 
   const activeProvider = aiProviders.find(p => p.id === activeAiProviderId);
 
@@ -101,7 +103,7 @@ export default function HyprStatusBar() {
       <div className="flex items-center h-full gap-3 text-white/70">
         <ContextWindowBar
           modelName={activeProvider?.model}
-          maxContextTokens={128000}
+          maxContextTokens={prefs.maxContextTokens}
           onCompact={handleCompact}
         />
       </div>
