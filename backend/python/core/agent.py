@@ -106,6 +106,13 @@ class MiraiAgent:
             state = {"messages": compacted_messages}
             
             from core.event_bus import event_bus
+            await event_bus.publish(session_id, {
+                "type": "workflow_step",
+                "id": "plan",
+                "title": "Planning",
+                "status": "running",
+                "detail": "Understanding the request and selecting tools."
+            })
             
             final_messages = []
             stream_buffer = ""
@@ -139,9 +146,32 @@ class MiraiAgent:
                                 await event_bus.publish(session_id, {"type": "token", "content": text})
 
                 elif kind == "on_tool_start":
+                    await event_bus.publish(session_id, {
+                        "type": "workflow_step",
+                        "id": f"tool:{event['name']}",
+                        "title": f"Running {event['name']}",
+                        "status": "running",
+                        "detail": event["data"].get("input")
+                    })
                     await event_bus.publish(session_id, {"type": "tool_start", "name": event["name"], "input": event["data"].get("input")})
                 elif kind == "on_tool_end":
-                    await event_bus.publish(session_id, {"type": "tool_end", "name": event["name"], "output": event["data"].get("output")})
+                    output = event["data"].get("output")
+                    approval_required = False
+                    if isinstance(output, str):
+                        try:
+                            parsed = json.loads(output)
+                            approval_required = isinstance(parsed, dict) and parsed.get("approval_required") is True
+                        except json.JSONDecodeError:
+                            approval_required = False
+
+                    await event_bus.publish(session_id, {
+                        "type": "workflow_step",
+                        "id": f"tool:{event['name']}",
+                        "title": f"Completed {event['name']}",
+                        "status": "waiting_approval" if approval_required else "completed",
+                        "detail": "Waiting for user approval." if approval_required else None
+                    })
+                    await event_bus.publish(session_id, {"type": "tool_end", "name": event["name"], "output": output})
                 elif kind == "on_chain_end" and event["name"] == "LangGraph":
                     final_messages = event["data"].get("output", {}).get("messages", [])
 
@@ -151,6 +181,12 @@ class MiraiAgent:
                     
             if not final_messages:
                 final_messages = state["messages"]
+            await event_bus.publish(session_id, {
+                "type": "workflow_step",
+                "id": "final",
+                "title": "Response ready",
+                "status": "completed",
+            })
                 
             return {"messages": final_messages}
         finally:

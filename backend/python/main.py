@@ -48,7 +48,9 @@ activity_feed.setup_activity_websockets(sock)
 
 # Register FS tools for agent
 from core.fs_tools import register_fs_tools
+from core.command_tools import register_command_tools
 register_fs_tools()
+register_command_tools()
 
 # -----------------------------------------------------------------------
 # Initialize background systems (non-blocking)

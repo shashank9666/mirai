@@ -37,18 +37,20 @@ export interface FileEntry {
  */
 export const voiceSTT = async (audioBlob: Blob): Promise<string> => {
   const formData = new FormData();
-  formData.append('audio', audioBlob, 'recording.wav');
+  formData.append('audio', audioBlob, 'recording.webm');
 
   try {
-    const response = await fetch(`${getBackendBase()}/api/voice/stt`, {
+    const response = await fetch(`${getBackendBase()}/api/voice/transcribe`, {
       method: 'POST',
       body: formData,
     });
+    if (!response.ok) throw new Error(await response.text());
     const data = await response.json();
+    if (data.error) throw new Error(data.error);
     return data.text || '';
   } catch (error) {
     console.error('STT error:', error);
-    return '';
+    throw error;
   }
 };
 
@@ -272,7 +274,7 @@ export const api = {
     return res.json();
   },
   executeCommand: async (command: string) => {
-    const res = await fetch(`${getBackendBase()}/api/terminal/execute`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ command }) });
+    const res = await fetch(`${getBackendBase()}/api/tasks/executeCommand`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ command }) });
     return res.json();
   },
   listTasks: async () => {
@@ -386,4 +388,4 @@ export const api = {
     });
     return res.json();
   }
-};
+};

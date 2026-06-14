@@ -9,9 +9,17 @@ import { estimateTokenCount } from '@/lib/agent/policies';
 export interface ToolCall {
   id: string;
   name: string;
-  status: 'running' | 'completed';
+  status: 'running' | 'completed' | 'waiting_approval' | 'failed';
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   input?: any;
+}
+
+export interface AgentStep {
+  id: string;
+  title: string;
+  status: 'running' | 'completed' | 'waiting_approval' | 'failed';
+  detail?: string;
+  timestamp: number;
 }
 
 export interface ChatMessage {
@@ -23,6 +31,7 @@ export interface ChatMessage {
   cost?: number;
   pendingChangeIds?: string[];
   toolCalls?: ToolCall[];
+  steps?: AgentStep[];
 }
 
 interface ChatState {

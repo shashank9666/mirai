@@ -8,7 +8,7 @@ import { useChatStore } from '@/store/chatStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useEditorStore } from '@/store/editorStore';
 
-import { WifiOff, Mic, MicOff, Plus, ChevronRight, Paperclip, FileCode, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, Headphones, Check } from 'lucide-react';
+import { WifiOff, Mic, MicOff, Plus, ChevronRight, Paperclip, FileCode, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, Headphones, Check, ListChecks, RotateCcw, CircleDashed, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import SimpleBar from 'simplebar-react';
@@ -17,6 +17,7 @@ import AgentPreferencesPanel from './AgentPreferencesPanel';
 import { DEFAULT_AGENT_PREFERENCES } from '@/lib/agent/policies';
 import { useVoiceStore } from '@/store/voiceStore';
 import VoiceOrb from './VoiceOrb';
+import AgentReviewPanel from './AgentReviewPanel';
 
 const DEFAULT_SYSTEM_PROMPT = `You are Mirai, an autonomous software engineering agent inside Mirai IDE.
 
@@ -60,7 +61,7 @@ Use your directory listing and file reading tools to explore the workspace.
 
 CODE CHANGES
 
-CRITICAL: Do NOT use file-writing tools OR terminal commands (like echo, cat, sed) to edit code files directly. You MUST ONLY output code blocks in the chat using the following format. The IDE frontend will handle the actual file modification after the user approves the diff.
+CRITICAL: Do NOT use terminal commands (like echo, cat, sed, python scripts, or shell redirection) to edit code files directly. Use the write_file tool or output code blocks in the chat using the following format. The IDE frontend will convert them into reviewable pending changes.
 
 When asked to change code, you MUST use the following format exactly:
 
@@ -75,6 +76,15 @@ Example:
 \`\`\`
 
 Always provide the FULL file contents. Do not truncate. Explain your changes briefly before or after the code block.
+
+AGENTIC WORKFLOW
+
+For code tasks, behave like an IDE coding agent:
+1. Inspect relevant files before proposing edits.
+2. State a concise plan when the task spans multiple files.
+3. Propose complete file changes through reviewable edits.
+4. Do not claim files were changed unless a tool confirmed it or the user approved the pending change.
+5. If approval is required, stop after proposing the change and wait for the user's review.
 
 AUTONOMY
 
@@ -188,6 +198,103 @@ function CodeBlockRenderer({ children, className, handleReviewChange }: { childr
   );
 }
 
+function AgentSteps({ steps }: { steps?: import('@/store/chatStore').AgentStep[] }) {
+  if (!steps || steps.length === 0) return null;
+
+  return (
+    <div className="mt-1 flex max-w-[90%] flex-col gap-1 rounded-lg border border-white/10 bg-black/20 p-2">
+      {steps.map((step) => (
+        <div key={step.id} className="flex items-center gap-2 text-[10px] font-mono text-white/55">
+          {step.status === 'running' ? (
+            <CircleDashed className="h-3 w-3 animate-spin text-blue-300" />
+          ) : step.status === 'waiting_approval' ? (
+            <Clock className="h-3 w-3 text-amber-300" />
+          ) : step.status === 'failed' ? (
+            <X className="h-3 w-3 text-red-300" />
+          ) : (
+            <Check className="h-3 w-3 text-emerald-300" />
+          )}
+          <span className={step.status === 'waiting_approval' ? 'text-amber-200/80' : ''}>{step.title}</span>
+          {step.detail && typeof step.detail === 'string' && (
+            <span className="truncate text-white/25">{step.detail}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface AgentFileProposal {
+  path: string;
+  newContent: string;
+  oldContent?: string;
+}
+
+const getVoiceRecorderOptions = (): MediaRecorderOptions | undefined => {
+  if (typeof MediaRecorder === 'undefined') return undefined;
+  const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+  const mimeType = mimeTypes.find((type) => MediaRecorder.isTypeSupported(type));
+  return mimeType ? { mimeType } : undefined;
+};
+
+const extractJsonObjects = (text: string): unknown[] => {
+  const objects: unknown[] = [];
+  for (let i = 0; i < text.length; i += 1) {
+    if (text[i] !== '{') continue;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let j = i; j < text.length; j += 1) {
+      const char = text[j];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (char === '\\') {
+          escaped = true;
+        } else if (char === '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (char === '"') {
+        inString = true;
+      } else if (char === '{') {
+        depth += 1;
+      } else if (char === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          try {
+            objects.push(JSON.parse(text.slice(i, j + 1)));
+            i = j;
+          } catch {
+            // Keep scanning; this brace pair was not standalone JSON.
+          }
+          break;
+        }
+      }
+    }
+  }
+  return objects;
+};
+
+const normalizeProposal = (value: unknown): AgentFileProposal | null => {
+  if (!value || typeof value !== 'object') return null;
+  const data = value as Record<string, unknown>;
+  const path = data.path;
+  const newContent = data.newContent ?? data.content ?? data.proposedContent;
+
+  if (data.approval_required !== true && data.tool !== 'write_file') return null;
+  if (typeof path !== 'string' || typeof newContent !== 'string') return null;
+
+  return {
+    path,
+    newContent,
+    oldContent: typeof data.oldContent === 'string' ? data.oldContent : undefined,
+  };
+};
+
 export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onClose, onDragStart }: ChatPanelProps) {
   const { activeAiProviderId, aiProviders, autoApproveSettings, setAutoApproveSettings } = useAiStore();
   const {
@@ -208,10 +315,12 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const [isListening, setIsListening] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
+  const [activeChatTab, setActiveChatTab] = useState<'chat' | 'changes'>('chat');
   const [isConvoMode, setIsConvoMode] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [attachedPaths, setAttachedPaths] = useState<string[]>([]);
+  const lastUserInputRef = useRef('');
 
   useEffect(() => {
     if (isStreaming) {
@@ -261,6 +370,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const sendMessageRef = useRef<() => void>(() => { });
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -270,28 +380,43 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const animationFrameRef = useRef<number | null>(null);
 
   const stopListening = useCallback(() => {
-    if (isListeningRef.current) {
-      mediaRecorderRef.current?.stop();
-      isListeningRef.current = false;
-      setIsListening(false);
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-      if (audioContextRef.current) {
-        audioContextRef.current.close().catch(console.error);
-        audioContextRef.current = null;
-      }
+    if (!isListeningRef.current && !mediaRecorderRef.current) return;
+
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop();
+    }
+    mediaRecorderRef.current = null;
+    isListeningRef.current = false;
+    setIsListening(false);
+    useVoiceStore.getState().stopRecording();
+    useVoiceStore.getState().setMicVolume(0);
+
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    silenceTimerRef.current = null;
+    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    animationFrameRef.current = null;
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(console.error);
+      audioContextRef.current = null;
     }
   }, []);
 
   const startListening = useCallback(async () => {
-    if (isListeningRef.current) return;
+    if (isListeningRef.current || isStreaming || backendAvailable === false) return;
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      setError('Voice capture is not supported in this environment.');
+      useVoiceStore.getState().setError('Voice capture is not supported here.');
+      return;
+    }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-      const recorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus',
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
+      const recorder = new MediaRecorder(stream, getVoiceRecorderOptions());
 
+      mediaStreamRef.current = stream;
       chunksRef.current = [];
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
@@ -299,42 +424,50 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
       recorder.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        mediaStreamRef.current = null;
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        chunksRef.current = [];
+        useVoiceStore.getState().setMicVolume(0);
+
+        if (blob.size < 512) {
+          useVoiceStore.getState().setState('idle');
+          return;
+        }
         
         try {
-          const reader = new FileReader();
-          reader.readAsDataURL(blob);
-          reader.onloadend = async () => {
-            const base64data = reader.result as string;
-            const { getBackendBase } = await import('@/lib/api');
-            const res = await fetch(`${getBackendBase()}/api/voice/transcribe`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                audio_base64: base64data.replace(/^data:audio\/\w+;base64,/, ''),
-                format: 'webm',
-              }),
-            });
-            const data = await res.json();
-            if (data.text && data.text.trim() !== '') {
-              setInput(prev => prev + (prev ? ' ' : '') + data.text);
-              setTimeout(() => {
-                sendMessageRef.current();
-              }, 50);
-            }
-          };
+          useVoiceStore.getState().setState('thinking');
+          const { voiceSTT } = await import('@/lib/api');
+          const transcript = (await voiceSTT(blob)).trim();
+          useVoiceStore.getState().setLastTranscript(transcript);
+          if (transcript) {
+            setInput(prev => prev + (prev ? ' ' : '') + transcript);
+            setTimeout(() => {
+              sendMessageRef.current();
+            }, 50);
+          } else {
+            useVoiceStore.getState().setState('idle');
+          }
         } catch (err) {
           console.error('Transcription error:', err);
-          setError('Backend transcription failed.');
+          const message = err instanceof Error ? err.message : 'Backend transcription failed.';
+          setError(message);
+          useVoiceStore.getState().setError(message);
         }
+      };
+      recorder.onerror = () => {
+        const message = 'Voice recorder failed. Restart listening and try again.';
+        setError(message);
+        useVoiceStore.getState().setError(message);
+        stopListening();
       };
 
       mediaRecorderRef.current = recorder;
-      recorder.start();
+      recorder.start(250);
       setIsListening(true);
       isListeningRef.current = true;
       hasSpokenRef.current = false;
       setError(null);
+      useVoiceStore.getState().startRecording();
 
       // VAD setup
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -360,7 +493,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
         useVoiceStore.getState().setMicVolume(average);
 
         // Thresholds
-        const SILENCE_THRESHOLD = 15; // Adjust based on mic sensitivity
+        const SILENCE_THRESHOLD = 15;
         
         if (average > SILENCE_THRESHOLD) {
           if (!hasSpokenRef.current) hasSpokenRef.current = true;
@@ -392,9 +525,15 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
     } catch (err) {
       console.error('Microphone access denied:', err);
-      setError('Microphone access denied.');
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+      const message = err instanceof DOMException && err.name === 'NotAllowedError'
+        ? 'Microphone permission was denied.'
+        : 'Could not start microphone.';
+      setError(message);
+      useVoiceStore.getState().setError(message);
     }
-  }, [stopListening]);
+  }, [backendAvailable, isStreaming, stopListening]);
 
   const toggleVoiceMode = useCallback(() => {
     if (isListeningRef.current) {
@@ -409,13 +548,21 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     if (isConvoMode) {
       if (prevIsPlayingRef.current && !isPlaying && !isStreaming) {
         // AI finished speaking, auto-restart mic after a small delay
-        setTimeout(() => {
-          startListening();
+        window.setTimeout(() => {
+          if (isConvoMode && !isStreaming && !isListeningRef.current) startListening();
         }, 800); 
       }
     }
     prevIsPlayingRef.current = isPlaying;
   }, [isPlaying, isStreaming, isConvoMode, startListening]);
+
+  useEffect(() => {
+    return () => {
+      stopListening();
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    };
+  }, [stopListening]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -469,39 +616,95 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     }
   };
 
-  const handleReviewChange = async (filepath: string, codeString: string) => {
+  const handleReviewChange = async (filepath: string, codeString: string, knownOriginalContent?: string) => {
     try {
       const workspacePath = useWorkspaceStore.getState().workspacePath;
       if (!workspacePath) return;
       const sep = workspacePath.includes('\\') ? '\\' : '/';
       const absPath = filepath.startsWith('/') || filepath.match(/^[a-zA-Z]:[\\/]/) ? filepath : `${workspacePath}${sep}${filepath}`;
 
-      let originalContent = '';
-      try {
-        const res = await fetch('http://127.0.0.1:8000/api/fs/readFile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filePath: absPath }),
-        });
-        const result = await res.json();
-        originalContent = result.content;
-      } catch {
-        originalContent = '';
+      let originalContent = knownOriginalContent ?? '';
+      if (knownOriginalContent === undefined) {
+        try {
+          const res = await fetch('http://127.0.0.1:8000/api/fs/readFile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filePath: absPath }),
+          });
+          const result = await res.json();
+          originalContent = result.content;
+        } catch {
+          originalContent = '';
+        }
       }
 
-      const { proposePendingChange, setActiveFile, acceptChange } = useEditorStore.getState();
+      const { proposePendingChange, setActiveFile, acceptChange, openDiffForReview } = useEditorStore.getState();
+      const existing = useEditorStore.getState().pendingChanges.find(
+        (change) => change.status === 'pending' && change.filePath === absPath && change.proposedContent === codeString
+      );
+      if (existing) {
+        setActiveChatTab('changes');
+        openDiffForReview(existing.id);
+        return;
+      }
+
       const changeId = proposePendingChange(absPath, codeString, originalContent);
 
       if (useAiStore.getState().autoApproveSettings.editProjectFiles) {
-        acceptChange(changeId);
+        await acceptChange(changeId);
       } else {
         const fileName = absPath.split(/[/\\]/).pop() || absPath;
         setActiveFile(absPath, fileName, originalContent);
+        openDiffForReview(changeId);
+        setActiveChatTab('changes');
       }
     } catch (err) {
       console.error('Failed to open review:', err);
     }
   };
+
+  const collectFileProposals = useCallback((value: unknown): AgentFileProposal[] => {
+    const proposals: AgentFileProposal[] = [];
+    if (typeof value === 'string') {
+      for (const object of extractJsonObjects(value)) {
+        const proposal = normalizeProposal(object);
+        if (proposal) proposals.push(proposal);
+      }
+      return proposals;
+    }
+
+    const direct = normalizeProposal(value);
+    if (direct) proposals.push(direct);
+    return proposals;
+  }, []);
+
+  const readProjectInstructions = useCallback(async (workspacePath: string): Promise<string> => {
+    if (!workspacePath || workspacePath === 'No workspace open') return '';
+    const sep = workspacePath.includes('\\') ? '\\' : '/';
+    const candidates = ['SKILLS.md', 'AGENTS.md', 'CLAUDE.md'];
+    const sections: string[] = [];
+
+    for (const file of candidates) {
+      try {
+        const res = await fetch('http://127.0.0.1:8000/api/fs/readFile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filePath: `${workspacePath}${sep}${file}` }),
+        });
+        if (!res.ok) continue;
+        const result = await res.json();
+        if (typeof result.content === 'string' && result.content.trim()) {
+          sections.push(`${file}\n${result.content.trim()}`);
+        }
+      } catch {
+        // Optional instruction files should not block chat.
+      }
+    }
+
+    return sections.length
+      ? `\n\nPROJECT INSTRUCTIONS\n${sections.join('\n\n---\n\n')}`
+      : '';
+  }, []);
 
   const removeFile = (index: number) => {
     setAttachedFiles(prev => prev.filter((_, i) => i !== index));
@@ -522,6 +725,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
 
     setError(null);
     let contentStr = text;
+    lastUserInputRef.current = text;
     if (attachedFiles.length > 0) {
       contentStr += `\n[Attached Media: ${attachedFiles.map(f => f.name).join(', ')}]`;
     }
@@ -550,6 +754,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
       const autoApproveSettings = useAiStore.getState().autoApproveSettings;
       const workspacePath = useWorkspaceStore.getState().workspacePath || 'No workspace open';
       const openFiles = useEditorStore.getState().groups.flatMap(g => g.tabs.map(t => t.path));
+      const projectInstructions = await readProjectInstructions(workspacePath);
 
       const dynamicContext = `
 CURRENT WORKSPACE
@@ -557,14 +762,14 @@ Workspace Root: ${workspacePath}
 Open Files:
 ${openFiles.map(f => `- ${f}`).join('\n') || '- None'}
 
-Use this information before asking the user for files.`;
+Use this information before asking the user for files.${projectInstructions}`;
 
       const res = await fetch('http://127.0.0.1:8000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [
-            { role: 'system', content: DEFAULT_SYSTEM_PROMPT + '\n\n' + dynamicContext + (!autoApproveSettings.editProjectFiles ? '\n\nIMPORTANT: You do NOT have permission to edit files automatically. You MUST ask the user for permission and receive approval BEFORE providing any code edits in the ```language:filepath format.' : '') },
+            { role: 'system', content: DEFAULT_SYSTEM_PROMPT + '\n\n' + dynamicContext + (!autoApproveSettings.editProjectFiles ? '\n\nIMPORTANT: You do NOT have permission to write files automatically. All file edits must become pending changes for user review. Do not say an edit is applied until the user accepts it.' : '\n\nCurrent setting: file edits may be auto-applied after the IDE creates a pending change.') },
             ...storeMessages.map((m) => ({ role: m.role, content: m.content })),
           ],
           provider: activeProvider?.id || 'openai',
@@ -626,7 +831,11 @@ Use this information before asking the user for files.`;
                 while ((match = fileRegex.exec(accumulatedContent)) !== null) {
                   const filepath = match[1].trim();
                   const codeString = match[2].trim();
-                  handleReviewChange(filepath, codeString);
+                  void handleReviewChange(filepath, codeString);
+                }
+
+                for (const proposal of collectFileProposals(accumulatedContent)) {
+                  void handleReviewChange(proposal.path, proposal.newContent, proposal.oldContent);
                 }
               }
             } else if (event.type === 'tool_start') {
@@ -635,7 +844,31 @@ Use this information before asking the user for files.`;
               updateMessage(assistantMsg.id, {
                 toolCalls: [...toolCalls, { id: crypto.randomUUID(), name: event.name, status: 'running', input: event.input }]
               });
+            } else if (event.type === 'workflow_step') {
+              const currentMsg = useChatStore.getState().messages.find(m => m.id === assistantMsg.id);
+              const steps = currentMsg?.steps || [];
+              const detail = typeof event.detail === 'string'
+                ? event.detail
+                : event.detail
+                  ? JSON.stringify(event.detail)
+                  : undefined;
+              const nextStep = {
+                id: String(event.id || crypto.randomUUID()),
+                title: String(event.title || 'Working'),
+                status: event.status || 'running',
+                detail,
+                timestamp: Date.now(),
+              };
+              const existingIndex = steps.findIndex(step => step.id === nextStep.id);
+              const nextSteps = existingIndex >= 0
+                ? steps.map((step, index) => index === existingIndex ? { ...step, ...nextStep } : step)
+                : [...steps, nextStep];
+              updateMessage(assistantMsg.id, { steps: nextSteps });
             } else if (event.type === 'tool_end') {
+              for (const proposal of collectFileProposals(event.output)) {
+                void handleReviewChange(proposal.path, proposal.newContent, proposal.oldContent);
+              }
+
               const currentMsg = useChatStore.getState().messages.find(m => m.id === assistantMsg.id);
               if (currentMsg?.toolCalls) {
                 const updatedToolCalls = [...currentMsg.toolCalls];
@@ -648,6 +881,17 @@ Use this information before asking the user for files.`;
                 updateMessage(assistantMsg.id, { toolCalls: updatedToolCalls });
               }
             } else if (event.type === 'error') {
+              const currentMsg = useChatStore.getState().messages.find(m => m.id === assistantMsg.id);
+              const steps = currentMsg?.steps || [];
+              updateMessage(assistantMsg.id, {
+                steps: [...steps, {
+                  id: `error:${Date.now()}`,
+                  title: 'Agent run failed',
+                  status: 'failed',
+                  detail: event.error || event.content,
+                  timestamp: Date.now(),
+                }],
+              });
               throw new Error(event.error || event.content || 'Unknown error from AI');
             }
           } catch (e) {
@@ -706,6 +950,14 @@ Use this information before asking the user for files.`;
     inputRef.current?.focus();
   };
 
+  const handleRetryLast = () => {
+    const lastUserMessage = [...useChatStore.getState().messages].reverse().find(m => m.role === 'user');
+    const retryText = lastUserInputRef.current || lastUserMessage?.content || '';
+    setInput(retryText);
+    setError(null);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
   const backendIndicator = backendAvailable === null
     ? 'bg-yellow-500 animate-pulse'
     : backendAvailable
@@ -713,6 +965,7 @@ Use this information before asking the user for files.`;
       : 'bg-red-500';
 
   const activeProvider = aiProviders.find(p => p.id === activeAiProviderId);
+  const pendingChangeCount = useEditorStore(state => state.pendingChanges.filter(c => c.status === 'pending').length);
 
 
   return (
@@ -872,6 +1125,36 @@ Use this information before asking the user for files.`;
 
           </div>
 
+          <div className="flex border-b border-white/5 bg-black/10 px-2 py-1">
+            <button
+              type="button"
+              onClick={() => setActiveChatTab('chat')}
+              className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-mono transition-colors ${
+                activeChatTab === 'chat' ? 'bg-white/10 text-white/85' : 'text-white/35 hover:bg-white/5 hover:text-white/70'
+              }`}
+            >
+              <MessageSquarePlus className="h-3.5 w-3.5" />
+              Chat
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveChatTab('changes')}
+              className={`ml-1 flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-mono transition-colors ${
+                activeChatTab === 'changes' || pendingChangeCount > 0
+                  ? 'bg-emerald-500/15 text-emerald-300'
+                  : 'text-white/35 hover:bg-white/5 hover:text-white/70'
+              }`}
+            >
+              <ListChecks className="h-3.5 w-3.5" />
+              Changes
+              {pendingChangeCount > 0 && (
+                <span className="rounded-full bg-emerald-400/20 px-1.5 py-0.5 text-[9px] text-emerald-200">
+                  {pendingChangeCount}
+                </span>
+              )}
+            </button>
+          </div>
+
           {/* Backend offline banner */}
           {backendAvailable === false && chatMessages.length === 0 && (
             <div className="mx-3 mt-2 px-3 py-2 rounded-xl text-[10px] font-mono bg-red-500/10 text-red-400 border border-red-500/20 flex items-center gap-2">
@@ -881,6 +1164,11 @@ Use this information before asking the user for files.`;
           )}
 
           {/* Content Area */}
+          {activeChatTab === 'changes' ? (
+            <div className="flex-1 min-h-0">
+              <AgentReviewPanel />
+            </div>
+          ) : (
           <SimpleBar className="flex-1 p-3 flex flex-col gap-3 relative min-h-0">
             {isConvoMode ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--panel-bg)] z-30">
@@ -941,6 +1229,7 @@ Use this information before asking the user for files.`;
                 ))}
               </div>
             )}
+            {msg.role === 'assistant' && <AgentSteps steps={msg.steps} />}
             <div
               className={`max-w-[90%] overflow-x-auto px-3 py-2 rounded-xl text-[12px] leading-relaxed font-mono ${msg.role === 'user'
                 ? 'bg-[var(--color-primary-accent)]/20 text-[var(--text-active)] rounded-br-sm'
@@ -963,6 +1252,17 @@ Use this information before asking the user for files.`;
               )}
             </div>
 
+            {msg.role === 'assistant' && i === chatMessages.length - 1 && !isStreaming && (
+              <button
+                type="button"
+                onClick={handleRetryLast}
+                className="mt-1 flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-mono text-white/35 transition-colors hover:bg-white/5 hover:text-white/75"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Retry
+              </button>
+            )}
+
             {msg.pendingChangeIds && msg.pendingChangeIds.length > 0 && (
               <PendingChangesWidget changeIds={msg.pendingChangeIds} />
             )}
@@ -973,6 +1273,7 @@ Use this information before asking the user for files.`;
       </>
             )}
     </SimpleBar>
+          )}
 
           {/* Attached Files display */ }
   {
