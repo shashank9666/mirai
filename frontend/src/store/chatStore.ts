@@ -21,6 +21,8 @@ export interface AgentStep {
   status: 'running' | 'completed' | 'waiting_approval' | 'failed';
   detail?: string;
   timestamp: number;
+  category?: 'read' | 'edit' | 'command' | 'search' | 'tool' | 'plan';
+  toolName?: string;
 }
 
 export interface ChatMessage {

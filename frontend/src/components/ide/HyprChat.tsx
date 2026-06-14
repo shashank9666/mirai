@@ -234,119 +234,72 @@ function CodeBlockRenderer({ children, className, handleReviewChange }: { childr
 
 
 
-function StepItem({ step }: { step: import('@/store/chatStore').AgentStep }) {
-  const [expanded, setExpanded] = useState(step.status === 'running');
+function StepItem({ step, isLast }: { step: import('@/store/chatStore').AgentStep; isLast: boolean }) {
+  const [expanded, setExpanded] = useState(false);
   const title = step.title;
   const detail = step.detail || '';
+  const category = step.category || 'tool';
+  const isRunning = step.status === 'running';
+  const isCompleted = step.status === 'completed';
+  const isFailed = step.status === 'failed';
+  const isWaiting = step.status === 'waiting_approval';
 
-  const FILE_ICONS: Record<string, string> = {
-    '.tsx': '⚛️', '.ts': '🔷', '.js': '🟨', '.jsx': '⚛️',
-    '.css': '🎨', '.json': '📋', '.md': '📝', '.py': '🐍',
-    '.html': '🌐', '.env': '🔑', '.gitignore': '🙈',
-  };
-
-  const getFileIcon = (name: string) => {
-    const ext = '.' + name.split('.').pop();
-    return FILE_ICONS[ext] || '📄';
-  };
-
-  let type = 'default';
+  // Parse detail for file info
   let filename = '';
-  let truncatedCmd = '';
+  let lineRange = '';
+  let fileLang = '';
   let additions = 0;
   let deletions = 0;
   let hasStats = false;
-  let lineRange = '#L1-100';
-  let fileLang = 'TS';
+  let truncatedCmd = '';
 
-  const lowerTitle = title.toLowerCase();
-  if (lowerTitle.includes('run_command') || lowerTitle.includes('execute')) {
-    type = 'run';
-    let cmd = detail.trim();
-    if (cmd.startsWith('{') || cmd.startsWith('[')) {
-      try {
-        const parsed = JSON.parse(cmd);
-        cmd = parsed.CommandLine || parsed.command || cmd;
-      } catch {}
-    }
-    truncatedCmd = cmd ? cmd.split('\n')[0].slice(0, 35) + (cmd.length > 35 ? '...' : '') : 'command';
-  } else if (
-    lowerTitle.includes('write') ||
-    lowerTitle.includes('replace') ||
-    lowerTitle.includes('edit') ||
-    lowerTitle.includes('multi_replace')
-  ) {
-    type = 'edit';
-    filename = 'file';
-    if (detail) {
-      try {
-        const parsed = JSON.parse(detail);
-        const fullPath = parsed.TargetFile || parsed.path || '';
-        filename = fullPath.split(/[/\\]/).pop() || 'file';
+  if (detail) {
+    try {
+      const parsed = JSON.parse(detail);
+      const fullPath = parsed.TargetFile || parsed.AbsolutePath || parsed.DirectoryPath || parsed.path || '';
+      filename = fullPath.split(/[/\\]/).pop() || '';
 
-        if (parsed.ReplacementChunks && Array.isArray(parsed.ReplacementChunks)) {
-          for (const chunk of parsed.ReplacementChunks) {
-            if (chunk.TargetContent) {
-              deletions += chunk.TargetContent.split('\n').length;
-            }
-            if (chunk.ReplacementContent) {
-              additions += chunk.ReplacementContent.split('\n').length;
-            }
-          }
-          hasStats = true;
-        } else if (parsed.TargetContent && parsed.ReplacementContent) {
-          deletions = parsed.TargetContent.split('\n').length;
-          additions = parsed.ReplacementContent.split('\n').length;
-          hasStats = true;
-        } else if (parsed.CodeContent) {
-          additions = parsed.CodeContent.split('\n').length;
-          deletions = 0;
-          hasStats = true;
-        }
-      } catch {
-        const pathMatch = detail.match(/(?:TargetFile|path)["']?\s*:\s*["']([^"']+)["']/);
-        if (pathMatch) {
-          filename = pathMatch[1].split(/[/\\]/).pop() || 'file';
-        } else {
-          filename = detail.split(/[/\\]/).pop() || 'file';
-        }
+      if (parsed.StartLine && parsed.EndLine) {
+        lineRange = `#L${parsed.StartLine}-${parsed.EndLine}`;
+      } else if (parsed.startLine && parsed.endLine) {
+        lineRange = `#L${parsed.startLine}-${parsed.endLine}`;
       }
-    }
-    if (!hasStats) {
-      additions = 2;
-      deletions = 2;
-      hasStats = true;
-    }
-  } else if (
-    lowerTitle.includes('read') ||
-    lowerTitle.includes('view') ||
-    lowerTitle.includes('list')
-  ) {
-    type = 'read';
-    filename = 'api.ts';
-    if (detail) {
-      try {
-        const parsed = JSON.parse(detail);
-        const fullPath = parsed.AbsolutePath || parsed.DirectoryPath || parsed.TargetFile || parsed.path || '';
-        filename = fullPath.split(/[/\\]/).pop() || 'api.ts';
-        if (parsed.StartLine && parsed.EndLine) {
-          lineRange = `#L${parsed.StartLine}-${parsed.EndLine}`;
-        } else if (parsed.startLine && parsed.endLine) {
-          lineRange = `#L${parsed.startLine}-${parsed.endLine}`;
-        } else {
-          lineRange = '#L20-60';
-        }
-      } catch {
-        const pathMatch = detail.match(/(?:AbsolutePath|DirectoryPath|TargetFile|path)["']?\s*:\s*["']([^"']+)["']/);
-        if (pathMatch) {
-          filename = pathMatch[1].split(/[/\\]/).pop() || 'api.ts';
-        }
-        lineRange = '#L20-60';
-      }
-    } else {
-      lineRange = '#L20-60';
-    }
 
+      if (parsed.ReplacementChunks && Array.isArray(parsed.ReplacementChunks)) {
+        for (const chunk of parsed.ReplacementChunks) {
+          if (chunk.TargetContent) deletions += chunk.TargetContent.split('\n').length;
+          if (chunk.ReplacementContent) additions += chunk.ReplacementContent.split('\n').length;
+        }
+        hasStats = true;
+      } else if (parsed.TargetContent && parsed.ReplacementContent) {
+        deletions = parsed.TargetContent.split('\n').length;
+        additions = parsed.ReplacementContent.split('\n').length;
+        hasStats = true;
+      } else if (parsed.CodeContent) {
+        additions = parsed.CodeContent.split('\n').length;
+        hasStats = true;
+      }
+
+      if (parsed.command || parsed.CommandLine) {
+        const cmd = parsed.command || parsed.CommandLine;
+        truncatedCmd = cmd.length > 50 ? cmd.slice(0, 50) + '…' : cmd;
+      }
+    } catch {
+      // Not JSON — use title for display
+    }
+  }
+
+  if (!filename && category === 'read') {
+    // Extract from title like "Reading agent.py"
+    const match = title.match(/(?:Reading|Listing|Searching)\s+(.+)/i);
+    if (match) filename = match[1];
+  }
+  if (!filename && category === 'edit') {
+    const match = title.match(/(?:Writing|Editing)\s+(.+)/i);
+    if (match) filename = match[1];
+  }
+
+  if (filename) {
     const ext = filename.split('.').pop()?.toLowerCase();
     if (ext === 'ts' || ext === 'tsx') fileLang = 'TS';
     else if (ext === 'js' || ext === 'jsx') fileLang = 'JS';
@@ -354,95 +307,234 @@ function StepItem({ step }: { step: import('@/store/chatStore').AgentStep }) {
     else if (ext === 'css') fileLang = 'CSS';
     else if (ext === 'html') fileLang = 'HTML';
     else if (ext === 'json') fileLang = 'JSON';
-    else fileLang = ext?.toUpperCase() || 'TXT';
+    else if (ext === 'md') fileLang = 'MD';
+    else fileLang = ext?.toUpperCase() || '';
   }
 
-  const isReadStep = type === 'read';
-  const hasDetail = isReadStep || !!detail;
+  // Category-based styling
+  const categoryConfig: Record<string, { icon: React.ReactNode; color: string; bgColor: string }> = {
+    plan: {
+      icon: <span className="text-[11px]">🧠</span>,
+      color: 'text-purple-400',
+      bgColor: 'bg-purple-500/10',
+    },
+    read: {
+      icon: <span className="text-[11px]">📖</span>,
+      color: 'text-blue-400',
+      bgColor: 'bg-blue-500/10',
+    },
+    edit: {
+      icon: <span className="text-[11px]">✏️</span>,
+      color: 'text-amber-400',
+      bgColor: 'bg-amber-500/10',
+    },
+    command: {
+      icon: <span className="text-[11px]">⚡</span>,
+      color: 'text-emerald-400',
+      bgColor: 'bg-emerald-500/10',
+    },
+    search: {
+      icon: <span className="text-[11px]">🔍</span>,
+      color: 'text-cyan-400',
+      bgColor: 'bg-cyan-500/10',
+    },
+    tool: {
+      icon: <span className="text-[11px]">⚙️</span>,
+      color: 'text-white/60',
+      bgColor: 'bg-white/5',
+    },
+  };
+
+  const config = categoryConfig[category] || categoryConfig.tool;
+
+  // Status indicator
+  const StatusIcon = () => {
+    if (isRunning) {
+      return (
+        <div className="w-3.5 h-3.5 rounded-full border-[1.5px] border-blue-400 border-t-transparent animate-spin shrink-0" />
+      );
+    }
+    if (isCompleted) {
+      return (
+        <div className="w-3.5 h-3.5 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+          <Check className="w-2.5 h-2.5 text-emerald-400" />
+        </div>
+      );
+    }
+    if (isFailed) {
+      return (
+        <div className="w-3.5 h-3.5 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+          <X className="w-2.5 h-2.5 text-red-400" />
+        </div>
+      );
+    }
+    if (isWaiting) {
+      return (
+        <div className="w-3.5 h-3.5 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+          <Clock className="w-2.5 h-2.5 text-amber-400" />
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const hasExpandableDetail = !!detail || !!lineRange;
 
   return (
-    <div className="flex flex-col overflow-hidden mb-1.5 transition-all w-full font-mono text-[11px]">
-      <div
-        onClick={() => hasDetail && setExpanded(!expanded)}
-        className="flex items-center justify-between py-1 text-white/70 select-none cursor-pointer hover:text-white transition-colors"
-      >
-        <div className="flex items-center gap-1.5 min-w-0">
-          {isReadStep ? (
-            <span className="text-white/60 font-semibold">
-              {step.status === 'completed' ? 'Explored 1 file' : 'Exploring 1 file'}
-            </span>
-          ) : type === 'edit' ? (
-            <>
-              <span className="text-white/40">Edited</span>
-              <span className="text-[11px] shrink-0">{getFileIcon(filename)}</span>
-              <span className="text-white/80 font-medium truncate">{filename}</span>
-              {hasStats && (
-                <span className="flex items-center gap-1 text-[9px] font-bold">
-                  <span className="text-emerald-400">+{additions}</span>
-                  <span className="text-rose-400">-{deletions}</span>
-                </span>
-              )}
-            </>
-          ) : type === 'run' ? (
-            <>
-              <span className="text-white/40">Ran</span>
-              <span className="text-blue-400 shrink-0">⚙️</span>
-              <span className="text-white/80 font-medium truncate">{truncatedCmd}</span>
-            </>
-          ) : (
-            <>
-              <span className="text-purple-400 shrink-0">⚡</span>
-              <span className="text-white/80 font-medium truncate">{title}</span>
-            </>
-          )}
-        </div>
-
-        {hasDetail && (
-          <div className="flex items-center shrink-0">
-            <span className="text-[10px] text-white/30 mr-1.5">
-              {expanded ? 'v' : '>'}
-            </span>
-          </div>
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      className="flex gap-2 w-full"
+    >
+      {/* Timeline connector */}
+      <div className="flex flex-col items-center pt-0.5 shrink-0" style={{ width: '16px' }}>
+        <StatusIcon />
+        {!isLast && (
+          <div className={`w-px flex-1 mt-1 ${isRunning ? 'bg-blue-400/30' : 'bg-white/8'}`} />
         )}
       </div>
 
-      {expanded && isReadStep && (
-        <div className="pl-4 py-0.5 flex flex-col gap-1 border-l border-white/10 ml-1.5 text-[10px] text-white/50">
-          <div className="flex items-center gap-1.5">
-            <span>Analyzed</span>
-            <span className="px-1 py-0.2 bg-blue-500/15 text-blue-400 rounded text-[8px] font-bold tracking-wider">{fileLang}</span>
-            <span className="text-white/70 font-semibold">{filename}</span>
-            <span className="text-white/35 font-mono">{lineRange}</span>
-          </div>
-          {(step.status === 'running' || step.status === 'waiting_approval') && (
-            <div className="text-white/40 italic flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-              <span>Working</span>
-            </div>
+      {/* Step content */}
+      <div
+        className={`flex-1 min-w-0 pb-2 ${hasExpandableDetail ? 'cursor-pointer' : ''}`}
+        onClick={() => hasExpandableDetail && setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-1.5 min-w-0">
+          {/* Category icon */}
+          <span className="shrink-0">{config.icon}</span>
+
+          {/* Step title */}
+          <span className={`text-[11px] font-mono truncate ${isRunning ? 'text-white/80' : 'text-white/60'}`}>
+            {title}
+          </span>
+
+          {/* Language badge */}
+          {fileLang && (
+            <span className={`px-1 py-[1px] rounded text-[7px] font-bold tracking-wider shrink-0 ${config.bgColor} ${config.color}`}>
+              {fileLang}
+            </span>
+          )}
+
+          {/* Line range */}
+          {lineRange && (
+            <span className="text-[9px] text-white/25 font-mono shrink-0">{lineRange}</span>
+          )}
+
+          {/* Diff stats for edit steps */}
+          {hasStats && category === 'edit' && (
+            <span className="flex items-center gap-0.5 text-[8px] font-bold shrink-0 ml-auto">
+              <span className="text-emerald-400">+{additions}</span>
+              <span className="text-rose-400">-{deletions}</span>
+            </span>
+          )}
+
+          {/* Expand indicator */}
+          {hasExpandableDetail && (
+            <ChevronRight className={`w-3 h-3 text-white/20 shrink-0 ml-auto transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`} />
           )}
         </div>
-      )}
 
-      {expanded && !isReadStep && detail && (
-        <div className="pl-4 py-1 border-l border-white/10 ml-1.5 text-[9px] text-white/40 whitespace-pre-wrap break-all max-h-[160px] overflow-y-auto custom-scrollbar">
-          {detail}
-        </div>
-      )}
-    </div>
+        {/* Running indicator */}
+        {isRunning && (
+          <div className="mt-1 flex items-center gap-1.5 text-[9px] text-white/35 font-mono">
+            <span className="w-1 h-1 rounded-full bg-blue-400 animate-pulse" />
+            <span>Working…</span>
+          </div>
+        )}
+
+        {/* Waiting approval indicator */}
+        {isWaiting && (
+          <div className="mt-1 flex items-center gap-1.5 text-[9px] text-amber-400/70 font-mono">
+            <span className="w-1 h-1 rounded-full bg-amber-400 animate-pulse" />
+            <span>Waiting for approval…</span>
+          </div>
+        )}
+
+        {/* Expanded detail */}
+        <AnimatePresence>
+          {expanded && detail && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="overflow-hidden"
+            >
+              <div className="mt-1.5 pl-3 py-1.5 border-l border-white/8 text-[9px] text-white/35 font-mono whitespace-pre-wrap break-all max-h-[120px] overflow-y-auto custom-scrollbar">
+                {truncatedCmd ? (
+                  <code className="text-emerald-400/70">$ {truncatedCmd}</code>
+                ) : (
+                  detail.length > 300 ? detail.slice(0, 300) + '…' : detail
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
   );
 }
 
 function AgentSteps({ steps }: { steps?: import('@/store/chatStore').AgentStep[] }) {
   if (!steps || steps.length === 0) return null;
 
+  // Group steps by category for summary header
+  const categoryCounts: Record<string, number> = {};
+  for (const s of steps) {
+    const cat = s.category || 'tool';
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+  }
+
+  const completedCount = steps.filter(s => s.status === 'completed').length;
+  const runningCount = steps.filter(s => s.status === 'running').length;
+  const totalCount = steps.length;
+
+  // Summary chips
+  const summaryParts: string[] = [];
+  if (categoryCounts.read) summaryParts.push(`${categoryCounts.read} file${categoryCounts.read > 1 ? 's' : ''} read`);
+  if (categoryCounts.edit) summaryParts.push(`${categoryCounts.edit} edit${categoryCounts.edit > 1 ? 's' : ''}`);
+  if (categoryCounts.command) summaryParts.push(`${categoryCounts.command} command${categoryCounts.command > 1 ? 's' : ''}`);
+  if (categoryCounts.search) summaryParts.push(`${categoryCounts.search} search${categoryCounts.search > 1 ? 'es' : ''}`);
+
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
-    <div className="my-2 flex flex-col gap-0.5 w-full max-w-[95%]">
-      {steps.map((step) => (
-        <StepItem key={step.id} step={step} />
-      ))}
+    <div className="my-2 w-full max-w-[95%]">
+      {/* Summary header */}
+      <div
+        className="flex items-center gap-2 py-1 px-1 cursor-pointer select-none group"
+        onClick={() => setCollapsed(!collapsed)}
+      >
+        <ChevronRight className={`w-3 h-3 text-white/30 transition-transform duration-200 ${collapsed ? '' : 'rotate-90'}`} />
+        <span className="text-[10px] font-mono text-white/50 group-hover:text-white/70 transition-colors">
+          {runningCount > 0
+            ? `Running ${runningCount} step${runningCount > 1 ? 's' : ''}…`
+            : `${completedCount}/${totalCount} steps completed`}
+        </span>
+        {summaryParts.length > 0 && (
+          <span className="text-[9px] font-mono text-white/25">
+            — {summaryParts.join(', ')}
+          </span>
+        )}
+      </div>
+
+      {/* Step list */}
+      {!collapsed && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex flex-col pl-1 mt-0.5"
+        >
+          {steps.map((step, i) => (
+            <StepItem key={step.id} step={step} isLast={i === steps.length - 1} />
+          ))}
+        </motion.div>
+      )}
     </div>
   );
 }
+
 
 interface AgentFileProposal {
   path: string;
@@ -1107,6 +1199,8 @@ Use this information before asking the user for files.${projectInstructions}`;
                 status: event.status || 'running',
                 detail,
                 timestamp: Date.now(),
+                category: event.category as import('@/store/chatStore').AgentStep['category'],
+                toolName: event.toolName as string | undefined,
               };
               const existingIndex = steps.findIndex(step => step.id === nextStep.id);
               const nextSteps = existingIndex >= 0

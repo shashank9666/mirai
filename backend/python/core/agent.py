@@ -111,6 +111,7 @@ class MiraiAgent:
                 "id": "plan",
                 "title": "Planning",
                 "status": "running",
+                "category": "plan",
                 "detail": "Understanding the request and selecting tools."
             })
             
@@ -132,6 +133,46 @@ class MiraiAgent:
             final_messages = []
             stream_buffer = ""
             buffering_tool_json = False
+            tool_invocation_counter = 0
+
+            def _categorize_tool(name):
+                """Classify tool into UI-friendly categories."""
+                n = name.lower()
+                if n in ('read_file', 'list_directory', 'search_files', 'grep_search'):
+                    return 'read'
+                elif n in ('write_file', 'replace_file_content', 'multi_replace_file_content'):
+                    return 'edit'
+                elif n in ('execute_command', 'run_command'):
+                    return 'command'
+                elif n in ('search_web', 'web_search'):
+                    return 'search'
+                return 'tool'
+
+            def _humanize_tool(name, input_data):
+                """Create human-readable step title from tool name and input."""
+                n = name.lower()
+                detail_input = input_data if isinstance(input_data, dict) else {}
+
+                if n == 'read_file':
+                    path = detail_input.get('path', '')
+                    fname = path.rsplit('/', 1)[-1].rsplit('\\', 1)[-1] if path else 'file'
+                    return f"Reading {fname}"
+                elif n == 'list_directory':
+                    path = detail_input.get('path', '') or '.'
+                    return f"Listing {path}"
+                elif n == 'write_file':
+                    path = detail_input.get('path', '')
+                    fname = path.rsplit('/', 1)[-1].rsplit('\\', 1)[-1] if path else 'file'
+                    return f"Writing {fname}"
+                elif n == 'execute_command':
+                    cmd = detail_input.get('command', 'command')
+                    short = cmd[:40] + ('…' if len(cmd) > 40 else '')
+                    return f"Running `{short}`"
+                elif n == 'search_files' or n == 'grep_search':
+                    query = detail_input.get('query', detail_input.get('Query', ''))
+                    return f"Searching for '{query[:30]}'"
+                else:
+                    return f"Running {name}"
 
             async for event in self.graph.astream_events(state, version="v2"):
                 kind = event["event"]
@@ -161,14 +202,27 @@ class MiraiAgent:
                                 await event_bus.publish(session_id, {"type": "token", "content": text})
 
                 elif kind == "on_tool_start":
+                    tool_invocation_counter += 1
+                    step_id = f"tool:{event['name']}:{tool_invocation_counter}"
+                    input_data = event["data"].get("input")
+                    category = _categorize_tool(event["name"])
+                    title = _humanize_tool(event["name"], input_data)
+
                     await event_bus.publish(session_id, {
                         "type": "workflow_step",
-                        "id": f"tool:{event['name']}",
-                        "title": f"Running {event['name']}",
+                        "id": step_id,
+                        "title": title,
                         "status": "running",
-                        "detail": event["data"].get("input")
+                        "category": category,
+                        "toolName": event["name"],
+                        "detail": input_data,
                     })
-                    await event_bus.publish(session_id, {"type": "tool_start", "name": event["name"], "input": event["data"].get("input")})
+                    await event_bus.publish(session_id, {
+                        "type": "tool_start",
+                        "name": event["name"],
+                        "input": input_data,
+                        "stepId": step_id,
+                    })
                 elif kind == "on_tool_end":
                     output = event["data"].get("output")
                     approval_required = False
@@ -179,28 +233,48 @@ class MiraiAgent:
                         except json.JSONDecodeError:
                             approval_required = False
 
+                    # Find the matching step id for this tool end
+                    completed_step_id = f"tool:{event['name']}:{tool_invocation_counter}"
+                    category = _categorize_tool(event["name"])
+
                     await event_bus.publish(session_id, {
                         "type": "workflow_step",
-                        "id": f"tool:{event['name']}",
+                        "id": completed_step_id,
                         "title": f"Completed {event['name']}",
                         "status": "waiting_approval" if approval_required else "completed",
-                        "detail": "Waiting for user approval." if approval_required else None
+                        "category": category,
+                        "toolName": event["name"],
+                        "detail": "Waiting for user approval." if approval_required else None,
                     })
-                    await event_bus.publish(session_id, {"type": "tool_end", "name": event["name"], "output": output})
+                    await event_bus.publish(session_id, {
+                        "type": "tool_end",
+                        "name": event["name"],
+                        "output": output,
+                        "stepId": completed_step_id,
+                    })
                 elif kind == "on_chain_end" and event["name"] == "LangGraph":
                     final_messages = event["data"].get("output", {}).get("messages", [])
 
             if stream_buffer:
                 if not self._parse_text_tool_call(stream_buffer):
                     await event_bus.publish(session_id, {"type": "token", "content": stream_buffer})
-                    
+
             if not final_messages:
                 final_messages = state["messages"]
+            # Mark plan as completed
+            await event_bus.publish(session_id, {
+                "type": "workflow_step",
+                "id": "plan",
+                "title": "Planning",
+                "status": "completed",
+                "category": "plan",
+            })
             await event_bus.publish(session_id, {
                 "type": "workflow_step",
                 "id": "final",
                 "title": "Response ready",
                 "status": "completed",
+                "category": "plan",
             })
                 
             return {"messages": final_messages}
