@@ -258,6 +258,11 @@ export const api = {
     const res = await fetch(`${getBackendBase()}/api/workspace/set`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) });
     return res.json();
   },
+  workspacePick: async () => {
+    const res = await fetch(`${getBackendBase()}/api/workspace/pick`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    if (!res.ok) throw new Error('No folder selected');
+    return res.json();
+  },
   workspaceListDrives: async () => {
     const res = await fetch(`${getBackendBase()}/api/workspace/listDrives`);
     return res.json();

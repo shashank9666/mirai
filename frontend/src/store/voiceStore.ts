@@ -14,6 +14,12 @@ import { persist } from 'zustand/middleware';
 
 export type VoiceState = 'idle' | 'listening' | 'thinking' | 'executing' | 'speaking' | 'error';
 
+declare global {
+    interface Window {
+        _currentMiraiAudio: HTMLAudioElement | null;
+    }
+}
+
 interface VoiceStoreState {
     state: VoiceState;
     muted: boolean;
@@ -23,11 +29,13 @@ interface VoiceStoreState {
     error: string | null;
     lastTranscript: string;
     volume: number;
+    micVolume: number;
 
     setState: (state: VoiceState) => void;
     setMuted: (muted: boolean) => void;
     setAutoTts: (auto: boolean) => void;
     setVolume: (volume: number) => void;
+    setMicVolume: (volume: number) => void;
     startRecording: () => void;
     stopRecording: () => void;
     playAudio: (audioUrl: string) => void;
@@ -48,6 +56,7 @@ export const useVoiceStore = create<VoiceStoreState>()(
             error: null,
             lastTranscript: '',
             volume: 1.0,
+            micVolume: 0,
 
             setState: (state) => set({ state }),
 
@@ -56,6 +65,8 @@ export const useVoiceStore = create<VoiceStoreState>()(
             setAutoTts: (auto) => set({ autoTts: auto }),
 
             setVolume: (volume) => set({ volume }),
+
+            setMicVolume: (volume) => set({ micVolume: volume }),
 
             startRecording: () => set({
                 isRecording: true,
@@ -69,31 +80,48 @@ export const useVoiceStore = create<VoiceStoreState>()(
             }),
 
             playAudio: (audioUrl: string) => {
-                const { volume, muted } = get();
+                const { volume, muted, stopAudio } = get();
                 if (muted) return;
+
+                // Stop any currently playing audio before starting new one
+                stopAudio();
 
                 const audio = new Audio(audioUrl);
                 audio.volume = volume;
+
+                // Store the audio instance globally so we can stop it
+                window._currentMiraiAudio = audio;
 
                 audio.onplay = () => {
                     set({ isPlaying: true, state: 'speaking' });
                 };
                 audio.onended = () => {
                     set({ isPlaying: false, state: 'idle' });
+                    window._currentMiraiAudio = null;
                 };
                 audio.onerror = () => {
                     set({ isPlaying: false, state: 'idle', error: 'Audio playback failed' });
+                    window._currentMiraiAudio = null;
                 };
 
                 audio.play().catch((err) => {
                     set({ isPlaying: false, state: 'idle', error: String(err) });
+                    window._currentMiraiAudio = null;
                 });
             },
 
-            stopAudio: () => set({
-                isPlaying: false,
-                state: 'idle',
-            }),
+            stopAudio: () => {
+                const currentAudio = window._currentMiraiAudio;
+                if (currentAudio) {
+                    currentAudio.pause();
+                    currentAudio.currentTime = 0;
+                    window._currentMiraiAudio = null;
+                }
+                set({
+                    isPlaying: false,
+                    state: 'idle',
+                });
+            },
 
             setError: (error) => set({ error, state: 'error' }),
 

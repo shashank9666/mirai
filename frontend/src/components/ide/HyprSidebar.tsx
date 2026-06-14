@@ -287,7 +287,7 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
   const [isRefreshing, setIsRefreshing] = useState(true);
   const lastWorkspaceRefresh = useRef<string | null>(null);
   const { renameTab, getActiveGroup } = useEditorStore();
-  const { workspacePath } = useWorkspaceStore();
+  const { workspacePath, workspaceRefreshKey } = useWorkspaceStore();
   const { editorSettings } = useSettingsStore();
 
   const refresh = useCallback(() => {
@@ -304,10 +304,9 @@ export default function HyprSidebar({ isMinimized, onMinimize, onClose, onDragSt
   }, []);
 
   useEffect(() => {
-    if (!workspacePath || lastWorkspaceRefresh.current === workspacePath) return;
-    lastWorkspaceRefresh.current = workspacePath;
+    if (!workspacePath) return;
     refresh();
-  }, [workspacePath, refresh]);
+  }, [workspacePath, workspaceRefreshKey, refresh]);
 
   // Real-time file system watcher WebSocket
   useEffect(() => {

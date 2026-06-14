@@ -8,7 +8,7 @@ import { useChatStore } from '@/store/chatStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useEditorStore } from '@/store/editorStore';
 
-import { Send, Square, WifiOff, Mic, MicOff, Plus, ChevronRight, Paperclip, FileCode, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, Headphones, Activity, Check } from 'lucide-react';
+import { WifiOff, Mic, MicOff, Plus, ChevronRight, Paperclip, FileCode, X, Settings2, Trash2, MessageSquarePlus, GitCompareArrows, FilePlus2, Headphones, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import SimpleBar from 'simplebar-react';
@@ -196,6 +196,7 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     updateMessage,
     clearMessages,
   } = useChatStore();
+  const isPlaying = useVoiceStore(s => s.isPlaying);
   const hasPendingChanges = useEditorStore(state => state.pendingChanges.some(c => c.status === 'pending'));
 
   const [input, setInput] = useState('');
@@ -224,8 +225,6 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
     }
   }, [isStreaming, isListening, hasPendingChanges]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -243,8 +242,6 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
       }
     };
     checkBackend();
-    const interval = setInterval(checkBackend, 30000);
-    return () => clearInterval(interval);
   }, []);
 
   const scrollToBottom = useCallback(() => {
@@ -256,76 +253,169 @@ export default function HyprChat({ isPinned, isMinimized, onPin, onMinimize, onC
   const stopGeneration = () => {
     abortRef.current?.abort();
     setIsStreaming(false);
+    useVoiceStore.getState().stopAudio();
   };
 
   const isListeningRef = useRef(false);
 
   const sendMessageRef = useRef<() => void>(() => { });
 
-  const toggleVoiceMode = useCallback(() => {
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasSpokenRef = useRef(false);
+  const animationFrameRef = useRef<number | null>(null);
+
+  const stopListening = useCallback(() => {
     if (isListeningRef.current) {
-      recognitionRef.current?.stop();
+      mediaRecorderRef.current?.stop();
       isListeningRef.current = false;
       setIsListening(false);
-      return;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Speech recognition is not supported in this browser. Please use Chrome.");
-      return;
-    }
-
-    if (!recognitionRef.current) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = true;
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      recognition.onresult = (event: any) => {
-        let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          }
-        }
-        if (finalTranscript) {
-          setInput(prev => {
-            const nextVal = prev + (prev ? ' ' : '') + finalTranscript;
-            if (inputRef.current) inputRef.current.value = nextVal;
-            return nextVal;
-          });
-        }
-      };
-
-      recognition.onend = () => {
-        isListeningRef.current = false;
-        setIsListening(false);
-        if (inputRef.current && inputRef.current.value.trim() !== '') {
-          sendMessageRef.current();
-        }
-      };
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      recognition.onerror = (e: any) => {
-        if (e.error === 'no-speech' && isListeningRef.current) return;
-        console.warn('Speech recognition error:', e.error);
-        isListeningRef.current = false;
-        setIsListening(false);
-      };
-
-      recognitionRef.current = recognition;
-    }
-
-    try {
-      recognitionRef.current.start();
-      isListeningRef.current = true;
-      setIsListening(true);
-    } catch (e) {
-      console.error(e);
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(console.error);
+        audioContextRef.current = null;
+      }
     }
   }, []);
+
+  const startListening = useCallback(async () => {
+    if (isListeningRef.current) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      const recorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus',
+      });
+
+      chunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        
+        try {
+          const reader = new FileReader();
+          reader.readAsDataURL(blob);
+          reader.onloadend = async () => {
+            const base64data = reader.result as string;
+            const { getBackendBase } = await import('@/lib/api');
+            const res = await fetch(`${getBackendBase()}/api/voice/transcribe`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                audio_base64: base64data.replace(/^data:audio\/\w+;base64,/, ''),
+                format: 'webm',
+              }),
+            });
+            const data = await res.json();
+            if (data.text && data.text.trim() !== '') {
+              setInput(prev => prev + (prev ? ' ' : '') + data.text);
+              setTimeout(() => {
+                sendMessageRef.current();
+              }, 50);
+            }
+          };
+        } catch (err) {
+          console.error('Transcription error:', err);
+          setError('Backend transcription failed.');
+        }
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsListening(true);
+      isListeningRef.current = true;
+      hasSpokenRef.current = false;
+      setError(null);
+
+      // VAD setup
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = audioCtx;
+      const analyser = audioCtx.createAnalyser();
+      analyserRef.current = analyser;
+      analyser.fftSize = 256;
+      const source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+        const checkAudioLevel = () => {
+        if (!isListeningRef.current) return;
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / bufferLength;
+        useVoiceStore.getState().setMicVolume(average);
+
+        // Thresholds
+        const SILENCE_THRESHOLD = 15; // Adjust based on mic sensitivity
+        
+        if (average > SILENCE_THRESHOLD) {
+          if (!hasSpokenRef.current) hasSpokenRef.current = true;
+          
+          // Interrupt AI if it's currently speaking/generating and user starts talking loudly
+          const { isPlaying } = useVoiceStore.getState();
+          const isGenerating = useChatStore.getState().messages.some(m => m.role === 'assistant' && m.content === '');
+          if (average > 30 && (isPlaying || isGenerating)) {
+             useVoiceStore.getState().stopAudio();
+             stopGeneration();
+          }
+
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
+          }
+        } else {
+          if (hasSpokenRef.current && !silenceTimerRef.current) {
+            silenceTimerRef.current = setTimeout(() => {
+              stopListening();
+            }, 1500); // 1.5 seconds of silence
+          }
+        }
+
+        animationFrameRef.current = requestAnimationFrame(checkAudioLevel);
+      };
+
+      checkAudioLevel();
+
+    } catch (err) {
+      console.error('Microphone access denied:', err);
+      setError('Microphone access denied.');
+    }
+  }, [stopListening]);
+
+  const toggleVoiceMode = useCallback(() => {
+    if (isListeningRef.current) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  }, [startListening, stopListening]);
+
+  const prevIsPlayingRef = useRef(false);
+  useEffect(() => {
+    if (isConvoMode) {
+      if (prevIsPlayingRef.current && !isPlaying && !isStreaming) {
+        // AI finished speaking, auto-restart mic after a small delay
+        setTimeout(() => {
+          startListening();
+        }, 800); 
+      }
+    }
+    prevIsPlayingRef.current = isPlaying;
+  }, [isPlaying, isStreaming, isConvoMode, startListening]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -958,25 +1048,28 @@ Use this information before asking the user for files.`;
 
       <button
         onClick={toggleVoiceMode}
-        className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-colors ${isListening ? 'text-red-400 bg-red-500/10' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
+        className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-colors ${isListening ? 'text-red-400 bg-red-500/20' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
+        title={isListening ? 'Stop Listening' : 'Start Listening'}
       >
-        {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+        {isListening ? <Mic className="w-4 h-4 animate-pulse" /> : <MicOff className="w-4 h-4" />}
       </button>
 
-      {isStreaming ? (
+      {(isStreaming || isPlaying) ? (
         <button
           onClick={stopGeneration}
           className="w-6 h-6 rounded-lg bg-red-500/80 flex items-center justify-center hover:bg-red-500 transition-all shrink-0"
         >
-          <Square className="w-3 h-3 text-white" fill="white" />
+          <div className="w-2 h-2 bg-white rounded-[2px]" />
         </button>
       ) : (
         <button
           onClick={sendMessage}
-          disabled={(!input.trim() && attachedFiles.length === 0) || backendAvailable === false}
-          className="w-6 h-6 rounded-lg bg-[var(--color-primary-accent)] flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-30 shrink-0"
+          disabled={(!input.trim() && attachedFiles.length === 0 && attachedPaths.length === 0) || backendAvailable === false || hasPendingChanges}
+          className="w-6 h-6 shrink-0 rounded-lg bg-[var(--color-primary-accent)]/80 flex items-center justify-center hover:bg-[var(--color-primary-accent)] transition-all disabled:opacity-40 disabled:hover:bg-[var(--color-primary-accent)]/80"
         >
-          <Send className="w-3 h-3 text-white" />
+          <svg className="w-3 h-3 text-white ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg>
         </button>
       )}
     </div>

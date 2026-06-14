@@ -29,25 +29,15 @@ export default function WelcomeScreen({ onWorkspaceOpened }: { onWorkspaceOpened
   }, [recentWorkspaces]);
 
   const openFolderPicker = useCallback(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const electronAPI = (window as any).electronAPI;
-    if (electronAPI?.selectFolder) {
-      const folderPath = await electronAPI.selectFolder();
-      if (folderPath) {
-        const result = await api.workspaceSet(folderPath).catch(() => null);
-        if (result) {
-          setWorkspace(result.path, result.name);
-          setShowFolderPicker(false);
-          onWorkspaceOpened?.();
-        }
+    try {
+      const result = await api.workspacePick();
+      if (result && result.path) {
+        setWorkspace(result.path, result.name);
+        setShowFolderPicker(false);
+        onWorkspaceOpened?.();
       }
-    } else {
-      // Fallback for web
-      const d = await api.workspaceListDrives().catch(() => ({ drives: [] }));
-      setDrives(d.drives);
-      setCurrentDir(null);
-      setDirEntries([]);
-      setShowFolderPicker(true);
+    } catch (err) {
+      console.error('Failed to pick folder:', err);
     }
   }, [setWorkspace, onWorkspaceOpened]);
 

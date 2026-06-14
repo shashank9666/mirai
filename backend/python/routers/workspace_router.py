@@ -26,6 +26,24 @@ def set_workspace():
     workspace_manager.set_workspace_root(resolved)
     return jsonify({"path": resolved, "name": os.path.basename(resolved)})
 
+@bp.route("/pick", methods=["POST"])
+def pick_workspace():
+    import tkinter as tk
+    from tkinter import filedialog
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes('-topmost', True)
+        folder_path = filedialog.askdirectory(parent=root, title="Select Workspace Folder")
+        root.destroy()
+        if folder_path:
+            resolved = os.path.abspath(folder_path)
+            workspace_manager.set_workspace_root(resolved)
+            return jsonify({"path": resolved, "name": os.path.basename(resolved)})
+        return jsonify({"detail": "No folder selected"}), 400
+    except Exception as e:
+        return jsonify({"detail": str(e)}), 500
+
 
 @bp.route("/listDrives", methods=["GET"])
 def list_drives():
